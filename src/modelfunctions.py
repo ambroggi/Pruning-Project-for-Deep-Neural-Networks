@@ -1,14 +1,20 @@
 import torch
 from torch.utils.data import DataLoader
 from numpy import ndarray
+import cfg
 
 
 class ModelFunctions():
     def __init__(self):
+        # Non-Overridden values (These actually store things)
         self.epoch_callbacks = []
         self.dataloader = None
-        self.optimizer_type = torch.optim.Optimizer
+        self.optimizer = None
+
+        # Overriden Values (should be overriden by multi-inheritence)
+        self.cfg = cfg.ConfigObject()
         self.train = True
+        self.parameters = None
 
     def set_training_data(self, dataloader: DataLoader = None) -> None:
         self.dataloader = dataloader
@@ -21,7 +27,9 @@ class ModelFunctions():
         else:
             dl = dataloader
 
-        # TODO: Configure the optimizer
+        # TODO: Configure the optimizer with optimizer specific kwargs
+        if self.optimizer is None:
+            self.optimizer = self.cfg("Optimizer")(self.parameters(), lr=self.cfg("LearningRate"))
 
         for batch in dl:
             X, y = batch
