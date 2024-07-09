@@ -59,5 +59,21 @@ class ConfigObject():
 
 def get_version():
     repo = git.Repo(os.getcwd())
-    commit_count = len(repo.iter_commits())
-    return commit_count
+    print(repo.tags)
+    commit_count = len([1 for _ in repo.iter_commits()])
+
+    best_tag = (0, 0)
+    for tag in repo.tags:
+        commit_num = tag.path.split(sep=": ")[1]
+        if commit_num > best_tag[1] and commit_num < commit_count:
+            best_tag = (best_tag[0] + 1, commit_num)
+            # TODO: Make sure this works, I want it so that the version is Vx.y - z,
+            # where x is a tagged commit, and y is the number of commits after that, and z is the actual number
+
+    return f"v{best_tag[0]}.{commit_count-best_tag[1]} - {commit_count}"
+
+
+def make_versiontag(message: str):
+    repo = git.Repo(os.getcwd())
+    commit_count = len([1 for _ in repo.iter_commits()])
+    repo.create_tag(f"Commit: {commit_count}", message=message)
