@@ -1,6 +1,7 @@
 import torch
 from torch.utils.data import DataLoader
 from numpy import ndarray
+from sklearn.metrics import f1_score
 import cfg
 
 
@@ -9,7 +10,8 @@ class ModelFunctions():
         # Non-Overridden values (These actually store things)
         self.epoch_callbacks = []
         self.dataloader = None
-        self.optimizer = None
+        self.validation_dataloader = None
+        self.optimizer: torch.optim.Optimizer = None
 
         # Overriden Values (should be overriden by multi-inheritence)
         self.cfg = cfg.ConfigObject()
@@ -31,8 +33,45 @@ class ModelFunctions():
         if self.optimizer is None:
             self.optimizer = self.cfg("Optimizer")(self.parameters(), lr=self.cfg("LearningRate"))
 
-        for batch in dl:
+        if self.loss_fn is None:
+            self.loss_fn = self.cfg("LossFunction")()
+
+        for e in range(epochs):
+            epoch_results = self.run_single_epoch(dl)
+            if self.validation_dataloader is not None:
+                val_epoch_results = {f"Val_{x[0]}": x[1] for x in self.run_single_epoch(self.validation_dataloader).items()}
+            else:
+                val_epoch_results = {f"Val_{x}": 0.0 for x in epoch_results.keys()}
+            epoch_results = epoch_results | val_epoch_results
+
+            epoch_results["epoch"] = e
+
+            for call in self.epoch_callbacks:
+                call(epoch_results)
+
+    def run_single_epoch(self, dataloader) -> dict[str, float]:
+        results = {"total_loss": 0, "f1_score": 0.0}
+        results_of_predictions = {"True": [], "Predicted": []}
+        for batch in dataloader:
+            self.optimizer.zero_grad()
             X, y = batch
+            y_predict = self(X)
+            loss: torch.Tensor = self.loss_fn(y_predict, y)
+
+            if self.train:
+                loss.backward()
+                self.optimizer.step()
+                # TODO: Scheduler steps
+
+            results["total_loss"] += loss.detach().item()
+
+            results_of_predictions["True"].extend(y.detach())
+            results_of_predictions["Predicted"].extend(y_predict.argmax(dim=1).detach())
+
+        results["f1_score"] = f1_score(results_of_predictions["True"], results_of_predictions["Predicted"], average="weighted")
+        results["mean_loss"] = results["total_loss"] / len(results_of_predictions["True"])
+
+        return results
 
     def predict(self, inputs_: torch.Tensor | list[torch.Tensor] | ndarray) -> torch.Tensor | ndarray:
         if not isinstance(inputs_, torch.Tensor):

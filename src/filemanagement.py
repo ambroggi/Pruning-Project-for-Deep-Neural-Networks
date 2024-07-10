@@ -73,6 +73,10 @@ class ExperimentLineManager():
     def __call__(self, measure_name: str, val):
         self.add_measure(measure_name=measure_name, val=val)
 
+    def add_dict(self, dictionary_: dict):
+        for name, val in dictionary_.items():
+            self(name, val)
+
 
 class FileChangedError(Exception):
     def __init__(self, **kwargs):
