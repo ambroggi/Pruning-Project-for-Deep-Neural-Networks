@@ -1,6 +1,6 @@
 [submodule "RepDistiller"]
-	path = RepDistiller
+	path = ImportedCode/RepDistiller
 	url = https://github.com/ambroggi/RepDistiller
 [submodule "mdistiller"]
-	path = mdistiller
+	path = ImportedCode/mdistiller
 	url = https://github.com/ambroggi/mdistiller
