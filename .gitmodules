@@ -1,0 +1,6 @@
+[submodule "RepDistiller"]
+	path = RepDistiller
+	url = https://github.com/ambroggi/RepDistiller
+[submodule "mdistiller"]
+	path = mdistiller
+	url = https://github.com/ambroggi/mdistiller
