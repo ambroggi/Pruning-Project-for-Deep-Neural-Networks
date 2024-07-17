@@ -5,6 +5,7 @@ import modelfunctions
 class VolnerabilityModel(torch.nn.Module, modelfunctions.ModelFunctions):
     def __init__(self):
         super().__init__()
+        modelfunctions.ModelFunctions().__init__()
 
     def forward(self, tensor):
         return tensor

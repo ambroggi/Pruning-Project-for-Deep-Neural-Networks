@@ -1,4 +1,5 @@
-numpy
+numpy < 2 # Because of pytorch 2.2.2
 pandas
-torch
+torch == 2.2.2 # Pytorch has stopped support of mac https://github.com/pytorch/pytorch/issues/114602
 GitPython
+scikit-learn
