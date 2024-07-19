@@ -1,6 +1,7 @@
 import torch
 from torch.utils.data import DataLoader
 from numpy import ndarray
+from thop import profile
 from sklearn.metrics import f1_score
 import cfg
 
@@ -12,11 +13,12 @@ class ModelFunctions():
         self.dataloader = None
         self.validation_dataloader = None
         self.optimizer: torch.optim.Optimizer = None
+        self.loss_fn = None
 
         # Overriden Values (should be overriden by multi-inheritence)
         self.cfg = cfg.ConfigObject()
-        self.train = True
-        self.parameters = None
+        # self.train = True
+        # self.parameters = None
 
     def set_training_data(self, dataloader: DataLoader = None) -> None:
         self.dataloader = dataloader
@@ -39,9 +41,9 @@ class ModelFunctions():
         for e in range(epochs):
             epoch_results = self.run_single_epoch(dl)
             if self.validation_dataloader is not None:
-                val_epoch_results = {f"Val_{x[0]}": x[1] for x in self.run_single_epoch(self.validation_dataloader).items()}
+                val_epoch_results = {f"val_{x[0]}": x[1] for x in self.run_single_epoch(self.validation_dataloader).items()}
             else:
-                val_epoch_results = {f"Val_{x}": 0.0 for x in epoch_results.keys()}
+                val_epoch_results = {f"val_{x}": 0.0 for x in epoch_results.keys()}
             epoch_results = epoch_results | val_epoch_results
 
             epoch_results["epoch"] = e
@@ -56,6 +58,10 @@ class ModelFunctions():
             self.optimizer.zero_grad()
             X, y = batch
             y_predict = self(X)
+
+            # print(y_predict)
+            # print(y)
+
             loss: torch.Tensor = self.loss_fn(y_predict, y)
 
             if self.train:
@@ -99,3 +105,11 @@ class ModelFunctions():
         print("Model Functions should be behind Module in the inheritence for the model class.")
         assert False
         return torch.tensor([0])
+
+    def get_FLOPS(self):
+        macs, params = profile(self, inputs=(self.dataloader.dataset.__getitem__(0)[0], ))
+        return macs
+
+    def get_parameter_count(self):
+        macs, params = profile(self, inputs=(self.dataloader.dataset.__getitem__(0)[0], ))
+        return params
