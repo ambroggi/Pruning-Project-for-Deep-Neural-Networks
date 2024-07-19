@@ -4,8 +4,8 @@ import modelfunctions
 
 class BaseDetectionModel(torch.nn.Module, modelfunctions.ModelFunctions):
     def __init__(self):
-        super().__init__()
-        modelfunctions.ModelFunctions().__init__()
+        modelfunctions.ModelFunctions.__init__(self)
+        super(BaseDetectionModel, self).__init__()
 
         self.test_lin = torch.nn.Linear(100, 100)
 

@@ -10,7 +10,7 @@ class ConfigObject():
     def __init__(self):
         self.typechart = {"": {"str": str, "int": int, "float": float},
                           "Optimizer": {"Adam": torch.optim.Adam, "SGD": torch.optim.SGD, "RMS": torch.optim.RMSprop},
-                          "LossFunction": {"MSE": torch.nn.MSELoss}
+                          "LossFunction": {"MSE": torch.nn.MSELoss, "CrossEntropy": torch.nn.CrossEntropyLoss}
                           }
 
         self.readOnly = ["Version"]
@@ -18,7 +18,7 @@ class ConfigObject():
         self.parameters = {
             "Version": [get_version(), "Version Number", "str"],
             "Notes": [0, "This is supposed to store a integer associated with specific notes for this config. 0 is no Notes", "int"],
-            "LossFunction": ["MSE", "Loss function being used", "str"],
+            "LossFunction": ["CrossEntropy", "Loss function being used", "str"],
             "Optimizer": ["Adam", "Optimizer being used", "str"],
             "LearningRate": [0.0001, "Learning rate for training", "float"],
             "NumberOfEpochs": [10, "Number of epochs used", "int"]
@@ -84,7 +84,7 @@ class ConfigObject():
 
 def get_version():
     repo = git.Repo(os.getcwd())
-    print(repo.tags)
+    # print(f"Tags: {repo.tags}")
     commit_count = len([1 for _ in repo.iter_commits()])
 
     best_tag = (0, 0)
