@@ -3,3 +3,9 @@ pandas
 torch == 2.2.2 # Pytorch has stopped support of mac https://github.com/pytorch/pytorch/issues/114602
 GitPython
 scikit-learn
+thop
+
+#For RepDistiller
+tensorflow
+tensorboard_logger
+torchvision
