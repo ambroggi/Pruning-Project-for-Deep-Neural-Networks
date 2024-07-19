@@ -10,7 +10,8 @@ class ConfigObject():
     def __init__(self):
         self.typechart = {"": {"str": str, "int": int, "float": float},
                           "Optimizer": {"Adam": torch.optim.Adam, "SGD": torch.optim.SGD, "RMS": torch.optim.RMSprop},
-                          "LossFunction": {"MSE": torch.nn.MSELoss, "CrossEntropy": torch.nn.CrossEntropyLoss}
+                          "LossFunction": {"MSE": torch.nn.MSELoss, "CrossEntropy": torch.nn.CrossEntropyLoss},
+                          "DatasetName": {"RandomDummy": "RandomDummy", "Vulnerability": "Vulnerability"}
                           }
 
         self.readOnly = ["Version"]
@@ -21,12 +22,14 @@ class ConfigObject():
             "LossFunction": ["CrossEntropy", "Loss function being used", "str"],
             "Optimizer": ["Adam", "Optimizer being used", "str"],
             "LearningRate": [0.0001, "Learning rate for training", "float"],
-            "NumberOfEpochs": [10, "Number of epochs used", "int"]
+            "NumberOfEpochs": [10, "Number of epochs used", "int"],
+            "DatasetName": ["RandomDummy", "What dataset to use", "str"],
+            "BatchSize": [3, "How many samples used per batch", "int"]
         }
 
-    def __call__(self, paramName: str, paramVal: str | float | int | None = None):
+    def __call__(self, paramName: str, paramVal: str | float | int | None = None, getString=False):
         if paramVal is None:
-            return self.get_param(paramName)
+            return self.get_param(paramName, getString=getString)
         else:
             return self.set_param(paramName, paramVal)
 
@@ -45,8 +48,8 @@ class ConfigObject():
         else:
             raise TypeError("Attempted to set Config value of inappropriate type")
 
-    def get_param(self, paramName: str) -> str | float | int:
-        if paramName in self.typechart.keys():
+    def get_param(self, paramName: str, getString=False) -> str | float | int:
+        if (paramName in self.typechart.keys()) and not getString:
             return self.typechart[paramName][self.parameters[paramName][0]]
         return self.parameters[paramName][0]
 

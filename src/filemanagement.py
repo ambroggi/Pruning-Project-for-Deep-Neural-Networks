@@ -47,7 +47,7 @@ class ExperimentLineManager():
         self.row_id = df.last_valid_index()
         self.pid = os.getpid()
 
-    def add_measure(self, measure_name: str, val):
+    def add_measure(self, measure_name: str, val, **kwargs):
         if isinstance(val, list):
             for n, a in enumerate(val):
                 self.add_measure(f"{measure_name}_{n}", a)
@@ -62,7 +62,7 @@ class ExperimentLineManager():
                 raise FileChangedError()
 
             # Check if that space is empty, if it is not an error may have occured
-            if measure_name in hist and not pd.isnull(hist.at[self.row_id, measure_name]):
+            if (measure_name in hist and not pd.isnull(hist.at[self.row_id, measure_name])) and not kwargs.get("can_overwrite", False):
                 hist.at[self.row_id, "Notes"] = hist.at[self.row_id, "Notes"] | 4  # Bit 4 of notes is that an overwrite has occured
 
             hist.at[self.row_id, measure_name] = val
@@ -70,8 +70,8 @@ class ExperimentLineManager():
 
             fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
-    def __call__(self, measure_name: str, val):
-        self.add_measure(measure_name=measure_name, val=val)
+    def __call__(self, measure_name: str, val, **kwargs):
+        self.add_measure(measure_name=measure_name, val=val, **kwargs)
 
     def add_dict(self, dictionary_: dict):
         for name, val in dictionary_.items():
