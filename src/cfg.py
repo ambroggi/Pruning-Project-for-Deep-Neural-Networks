@@ -25,7 +25,8 @@ class ConfigObject():
             "NumberOfEpochs": [10, "Number of epochs used", "int"],
             "DatasetName": ["RandomDummy", "What dataset to use", "str"],
             "BatchSize": [3, "How many samples used per batch", "int"],
-            "Dataparallel": [-2, "To use distributed data parallel and if it failed. 0 is off, 1 is active, -1 is failed, -2 is not implemented", "int"]
+            "Dataparallel": [-2, "To use distributed data parallel and if it failed. 0 is off, 1 is active, -1 is failed, -2 is not implemented", "int"],
+            "NumberOfWorkers": [0, "Number of worker processes or dataparallel processes if Dataparallel is 1", "int"]
         }
 
     def __call__(self, paramName: str, paramVal: str | float | int | None = None, getString=False):

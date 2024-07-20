@@ -6,6 +6,6 @@ scikit-learn
 thop
 
 #For RepDistiller
-tensorflow
-tensorboard_logger
-torchvision
+# tensorflow
+# tensorboard_logger
+# torchvision
