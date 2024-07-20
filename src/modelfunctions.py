@@ -18,7 +18,7 @@ class ModelFunctions():
         # Overriden Values (should be overriden by multi-inheritence)
         self.cfg = cfg.ConfigObject()
         # self.train = True
-        # self.parameters = None
+        # self.parameters = None  # <- Does not work as it overrides the actual function that should be there
 
     def set_training_data(self, dataloader: DataLoader = None) -> None:
         self.dataloader = dataloader

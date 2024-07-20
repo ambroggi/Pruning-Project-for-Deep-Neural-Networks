@@ -47,12 +47,14 @@ class RandomDummyDataset(torch.utils.data.Dataset):
         self.vals = pd.DataFrame([0 for _ in range(30)])
         self.number_of_classes = 100
         self.format = target_format
+        self.rand_seed = torch.randint(0, 100000, [1]).item()
         pass
 
     def __len__(self) -> int:
         return len(self.vals)
 
     def __getitem__(self, index: int) -> tuple[Targets | torch.Tensor, InputFeatures | torch.Tensor]:
+        torch.random.manual_seed(self.rand_seed)
         features = torch.randint(0, 256, [self.number_of_classes], requires_grad=False, dtype=torch.float32)
         target = torch.randint(0, self.number_of_classes, [1], requires_grad=False, dtype=torch.long)
         if self.format in ["MSE"]:
@@ -60,6 +62,7 @@ class RandomDummyDataset(torch.utils.data.Dataset):
         return features, target
 
     def __getitems__(self, indexs: list[int]) -> tuple[Targets | torch.Tensor, InputFeatures | torch.Tensor]:
+        torch.random.manual_seed(self.rand_seed)
         features = torch.randint(0, 256, [len(indexs), self.number_of_classes], requires_grad=False, dtype=torch.float32)
         targets = torch.randint(0, self.number_of_classes, [len(indexs)], requires_grad=False, dtype=torch.long)
         if self.format in ["MSE"]:

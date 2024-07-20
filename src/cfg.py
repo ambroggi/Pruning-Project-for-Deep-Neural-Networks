@@ -24,7 +24,8 @@ class ConfigObject():
             "LearningRate": [0.0001, "Learning rate for training", "float"],
             "NumberOfEpochs": [10, "Number of epochs used", "int"],
             "DatasetName": ["RandomDummy", "What dataset to use", "str"],
-            "BatchSize": [3, "How many samples used per batch", "int"]
+            "BatchSize": [3, "How many samples used per batch", "int"],
+            "Dataparallel": [-2, "To use distributed data parallel and if it failed. 0 is off, 1 is active, -1 is failed, -2 is not implemented", "int"]
         }
 
     def __call__(self, paramName: str, paramVal: str | float | int | None = None, getString=False):
@@ -76,8 +77,8 @@ class ConfigObject():
 
             # Parse the args
             args = parser.parse_args()
-            for x in args._get_kwargs():
-                self_(x[1], [x[0]][0])
+            for paramName, paramValue in args._get_kwargs():
+                self_(paramName, paramValue)
         else:
             print("Pytest has problems with ArgumentParser")
             assert False, "Should not be using get_param_from_args with pytest"
