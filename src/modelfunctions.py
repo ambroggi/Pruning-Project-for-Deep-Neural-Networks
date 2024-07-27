@@ -23,7 +23,7 @@ class ModelFunctions():
     def set_training_data(self, dataloader: DataLoader = None) -> None:
         self.dataloader = dataloader
 
-    def fit(self, epochs: int = 0, dataloader: DataLoader = None) -> None:
+    def fit(self, epochs: int = 0, dataloader: DataLoader = None, keep_callbacks=False) -> None:
         if dataloader is None:
             if self.dataloader is None:
                 raise TypeError("No dataset selected for Automatic Vulnerability Detection training")
@@ -50,6 +50,9 @@ class ModelFunctions():
 
             for call in self.epoch_callbacks:
                 call(epoch_results)
+
+        if not keep_callbacks:
+            self.epoch_callbacks = []
 
     def run_single_epoch(self, dataloader) -> dict[str, float]:
         results = {"total_loss": 0, "f1_score": 0.0}

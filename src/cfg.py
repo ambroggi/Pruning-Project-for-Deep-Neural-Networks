@@ -11,6 +11,7 @@ class ConfigObject():
         self.typechart = {"": {"str": str, "int": int, "float": float},
                           "Optimizer": {"Adam": torch.optim.Adam, "SGD": torch.optim.SGD, "RMS": torch.optim.RMSprop},
                           "LossFunction": {"MSE": torch.nn.MSELoss, "CrossEntropy": torch.nn.CrossEntropyLoss},
+                          "ModelStructure": {"BasicTest": "BasicTest", "SwappingTest": "SwappingTest"},
                           "DatasetName": {"RandomDummy": "RandomDummy", "Vulnerability": "Vulnerability"}
                           }
 
@@ -23,6 +24,7 @@ class ConfigObject():
             "Optimizer": ["Adam", "Optimizer being used", "str"],
             "LearningRate": [0.0001, "Learning rate for training", "float"],
             "NumberOfEpochs": [10, "Number of epochs used", "int"],
+            "ModelStructure": ["SwappingTest", "Model structure to use", "str"],
             "DatasetName": ["RandomDummy", "What dataset to use", "str"],
             "BatchSize": [3, "How many samples used per batch", "int"],
             "Dataparallel": [-2, "To use distributed data parallel and if it failed. 0 is off, 1 is active, -1 is failed, -2 is not implemented", "int"],
@@ -40,7 +42,7 @@ class ConfigObject():
             # Add extra conditionals here
             if paramName in self.typechart.keys():
                 if paramVal not in self.typechart[paramName].keys():
-                    raise ValueError(f"{paramName} does not have an option for {paramVal}")
+                    raise ValueError(f"{paramName} does not have an option for '{paramVal}'")
 
             if paramName in self.readOnly:
                 print(f"Attempted to change config {paramName}, which is Read-Only")
