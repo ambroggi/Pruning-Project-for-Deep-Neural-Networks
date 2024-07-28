@@ -38,6 +38,7 @@ class ModelFunctions():
         if self.loss_fn is None:
             self.loss_fn = self.cfg("LossFunction")()
 
+        self.to(self.cfg("Device"))
         for e in range(epochs):
             epoch_results = self.run_single_epoch(dl)
             if self.validation_dataloader is not None:
@@ -60,6 +61,8 @@ class ModelFunctions():
         for batch in dataloader:
             self.optimizer.zero_grad()
             X, y = batch
+            X.to(self.cfg("Device"))
+            y.to(self.cfg("Device"))
             y_predict = self(X)
 
             # print(y_predict)

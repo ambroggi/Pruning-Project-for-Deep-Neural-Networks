@@ -3,6 +3,7 @@ import sys
 import git
 import os
 import torch.optim
+import torch
 
 
 class ConfigObject():
@@ -12,7 +13,8 @@ class ConfigObject():
                           "Optimizer": {"Adam": torch.optim.Adam, "SGD": torch.optim.SGD, "RMS": torch.optim.RMSprop},
                           "LossFunction": {"MSE": torch.nn.MSELoss, "CrossEntropy": torch.nn.CrossEntropyLoss},
                           "ModelStructure": {"BasicTest": "BasicTest", "SwappingTest": "SwappingTest"},
-                          "DatasetName": {"RandomDummy": "RandomDummy", "Vulnerability": "Vulnerability"}
+                          "DatasetName": {"RandomDummy": "RandomDummy", "Vulnerability": "Vulnerability"},
+                          "Device": {"cpu": torch.device("cpu"), "cuda": torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")}
                           }
 
         self.readOnly = ["Version"]
@@ -28,7 +30,10 @@ class ConfigObject():
             "DatasetName": ["RandomDummy", "What dataset to use", "str"],
             "BatchSize": [3, "How many samples used per batch", "int"],
             "Dataparallel": [-2, "To use distributed data parallel and if it failed. 0 is off, 1 is active, -1 is failed, -2 is not implemented", "int"],
-            "NumberOfWorkers": [0, "Number of worker processes or dataparallel processes if Dataparallel is 1", "int"]
+            "NumberOfWorkers": [0, "Number of worker processes or dataparallel processes if Dataparallel is 1", "int"],
+            "Device": ["cpu", "Use CPU or CUDA", "str"],
+            "AlphaForADMM": [5e-4, "Alpha value for ADMM model", "float"],
+            "RhoForADMM": [1.5e-3, "Rho value for ADMM model", "float"]
         }
 
     def __call__(self, paramName: str, paramVal: str | float | int | None = None, getString=False):

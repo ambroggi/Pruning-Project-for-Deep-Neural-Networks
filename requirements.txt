@@ -4,6 +4,10 @@ torch == 2.2.2 # Pytorch has stopped support of mac https://github.com/pytorch/p
 GitPython
 scikit-learn
 thop
+tqdm
+
+# for ADMM:
+osqp
 
 #For RepDistiller
 # tensorflow

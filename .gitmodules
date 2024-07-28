@@ -4,3 +4,6 @@
 [submodule "mdistiller"]
 	path = ImportedCode/mdistiller
 	url = https://github.com/ambroggi/mdistiller
+[submodule "admm_joint_pruning"]
+	path = src/Imported_Code/admm_joint_pruning
+	url = https://github.com/ambroggi/admm_joint_pruning
