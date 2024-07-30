@@ -1,8 +1,8 @@
 [submodule "RepDistiller"]
-	path = ImportedCode/RepDistiller
+	path = src/Imported_Code/Imported_Code/RepDistiller
 	url = https://github.com/ambroggi/RepDistiller
 [submodule "mdistiller"]
-	path = ImportedCode/mdistiller
+	path = src/Imported_Code/Imported_Code/mdistiller
 	url = https://github.com/ambroggi/mdistiller
 [submodule "admm_joint_pruning"]
 	path = src/Imported_Code/admm_joint_pruning
