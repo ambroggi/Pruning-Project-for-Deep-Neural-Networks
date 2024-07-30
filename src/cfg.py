@@ -35,7 +35,8 @@ class ConfigObject():
             "AlphaForADMM": [5e-4, "Alpha value for ADMM model", "float"],
             "RhoForADMM": [1.5e-3, "Rho value for ADMM model", "float"],
             "LayerPruneTargets": ["10, 4, 13", "Number of nodes per layer starting with the first layer", "str"],
-            "WeightPrunePercent": ["0.2, 0.5, 0.8", "Percent of weights to prune down to for each layer", "str"]
+            "WeightPrunePercent": ["0.2, 0.5, 0.8", "Percent of weights to prune down to for each layer", "str"],
+            "PruningSelection": ["", "What pruning was applied", "str"]
         }
 
     def __call__(self, paramName: str, paramVal: str | float | int | None = None, getString=False):
@@ -58,6 +59,10 @@ class ConfigObject():
             if paramName in ["WeightPrunePercent"]:
                 paramVal.strip("[]")
                 paramVal = [float(x) for x in paramVal.split(", ")]
+
+            if paramName in ["PruningSelection"]:
+                if not self.get_param(paramName) == "":
+                    paramVal = self.get_param(paramName) + "|" + paramVal
 
             if paramName in self.readOnly:
                 print(f"Attempted to change config {paramName}, which is Read-Only")

@@ -48,6 +48,8 @@ def swapping_run(config: cfg.ConfigObject | bool | None = None, **kwargs):
 
     # This is the swapping
     model.swap_testlhidden(50)
+
+    config("PruningSelection", "Theseus")
     logger = filemanagement.ExperimentLineManager(cfg=config)
 
     # This is just adding thigns to the log
@@ -93,6 +95,18 @@ def addm_test(config: cfg.ConfigObject | bool | None = None, **kwargs):
     frozen = {name: torch.ones_like(m, requires_grad=False)-m for name, m in mask.items()}
     frozen = {name: weight*frozen[name] for name, weight in model.named_parameters() if name in frozen.keys()}
     model.frozen = model.frozen | frozen
+
+    config("PruningSelection", "ADDM_Joint")
+    logger = filemanagement.ExperimentLineManager(cfg=config)
+
+    # This is just adding thigns to the log
+    model.epoch_callbacks.append(lambda x: ([logger(a, b, can_overwrite=True) for a, b in x.items()]))
+
+    # This is complicated. It is adding only the mean loss to the log, but only when the epoch number is even, and it is adding it as a new row.
+    model.epoch_callbacks.append(lambda x: ([logger(f"Epoch {x['epoch']} {a}", b) for a, b in x.items() if a in ["mean_loss"]] if (x["epoch"] % 2 == 0) else None))
+    print(model.fit(config("NumberOfEpochs")))
+    logger("macs", model.get_FLOPS())
+    logger("parameters", model.get_parameter_count())
 
 
 if __name__ == "__main__":
