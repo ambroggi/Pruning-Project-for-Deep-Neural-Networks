@@ -14,6 +14,7 @@ class ModelFunctions():
         self.validation_dataloader = None
         self.optimizer: torch.optim.Optimizer = None
         self.loss_fn = None
+        self.frozen = {}
 
         # Overriden Values (should be overriden by multi-inheritence)
         self.cfg = cfg.ConfigObject()
@@ -79,6 +80,9 @@ class ModelFunctions():
 
             results_of_predictions["True"].extend(y.detach())
             results_of_predictions["Predicted"].extend(y_predict.argmax(dim=1).detach())
+
+            # Reset frozen weights
+            self.load_state_dict(self.frozen, strict=False)
 
         results["f1_score"] = f1_score(results_of_predictions["True"], results_of_predictions["Predicted"], average="weighted")
         results["mean_loss"] = results["total_loss"] / len(results_of_predictions["True"])

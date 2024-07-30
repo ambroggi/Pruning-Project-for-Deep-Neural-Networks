@@ -33,7 +33,9 @@ class ConfigObject():
             "NumberOfWorkers": [0, "Number of worker processes or dataparallel processes if Dataparallel is 1", "int"],
             "Device": ["cpu", "Use CPU or CUDA", "str"],
             "AlphaForADMM": [5e-4, "Alpha value for ADMM model", "float"],
-            "RhoForADMM": [1.5e-3, "Rho value for ADMM model", "float"]
+            "RhoForADMM": [1.5e-3, "Rho value for ADMM model", "float"],
+            "LayerPruneTargets": ["10, 4, 13", "Number of nodes per layer starting with the first layer", "str"],
+            "WeightPrunePercent": ["0.2, 0.5, 0.8", "Percent of weights to prune down to for each layer", "str"]
         }
 
     def __call__(self, paramName: str, paramVal: str | float | int | None = None, getString=False):
@@ -48,6 +50,14 @@ class ConfigObject():
             if paramName in self.typechart.keys():
                 if paramVal not in self.typechart[paramName].keys():
                     raise ValueError(f"{paramName} does not have an option for '{paramVal}'")
+
+            if paramName in ["LayerPruneTargets"]:
+                paramVal.strip("[]")
+                paramVal = [int(x) for x in paramVal.split(", ")]
+
+            if paramName in ["WeightPrunePercent"]:
+                paramVal.strip("[]")
+                paramVal = [float(x) for x in paramVal.split(", ")]
 
             if paramName in self.readOnly:
                 print(f"Attempted to change config {paramName}, which is Read-Only")
