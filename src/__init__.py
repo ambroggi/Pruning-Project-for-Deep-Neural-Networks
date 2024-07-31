@@ -60,7 +60,8 @@ def swapping_run(config: cfg.ConfigObject | bool | None = None, **kwargs):
     print(model.fit(config("NumberOfEpochs")))
     logger("macs", model.get_FLOPS())
     logger("parameters", model.get_parameter_count())
-    addm_test(config, model=model, logger=logger, data=data)
+    # addm_test(config, model=model, logger=logger, data=data)
+    thinet_test(config, model=model, logger=logger, data=data)
 
 
 def addm_test(config: cfg.ConfigObject | bool | None = None, **kwargs):
@@ -109,6 +110,36 @@ def addm_test(config: cfg.ConfigObject | bool | None = None, **kwargs):
     logger("parameters", model.get_parameter_count())
 
 
+def thinet_test(config: cfg.ConfigObject | bool | None = None, **kwargs):
+    import Imported_Code
+
+    # Get the defaults
+    if config is None:
+        config = cfg.ConfigObject.get_param_from_args()
+    elif not config:
+        config = cfg.ConfigObject()
+    model: modelstruct.SwappingDetectionModel = modelstruct.getModel(config) if "model" not in kwargs else kwargs["model"]
+    # logger = filemanagement.ExperimentLineManager(cfg=config) if "logger" not in kwargs else kwargs["logger"]
+    # data = datareader.get_dataset(config) if "data" not in kwargs else kwargs["data"]
+
+    Imported_Code.thinet_pruning(model, 2, config=config)
+
+    config("PruningSelection", "thinet")
+    logger = filemanagement.ExperimentLineManager(cfg=config)
+
+    # This is just adding thigns to the log
+    model.epoch_callbacks.append(lambda x: ([logger(a, b, can_overwrite=True) for a, b in x.items()]))
+
+    # This is complicated. It is adding only the mean loss to the log, but only when the epoch number is even, and it is adding it as a new row.
+    model.epoch_callbacks.append(lambda x: ([logger(f"Epoch {x['epoch']} {a}", b) for a, b in x.items() if a in ["mean_loss"]] if (x["epoch"] % 2 == 0) else None))
+    print(model.fit(config("NumberOfEpochs")))
+    logger("macs", model.get_FLOPS())
+    logger("parameters", model.get_parameter_count())
+
+
+
 if __name__ == "__main__":
     # standard_run()
     swapping_run()
+
+

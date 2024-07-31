@@ -86,4 +86,5 @@ def get_dataset(config=None):
 
     datasets = {"Vulnerability": VulnerabilityDataset, "RandomDummy": RandomDummyDataset}
     data = datasets[config("DatasetName")](target_format=config("LossFunction", getString=True))
+    data.load_kwargs = {"collate_fn": collate_fn_}
     return torch.utils.data.DataLoader(data, batch_size=config("BatchSize"), collate_fn=collate_fn_, num_workers=config("NumberOfWorkers"))

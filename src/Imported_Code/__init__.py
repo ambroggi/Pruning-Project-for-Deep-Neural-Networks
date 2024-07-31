@@ -64,4 +64,6 @@ sys.path.append("src/Imported_Code/admm_joint_pruning/joint_pruning")
 from .admm_joint_pruning.joint_pruning.main import prune_admm, apply_filter, apply_prune, apply_l1_prune
 prune_admm
 sys.path.remove("src/Imported_Code/admm_joint_pruning/joint_pruning")
+
+from .ThiNet_From_Paper import thinet_pruning
 print("test")
