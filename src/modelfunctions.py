@@ -15,6 +15,7 @@ class ModelFunctions():
         self.optimizer: torch.optim.Optimizer = None
         self.loss_fn = None
         self.frozen = {}
+        self.pruning_layers = []
 
         # Overriden Values (should be overriden by multi-inheritence)
         self.cfg = cfg.ConfigObject()
@@ -123,3 +124,12 @@ class ModelFunctions():
     def get_parameter_count(self):
         macs, params = profile(self, inputs=(self.dataloader.dataset.__getitem__(0)[0], ))
         return params
+
+    def get_zero_weights(self):
+        count = 0
+
+        for name, param in self.named_parameters():
+            if "weight" in name:
+                count += (param.data == 0).sum().item()
+
+        return count

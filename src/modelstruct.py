@@ -1,5 +1,6 @@
 import torch
 import modelfunctions
+import torch.nn.utils.prune
 
 
 class BaseDetectionModel(torch.nn.Module, modelfunctions.ModelFunctions):
@@ -45,6 +46,23 @@ class SwappingDetectionModel(BaseDetectionModel):
         self.fc_test_lout.load_state_dict(state_info)
         self.optimizer = None
         print("done")
+
+
+class SoftPruningLayer():
+    def __init__(self, module: torch.nn.Module):
+        self.para = torch.nn.Parameter(torch.ones(module.in_features))
+        self.module = module
+        module.register_parameter(f"v_{module._get_name()}", self.para)
+        self.remove_hook = module.register_forward_pre_hook(self)
+
+    def __call__(self, module: torch.nn.Module, args: list[torch.Tensor]):
+        return args[0] * self.para[None, :]
+
+    def remove(self):
+        self.remove_hook.remove()
+        self.module.__getattr__("weight").data *= self.para.data
+        self.module.__setattr__(f"v_{self.module._get_name()}", None)
+        del self.para
 
 
 models = {

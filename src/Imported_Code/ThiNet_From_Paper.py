@@ -2,7 +2,7 @@
 # Implementation made by Alexandre Broggi 2024, I hope I am not making any big mistakes
 import torch
 import torch.utils.data
-import torch.nn.utils.prune as prune
+import modelstruct
 
 
 def thinet_pruning(model: torch.nn.Module, parameterNumber: int, config, dataset: torch.utils.data.DataLoader | torch.utils.data.Dataset | None = None):
@@ -36,11 +36,13 @@ def thinet_pruning(model: torch.nn.Module, parameterNumber: int, config, dataset
         # expected_output = module(input_storage.inp)
         # print(f"Sum = {sum((expected_output - input_storage.out))}")
 
-        pruning_mask = torch.zeros(len(input_storage.inp[0]))
-        removed_bias = torch.ones(len(input_storage.out[0]))
+        # pruning_mask = torch.zeros(len(input_storage.inp[0]))
+        # removed_bias = torch.ones(len(input_storage.out[0]))
 
-        ThiNetPruning.apply(module, "weight", set_called_T=pruning_mask)
-        ThiNetPruning.apply(module, "bias", set_called_T=removed_bias)
+        remove_handle = modelstruct.SoftPruningLayer(module)
+        pruning_mask = remove_handle.para.data
+        # ThiNetPruning.apply(module, "weight", set_called_T=pruning_mask)
+        # ThiNetPruning.apply(module, "bias", set_called_T=removed_bias)
 
         # This is Algorithm 1 from the paper.
         C = len(pruning_mask)  # Number of channels
@@ -74,19 +76,6 @@ def thinet_pruning(model: torch.nn.Module, parameterNumber: int, config, dataset
             removed_indexes.append(min_i)
 
         print("Done")
-
-
-class ThiNetPruning(prune.BasePruningMethod):
-    PRUNING_TYPE = 'structured'
-
-    def __init__(self, set_called_T):
-        self.set_called_T = set_called_T
-
-    def compute_mask(self, t, default_mask):
-        # Be sure to invert T, as what you are keeping
-
-        # NOTE: Need to check if this is going in the right direction or if it should be something like [:, None] instead
-        return default_mask * self.set_called_T[None, :]
 
 
 class forward_hook():

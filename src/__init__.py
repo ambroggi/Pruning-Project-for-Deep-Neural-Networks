@@ -29,6 +29,7 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, **kwargs):
     print(model.fit(config("NumberOfEpochs")))
     logger("macs", model.get_FLOPS())
     logger("parameters", model.get_parameter_count())
+    logger("NumberOfZeros", model.get_zero_weights())
 
     return {"model": model, "logger": logger, "data": data}
 
@@ -60,8 +61,9 @@ def swapping_run(config: cfg.ConfigObject | bool | None = None, **kwargs):
     print(model.fit(config("NumberOfEpochs")))
     logger("macs", model.get_FLOPS())
     logger("parameters", model.get_parameter_count())
+    logger("NumberOfZeros", model.get_zero_weights())
     # addm_test(config, model=model, logger=logger, data=data)
-    thinet_test(config, model=model, logger=logger, data=data)
+    addm_test(config, model=model, logger=logger, data=data)
 
 
 def addm_test(config: cfg.ConfigObject | bool | None = None, **kwargs):
@@ -76,29 +78,39 @@ def addm_test(config: cfg.ConfigObject | bool | None = None, **kwargs):
     # logger = filemanagement.ExperimentLineManager(cfg=config) if "logger" not in kwargs else kwargs["logger"]
     data = datareader.get_dataset(config) if "data" not in kwargs else kwargs["data"]
 
+    config("PruningSelection", "ADDM_Joint")
+    logger = filemanagement.ExperimentLineManager(cfg=config)
+
     # Adds the compatability to the model that is needed
     Imported_Code.add_addm_v_layers(model)
+
+    # Reset the optimizer to include the v layers (This is to emulate the original code, not sure if it is in the paper)
+    optimizer = model.cfg("Optimizer")(model.parameters(), lr=model.cfg("LearningRate"))
+
     # Adds an interpretation layer to the config so that it can be read
     wrapped_cfg = Imported_Code.ConfigCompatabilityWrapper(config)
 
     # Performs the pruning method
-    Imported_Code.prune_admm(wrapped_cfg, model, config("Device"), data, data, model.optimizer)
+    Imported_Code.prune_admm(wrapped_cfg, model, config("Device"), data, data, optimizer)
+
+    logger("DebugTest1", model.get_zero_weights())
 
     # Applies the pruning to the base model, NOTE: MIGHT CAUSE ISSUES WITH "Imported_Code.remove_addm_v_layers"
-    Imported_Code.apply_filter(model, config("Device"), wrapped_cfg)
-    mask = Imported_Code.apply_l1_prune(model, config("Device"), wrapped_cfg)
+    # Imported_Code.apply_filter(model, config("Device"), wrapped_cfg)  # Commenting out because I think this is redundent
+    mask = Imported_Code.apply_prune(model, config("Device"), wrapped_cfg)
+
+    logger("DebugTest2", model.get_zero_weights())
 
     # Removes the added v layers from the model
     Imported_Code.remove_addm_v_layers(model)
 
-    print(mask)
+    logger("DebugTest3", model.get_zero_weights())
+
+    # print(mask)
     # Calculates the weights that should be kept stable because they are pruned
-    frozen = {name: torch.ones_like(m, requires_grad=False)-m for name, m in mask.items()}
+    frozen = {name: torch.ones_like(m, requires_grad=False) for name, m in mask.items()}
     frozen = {name: weight*frozen[name] for name, weight in model.named_parameters() if name in frozen.keys()}
     model.frozen = model.frozen | frozen
-
-    config("PruningSelection", "ADDM_Joint")
-    logger = filemanagement.ExperimentLineManager(cfg=config)
 
     # This is just adding thigns to the log
     model.epoch_callbacks.append(lambda x: ([logger(a, b, can_overwrite=True) for a, b in x.items()]))
@@ -108,6 +120,7 @@ def addm_test(config: cfg.ConfigObject | bool | None = None, **kwargs):
     print(model.fit(config("NumberOfEpochs")))
     logger("macs", model.get_FLOPS())
     logger("parameters", model.get_parameter_count())
+    logger("NumberOfZeros", model.get_zero_weights())
 
 
 def thinet_test(config: cfg.ConfigObject | bool | None = None, **kwargs):
@@ -135,7 +148,7 @@ def thinet_test(config: cfg.ConfigObject | bool | None = None, **kwargs):
     print(model.fit(config("NumberOfEpochs")))
     logger("macs", model.get_FLOPS())
     logger("parameters", model.get_parameter_count())
-
+    logger("NumberOfZeros", model.get_zero_weights())
 
 
 if __name__ == "__main__":
