@@ -118,11 +118,11 @@ class ModelFunctions():
         return torch.tensor([0])
 
     def get_FLOPS(self):
-        macs, params = profile(self, inputs=(self.dataloader.dataset.__getitem__(0)[0], ))
+        macs, params = profile(self, inputs=(self.dataloader.dataset.__getitem__(0)[0].unsqueeze(dim=0), ))
         return macs
 
     def get_parameter_count(self):
-        macs, params = profile(self, inputs=(self.dataloader.dataset.__getitem__(0)[0], ))
+        macs, params = profile(self, inputs=(self.dataloader.dataset.__getitem__(0)[0].unsqueeze(dim=0), ))
         return params
 
     def get_zero_weights(self):

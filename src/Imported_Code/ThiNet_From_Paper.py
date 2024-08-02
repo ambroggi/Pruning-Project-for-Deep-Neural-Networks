@@ -18,13 +18,16 @@ def thinet_pruning(model: torch.nn.Module, parameterNumber: int, config, dataset
 
         input_storage = forward_hook()
 
-        for i, module in enumerate(model.modules(), start=-1):
-            if parameterNumber + 1 == i:
-                # Prepare to catch the data for the module
-                removable = module.register_forward_hook(input_storage)
-                break
-            elif parameterNumber == i:
-                module_being_reduced = module
+        i = 0
+        for module in model.modules():
+            if isinstance(module, (torch.nn.Linear, torch.nn.Conv1d)):
+                if parameterNumber + 1 == i:
+                    # Prepare to catch the data for the module
+                    removable = module.register_forward_hook(input_storage)
+                    break
+                elif parameterNumber == i:
+                    module_being_reduced = module
+                i += 1
         else:
             # This runs if the break is not hit
             raise IndexError("thinet cannot be applied to the last layer")
@@ -46,11 +49,21 @@ def thinet_pruning(model: torch.nn.Module, parameterNumber: int, config, dataset
         remove_handle = modelstruct.SoftPruningLayer(module)
         remove_handle.para.data = torch.zeros_like(remove_handle.para.data)
         pruning_mask = remove_handle.para.data
+
+        # If moving from convolutional to linear layers channels can cover multiple filters
+        length_of_single_channel = 1
+        if isinstance(module_being_reduced, torch.nn.Conv1d):
+            length_of_single_channel = len(pruning_mask) // module_being_reduced.out_channels
+
         # ThiNetPruning.apply(module, "weight", set_called_T=pruning_mask)
         # ThiNetPruning.apply(module, "bias", set_called_T=removed_bias)
 
+        # Removing the bias
+        bias_storage = module.bias.data
+        module.bias.data = torch.zeros_like(bias_storage)
+
         # This is Algorithm 1 from the paper.
-        C = len(pruning_mask)  # Number of channels
+        C = len(pruning_mask) // length_of_single_channel  # Number of channels
         r = config("WeightPrunePercent")[parameterNumber]  # Percent to remain in this layer
         removed_indexes = []
 
@@ -61,13 +74,13 @@ def thinet_pruning(model: torch.nn.Module, parameterNumber: int, config, dataset
             min_i = None
 
             # Go through all possible channels
-            for i in range(len(pruning_mask)):
+            for i in range(C):
                 if i not in removed_indexes:  # That have not been removed from "I" yet
                     removed_indexes.append(i)
-                    pruning_mask[i] = 1
+                    pruning_mask[i*length_of_single_channel:(i+1)*length_of_single_channel] = 1
 
                     # Recreating equation 6
-                    x: torch.Tensor = module(input_storage.inp) - module.bias  # Subtracting the bias so that I don't need to mask it.
+                    x: torch.Tensor = module(input_storage.inp)
                     x = x.norm(2, 1)  # Technically I should square this but we are just checking the minimum, so the exact value does not matter
                     x = x.sum()
 
@@ -75,13 +88,18 @@ def thinet_pruning(model: torch.nn.Module, parameterNumber: int, config, dataset
                         min_value = x.item()
                         min_i = i
 
-                    pruning_mask[i] = 0
+                    pruning_mask[i*length_of_single_channel:(i+1)*length_of_single_channel] = 0
                     removed_indexes.pop(-1)
 
             removed_indexes.append(min_i)
-            pruning_mask[min_i] = 1
+            pruning_mask[min_i*length_of_single_channel:(min_i+1)*length_of_single_channel] = 1
 
-        keeping_indexes = [a for a in range(len(pruning_mask)) if a not in removed_indexes]
+        module.bias.data = bias_storage
+
+        keeping_indexes = [a for a in range(C) if a not in removed_indexes]
+        keepint_tensor = torch.BoolTensor([False for _ in range(len(pruning_mask))])
+        for offset in range(length_of_single_channel):  # Just getting all of the weights associated with the removed channels
+            keepint_tensor[[x + offset for x in keeping_indexes]] = True
 
         remove_handle.remove(update_weights=False)
 
@@ -92,9 +110,9 @@ def thinet_pruning(model: torch.nn.Module, parameterNumber: int, config, dataset
             if "weight" in names:
                 idx += 1
             if idx == parameterNumber + 1:
-                state_dict = state_dict | {f"{names.split('.')[0]}.{name}": (a[:, keeping_indexes] if name not in ["bias"] else a) for name, a in module.state_dict().items()}
+                state_dict = state_dict | {f"{names.split('.')[0]}.{name}": (a[:, keepint_tensor] if name not in ["bias"] else a) for name, a in module.state_dict().items()}
             if idx == parameterNumber:
-                state_dict = state_dict | {f"{names.split('.')[0]}.{name}": (a[keeping_indexes] if name not in ["bias"] else a[keeping_indexes]) for name, a in module_being_reduced.state_dict().items()}
+                state_dict = state_dict | {f"{names.split('.')[0]}.{name}": (a[keepint_tensor[:: length_of_single_channel]]) for name, a in module_being_reduced.state_dict().items()}
 
         # print(f"Module i+1 {module.named_parameters().__next__()[0]}, module i {module_minus1.named_parameters().__next__()[0]}")
         # print("Done")
@@ -105,7 +123,11 @@ def thinet_pruning(model: torch.nn.Module, parameterNumber: int, config, dataset
         for name, values in state_dict.items():
             if name.split(".")[-1] == "weight":
                 shape = values.shape
-                model.__setattr__(name.split(".")[-2], torch.nn.Linear(shape[1], shape[0]))
+                old = model.__getattr__(name.split(".")[-2])
+                if isinstance(old, torch.nn.Linear):
+                    model.__setattr__(name.split(".")[-2], torch.nn.Linear(shape[1], shape[0]))
+                elif isinstance(old, torch.nn.Conv1d):
+                    model.__setattr__(name.split(".")[-2], torch.nn.Conv1d(shape[1], shape[0], old.kernel_size))
 
         # Then set the parameters
         model.load_state_dict(state_dict=state_dict, strict=False)

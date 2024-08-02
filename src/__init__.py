@@ -29,7 +29,7 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, **kwargs):
     print(model.fit(config("NumberOfEpochs")))
     recordModelInfo(model, logger)
 
-    return {"model": model, "logger": logger, "data": data}
+    return {"model": model, "logger": logger, "data": data, "config": config}
 
 
 def swapping_run(config: cfg.ConfigObject | bool | None = None, **kwargs):
@@ -39,6 +39,8 @@ def swapping_run(config: cfg.ConfigObject | bool | None = None, **kwargs):
     elif not config:
         config = cfg.ConfigObject()
     model: modelstruct.SwappingDetectionModel = modelstruct.getModel(config) if "model" not in kwargs else kwargs["model"]
+    if not isinstance(model, modelstruct.SwappingDetectionModel):
+        return
     logger = filemanagement.ExperimentLineManager(cfg=config) if "logger" not in kwargs else kwargs["logger"]
     data = datareader.get_dataset(config) if "data" not in kwargs else kwargs["data"]
 
@@ -59,8 +61,8 @@ def swapping_run(config: cfg.ConfigObject | bool | None = None, **kwargs):
     print(model.fit(config("NumberOfEpochs")))
     recordModelInfo(model, logger)
     # addm_test(config, model=model, logger=logger, data=data)
-    thinet_test(config, model=model, logger=logger, data=data)
-    addm_test(config, model=model, logger=logger, data=data)
+
+    return {"model": model, "logger": logger, "data": data, "config": config}
 
 
 def addm_test(config: cfg.ConfigObject | bool | None = None, **kwargs):
@@ -74,7 +76,6 @@ def addm_test(config: cfg.ConfigObject | bool | None = None, **kwargs):
     model: modelstruct.SwappingDetectionModel = modelstruct.getModel(config) if "model" not in kwargs else kwargs["model"]
     # logger = filemanagement.ExperimentLineManager(cfg=config) if "logger" not in kwargs else kwargs["logger"]
     data = datareader.get_dataset(config) if "data" not in kwargs else kwargs["data"]
-
 
     # Adds the compatability to the model that is needed
     Imported_Code.add_addm_v_layers(model)
@@ -112,6 +113,8 @@ def addm_test(config: cfg.ConfigObject | bool | None = None, **kwargs):
     print(model.fit(config("NumberOfEpochs")))
     recordModelInfo(model, logger)
 
+    return {"model": model, "logger": logger, "data": data, "config": config}
+
 
 def thinet_test(config: cfg.ConfigObject | bool | None = None, **kwargs):
     import Imported_Code
@@ -139,8 +142,10 @@ def thinet_test(config: cfg.ConfigObject | bool | None = None, **kwargs):
     print(model.fit(config("NumberOfEpochs")))
     recordModelInfo(model, logger)
 
+    return {"model": model, "logger": logger, "config": config}
 
-def recordModelInfo(model:modelstruct.BaseDetectionModel, logger:filemanagement.ExperimentLineManager):
+
+def recordModelInfo(model: modelstruct.BaseDetectionModel, logger: filemanagement.ExperimentLineManager):
     logger("macs", model.get_FLOPS())
     logger("parameters", model.get_parameter_count())
     logger("NumberOfZeros", model.get_zero_weights())
@@ -149,5 +154,7 @@ def recordModelInfo(model:modelstruct.BaseDetectionModel, logger:filemanagement.
 
 
 if __name__ == "__main__":
-    # standard_run()
-    swapping_run()
+    args = standard_run()
+    # swapping_run()
+    thinet_test(**args)
+    addm_test(**args)
