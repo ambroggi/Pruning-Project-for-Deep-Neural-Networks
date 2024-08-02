@@ -6,6 +6,7 @@ import modelstruct
 
 
 def thinet_pruning(model: torch.nn.Module, parameterNumber: int, config, dataset: torch.utils.data.DataLoader | torch.utils.data.Dataset | None = None):
+
     with torch.no_grad():
         if dataset is None:
             if hasattr(model, "dataloader"):
@@ -17,13 +18,16 @@ def thinet_pruning(model: torch.nn.Module, parameterNumber: int, config, dataset
 
         input_storage = forward_hook()
 
-        for i, module in enumerate(model.modules(), start = -1):
-            if parameterNumber == i:
+        for i, module in enumerate(model.modules(), start=-1):
+            if parameterNumber + 1 == i:
                 # Prepare to catch the data for the module
                 removable = module.register_forward_hook(input_storage)
                 break
-            elif parameterNumber == i-1:
-                module_minus1 = module
+            elif parameterNumber == i:
+                module_being_reduced = module
+        else:
+            # This runs if the break is not hit
+            raise IndexError("thinet cannot be applied to the last layer")
 
         # Create sample of dataset, Fancy load_kwargs is just there to load the collate_fn
         training_data = iter(torch.utils.data.DataLoader(dataset, 100000, **(dataset.load_kwargs if hasattr(dataset, "load_kwargs") else {}))).__next__()
@@ -40,13 +44,14 @@ def thinet_pruning(model: torch.nn.Module, parameterNumber: int, config, dataset
         # removed_bias = torch.ones(len(input_storage.out[0]))
 
         remove_handle = modelstruct.SoftPruningLayer(module)
+        remove_handle.para.data = torch.zeros_like(remove_handle.para.data)
         pruning_mask = remove_handle.para.data
         # ThiNetPruning.apply(module, "weight", set_called_T=pruning_mask)
         # ThiNetPruning.apply(module, "bias", set_called_T=removed_bias)
 
         # This is Algorithm 1 from the paper.
         C = len(pruning_mask)  # Number of channels
-        r = config("WeightPrunePercent")[parameterNumber]  # Percent to prune from this layer
+        r = config("WeightPrunePercent")[parameterNumber]  # Percent to remain in this layer
         removed_indexes = []
 
         # While we have not pruned enough channels
@@ -62,7 +67,7 @@ def thinet_pruning(model: torch.nn.Module, parameterNumber: int, config, dataset
                     pruning_mask[i] = 1
 
                     # Recreating equation 6
-                    x: torch.Tensor = module(input_storage.inp)
+                    x: torch.Tensor = module(input_storage.inp) - module.bias  # Subtracting the bias so that I don't need to mask it.
                     x = x.norm(2, 1)  # Technically I should square this but we are just checking the minimum, so the exact value does not matter
                     x = x.sum()
 
@@ -74,8 +79,37 @@ def thinet_pruning(model: torch.nn.Module, parameterNumber: int, config, dataset
                     removed_indexes.pop(-1)
 
             removed_indexes.append(min_i)
+            pruning_mask[min_i] = 1
 
-        print("Done")
+        keeping_indexes = [a for a in range(len(pruning_mask)) if a not in removed_indexes]
+
+        remove_handle.remove(update_weights=False)
+
+        state_dict = {}
+
+        idx = -1
+        for names, params in model.named_parameters():
+            if "weight" in names:
+                idx += 1
+            if idx == parameterNumber + 1:
+                state_dict = state_dict | {f"{names.split('.')[0]}.{name}": (a[:, keeping_indexes] if name not in ["bias"] else a) for name, a in module.state_dict().items()}
+            if idx == parameterNumber:
+                state_dict = state_dict | {f"{names.split('.')[0]}.{name}": (a[keeping_indexes] if name not in ["bias"] else a[keeping_indexes]) for name, a in module_being_reduced.state_dict().items()}
+
+        # print(f"Module i+1 {module.named_parameters().__next__()[0]}, module i {module_minus1.named_parameters().__next__()[0]}")
+        # print("Done")
+        # test = {a: x.shape for a, x in model.state_dict().items()}
+        # test2 = {a: x.shape for a, x in state_dict.items()}
+
+        # This is actually replacing the model layers
+        for name, values in state_dict.items():
+            if name.split(".")[-1] == "weight":
+                shape = values.shape
+                model.__setattr__(name.split(".")[-2], torch.nn.Linear(shape[1], shape[0]))
+
+        # Then set the parameters
+        model.load_state_dict(state_dict=state_dict, strict=False)
+        return state_dict
 
 
 class forward_hook():
@@ -88,4 +122,5 @@ class forward_hook():
         self.out = out
         # print(f"input: {inp}")
 
-# Need to figure out Equation 7
+# TODO: Need to figure out Equation 7
+# It seems like the authors consider it to be optional from Figure 4, but I should still include it if possible.

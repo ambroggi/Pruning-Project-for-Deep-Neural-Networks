@@ -35,7 +35,7 @@ class ConfigObject():
             "AlphaForADMM": [5e-4, "Alpha value for ADMM model", "float"],
             "RhoForADMM": [1.5e-3, "Rho value for ADMM model", "float"],
             "LayerPruneTargets": ["10, 4, 13", "Number of nodes per layer starting with the first layer", "str"],
-            "WeightPrunePercent": ["0.2, 0.5, 0.8", "Percent of weights to prune down to for each layer", "str"],
+            "WeightPrunePercent": ["0.12, 0.5, 0.7", "Percent of weights to prune down to for each layer", "str"],
             "PruningSelection": ["", "What pruning was applied", "str"]
         }
 

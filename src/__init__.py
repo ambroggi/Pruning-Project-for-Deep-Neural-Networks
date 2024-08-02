@@ -27,9 +27,7 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, **kwargs):
     model.epoch_callbacks.append(lambda x: ([logger(f"Epoch {x['epoch']} {a}", b) for a, b in x.items() if a in ["mean_loss"]] if (x["epoch"] % 2 == 0) else None))
 
     print(model.fit(config("NumberOfEpochs")))
-    logger("macs", model.get_FLOPS())
-    logger("parameters", model.get_parameter_count())
-    logger("NumberOfZeros", model.get_zero_weights())
+    recordModelInfo(model, logger)
 
     return {"model": model, "logger": logger, "data": data}
 
@@ -59,10 +57,9 @@ def swapping_run(config: cfg.ConfigObject | bool | None = None, **kwargs):
     # This is complicated. It is adding only the mean loss to the log, but only when the epoch number is even, and it is adding it as a new row.
     model.epoch_callbacks.append(lambda x: ([logger(f"Epoch {x['epoch']} {a}", b) for a, b in x.items() if a in ["mean_loss"]] if (x["epoch"] % 2 == 0) else None))
     print(model.fit(config("NumberOfEpochs")))
-    logger("macs", model.get_FLOPS())
-    logger("parameters", model.get_parameter_count())
-    logger("NumberOfZeros", model.get_zero_weights())
+    recordModelInfo(model, logger)
     # addm_test(config, model=model, logger=logger, data=data)
+    thinet_test(config, model=model, logger=logger, data=data)
     addm_test(config, model=model, logger=logger, data=data)
 
 
@@ -78,8 +75,6 @@ def addm_test(config: cfg.ConfigObject | bool | None = None, **kwargs):
     # logger = filemanagement.ExperimentLineManager(cfg=config) if "logger" not in kwargs else kwargs["logger"]
     data = datareader.get_dataset(config) if "data" not in kwargs else kwargs["data"]
 
-    config("PruningSelection", "ADDM_Joint")
-    logger = filemanagement.ExperimentLineManager(cfg=config)
 
     # Adds the compatability to the model that is needed
     Imported_Code.add_addm_v_layers(model)
@@ -93,18 +88,12 @@ def addm_test(config: cfg.ConfigObject | bool | None = None, **kwargs):
     # Performs the pruning method
     Imported_Code.prune_admm(wrapped_cfg, model, config("Device"), data, data, optimizer)
 
-    logger("DebugTest1", model.get_zero_weights())
-
     # Applies the pruning to the base model, NOTE: MIGHT CAUSE ISSUES WITH "Imported_Code.remove_addm_v_layers"
     # Imported_Code.apply_filter(model, config("Device"), wrapped_cfg)  # Commenting out because I think this is redundent
     mask = Imported_Code.apply_prune(model, config("Device"), wrapped_cfg)
 
-    logger("DebugTest2", model.get_zero_weights())
-
     # Removes the added v layers from the model
     Imported_Code.remove_addm_v_layers(model)
-
-    logger("DebugTest3", model.get_zero_weights())
 
     # print(mask)
     # Calculates the weights that should be kept stable because they are pruned
@@ -112,15 +101,16 @@ def addm_test(config: cfg.ConfigObject | bool | None = None, **kwargs):
     frozen = {name: weight*frozen[name] for name, weight in model.named_parameters() if name in frozen.keys()}
     model.frozen = model.frozen | frozen
 
+    config("PruningSelection", "ADDM_Joint")
+    logger = filemanagement.ExperimentLineManager(cfg=config)
+
     # This is just adding thigns to the log
     model.epoch_callbacks.append(lambda x: ([logger(a, b, can_overwrite=True) for a, b in x.items()]))
 
     # This is complicated. It is adding only the mean loss to the log, but only when the epoch number is even, and it is adding it as a new row.
     model.epoch_callbacks.append(lambda x: ([logger(f"Epoch {x['epoch']} {a}", b) for a, b in x.items() if a in ["mean_loss"]] if (x["epoch"] % 2 == 0) else None))
     print(model.fit(config("NumberOfEpochs")))
-    logger("macs", model.get_FLOPS())
-    logger("parameters", model.get_parameter_count())
-    logger("NumberOfZeros", model.get_zero_weights())
+    recordModelInfo(model, logger)
 
 
 def thinet_test(config: cfg.ConfigObject | bool | None = None, **kwargs):
@@ -135,7 +125,8 @@ def thinet_test(config: cfg.ConfigObject | bool | None = None, **kwargs):
     # logger = filemanagement.ExperimentLineManager(cfg=config) if "logger" not in kwargs else kwargs["logger"]
     # data = datareader.get_dataset(config) if "data" not in kwargs else kwargs["data"]
 
-    Imported_Code.thinet_pruning(model, 2, config=config)
+    for i in range(len(config("WeightPrunePercent")) - 1):
+        Imported_Code.thinet_pruning(model, i, config=config)
 
     config("PruningSelection", "thinet")
     logger = filemanagement.ExperimentLineManager(cfg=config)
@@ -146,13 +137,17 @@ def thinet_test(config: cfg.ConfigObject | bool | None = None, **kwargs):
     # This is complicated. It is adding only the mean loss to the log, but only when the epoch number is even, and it is adding it as a new row.
     model.epoch_callbacks.append(lambda x: ([logger(f"Epoch {x['epoch']} {a}", b) for a, b in x.items() if a in ["mean_loss"]] if (x["epoch"] % 2 == 0) else None))
     print(model.fit(config("NumberOfEpochs")))
+    recordModelInfo(model, logger)
+
+
+def recordModelInfo(model:modelstruct.BaseDetectionModel, logger:filemanagement.ExperimentLineManager):
     logger("macs", model.get_FLOPS())
     logger("parameters", model.get_parameter_count())
     logger("NumberOfZeros", model.get_zero_weights())
+    logger("ModelWeightStructure", model.get_model_structure(count_zeros=True))
+    logger("ModelWeightStructurePruneZero", model.get_model_structure())
 
 
 if __name__ == "__main__":
     # standard_run()
     swapping_run()
-
-

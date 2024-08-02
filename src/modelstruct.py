@@ -58,9 +58,10 @@ class SoftPruningLayer():
     def __call__(self, module: torch.nn.Module, args: list[torch.Tensor]):
         return args[0] * self.para[None, :]
 
-    def remove(self):
+    def remove(self, update_weights=True):
         self.remove_hook.remove()
-        self.module.__getattr__("weight").data *= self.para.data
+        if update_weights:
+            self.module.__getattr__("weight").data *= self.para.data
         self.module.__setattr__(f"v_{self.module._get_name()}", None)
         del self.para
 
@@ -71,11 +72,35 @@ models = {
 }
 
 
+model_layercount = {
+    "BasicTest": 1,
+    "SwappingTest": 3
+}
+
+
 def getModel(name_or_config: str | object, **kwargs) -> BaseDetectionModel:
     if isinstance(name_or_config, str):
-        return models[name_or_config](**kwargs)
+        return_val = models[name_or_config](**kwargs)
+        layer_count = model_layercount[name_or_config]
     else:
-        return models[name_or_config("ModelStructure")](**kwargs)
+        return_val = models[name_or_config("ModelStructure")](**kwargs)
+        return_val.cfg = name_or_config
+        layer_count = model_layercount[name_or_config("ModelStructure")]
+
+    # Check that config variables have enough values:
+    if len(return_val.cfg("LayerPruneTargets")) != layer_count:
+        if len(return_val.cfg("LayerPruneTargets")) > layer_count:
+            return_val.cfg("LayerPruneTargets", str(*(return_val.cfg("LayerPruneTargets")[:layer_count])))
+        else:
+            raise ValueError("config value 'LayerPruneTargets' needs to have at least as many layers as do exist in the model")
+
+    if len(return_val.cfg("WeightPrunePercent")) != layer_count:
+        if len(return_val.cfg("WeightPrunePercent")) > layer_count:
+            return_val.cfg("WeightPrunePercent", str(*(return_val.cfg("WeightPrunePercent")[:layer_count])))
+        else:
+            return_val.cfg("WeightPrunePercent", str(*(return_val.cfg("WeightPrunePercent"), *[1 for _ in range(layer_count - len(return_val.cfg("WeightPrunePercent")))])))
+
+    return return_val
 
 
 if __name__ == "__main__":

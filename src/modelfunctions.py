@@ -133,3 +133,17 @@ class ModelFunctions():
                 count += (param.data == 0).sum().item()
 
         return count
+
+    def get_model_structure(self, count_zeros=False):
+        counts = ""
+
+        for name, param in self.named_parameters():
+            if "weight" in name:
+                if count_zeros:
+                    counts = counts + str((param.data.sum(dim=0) != 0).sum().item() + (param.data.sum(dim=0) == 0).sum().item()) + "/"
+                    counts = counts + str((param.data.sum(dim=1) != 0).sum().item() + (param.data.sum(dim=1) == 0).sum().item()) + ", "
+                else:
+                    counts = counts + str((param.data.sum(dim=0) != 0).sum().item()) + "/"
+                    counts = counts + str((param.data.sum(dim=1) != 0).sum().item()) + ", "
+
+        return counts[:-2]
