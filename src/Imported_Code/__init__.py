@@ -2,7 +2,7 @@ import glob
 import sys
 import torch
 
-import modelstruct
+from .. import modelstruct
 # import os
 
 for subpackage in glob.glob("Imported_Code"):
@@ -45,8 +45,8 @@ def add_addm_v_layers(model: torch.nn.Module):
     count = 1
     for module in model.modules():
         print(module)
-        if isinstance(module, torch.nn.Linear) or isinstance(module, torch.nn.Conv2d):
-            model.pruning_layers.append(modelstruct.SoftPruningLayer(module))
+        if isinstance(module, torch.nn.Linear) or isinstance(module, torch.nn.Conv1d):
+            model.pruning_layers.append(modelstruct.PostSoftPruningLayer(module))
             model.register_parameter(f"v{count}", model.pruning_layers[-1].para)
             count += 1
 

@@ -1,9 +1,9 @@
 # import Imported_Code.admm_joint_pruning
 import torch
-import cfg
-import modelstruct
-import datareader
-import filemanagement
+from . import cfg
+from . import modelstruct
+from . import datareader
+from . import filemanagement
 
 
 def standard_run(config: cfg.ConfigObject | bool | None = None, **kwargs):
@@ -67,7 +67,7 @@ def swapping_run(config: cfg.ConfigObject | bool | None = None, **kwargs):
 
 def addm_test(config: cfg.ConfigObject | bool | None = None, **kwargs):
 
-    import Imported_Code
+    from . import Imported_Code
     # Get the defaults
     if config is None:
         config = cfg.ConfigObject.get_param_from_args()
@@ -117,7 +117,7 @@ def addm_test(config: cfg.ConfigObject | bool | None = None, **kwargs):
 
 
 def thinet_test(config: cfg.ConfigObject | bool | None = None, **kwargs):
-    import Imported_Code
+    from . import Imported_Code
 
     # Get the defaults
     if config is None:
@@ -154,6 +154,7 @@ def recordModelInfo(model: modelstruct.BaseDetectionModel, logger: filemanagemen
 
 
 if __name__ == "__main__":
+    # This no longer works.
     args = standard_run()
     # swapping_run()
     thinet_test(**args)

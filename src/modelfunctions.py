@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader
 from numpy import ndarray
 from thop import profile
 from sklearn.metrics import f1_score
-import cfg
+from . import cfg
 
 
 class ModelFunctions():

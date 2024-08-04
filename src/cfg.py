@@ -9,12 +9,12 @@ import torch
 class ConfigObject():
 
     def __init__(self):
-        self.typechart = {"": {"str": str, "int": int, "float": float},
+        self.typechart = {"": {"str": str, "int": int, "float": float, "strl": (str, list), "strdevice": (str, torch.device)},
                           "Optimizer": {"Adam": torch.optim.Adam, "SGD": torch.optim.SGD, "RMS": torch.optim.RMSprop},
                           "LossFunction": {"MSE": torch.nn.MSELoss, "CrossEntropy": torch.nn.CrossEntropyLoss},
                           "ModelStructure": {"BasicTest": "BasicTest", "SwappingTest": "SwappingTest", "SimpleCNN": "SimpleCNN"},
                           "DatasetName": {"RandomDummy": "RandomDummy", "Vulnerability": "Vulnerability"},
-                          "Device": {"cpu": torch.device("cpu"), "cuda": torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")}
+                          "Device": {"cpu": torch.device("cpu"), "cuda": torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"), torch.device("cpu"): torch.device("cpu"), torch.device("cuda"): torch.device("cuda")}
                           }
 
         self.readOnly = ["Version"]
@@ -31,13 +31,17 @@ class ConfigObject():
             "BatchSize": [3, "How many samples used per batch", "int"],
             "Dataparallel": [-2, "To use distributed data parallel and if it failed. 0 is off, 1 is active, -1 is failed, -2 is not implemented", "int"],
             "NumberOfWorkers": [0, "Number of worker processes or dataparallel processes if Dataparallel is 1", "int"],
-            "Device": ["cpu", "Use CPU or CUDA", "str"],
+            "Device": ["cuda", "Use CPU or CUDA", "strdevice"],
             "AlphaForADMM": [5e-4, "Alpha value for ADMM model", "float"],
             "RhoForADMM": [1.5e-3, "Rho value for ADMM model", "float"],
-            "LayerPruneTargets": ["10, 4, 13, 1", "Number of nodes per layer starting with the first layer", "str"],
-            "WeightPrunePercent": ["0.72, 0.5, 0.7, 0.8", "Percent of weights to prune down to for each layer", "str"],
+            "LayerPruneTargets": ["3, 1, 3, 3", "Number of nodes per layer starting with the first layer. NOTE: Will cause an error with ADMM if it is a larger number than the number of filters in that layer", "strl"],
+            "WeightPrunePercent": ["0.72, 0.5, 0.7, 0.8", "Percent of weights to prune down to for each layer", "strl"],
             "PruningSelection": ["", "What pruning was applied", "str"]
         }
+
+        for name, values in self.parameters.items():
+            if name not in self.readOnly:
+                self(name, values[0])
 
     def __call__(self, paramName: str, paramVal: str | float | int | None = None, getString=False):
         if paramVal is None:
@@ -52,13 +56,18 @@ class ConfigObject():
                 if paramVal not in self.typechart[paramName].keys():
                     raise ValueError(f"{paramName} does not have an option for '{paramVal}'")
 
+            if paramName == "Device":
+                paramVal = self.typechart["Device"][paramVal]
+
             if paramName in ["LayerPruneTargets"]:
-                paramVal.strip("[]")
-                paramVal = [int(x) for x in paramVal.split(", ")]
+                if isinstance(paramVal, str):
+                    paramVal.strip("[]")
+                    paramVal = [int(x) for x in paramVal.split(", ")]
 
             if paramName in ["WeightPrunePercent"]:
-                paramVal.strip("[]")
-                paramVal = [float(x) for x in paramVal.split(", ")]
+                if isinstance(paramVal, str):
+                    paramVal.strip("[]")
+                    paramVal = [float(x) for x in paramVal.split(", ")]
 
             if paramName in ["PruningSelection"]:
                 if not self.get_param(paramName) == "":
@@ -70,7 +79,7 @@ class ConfigObject():
             # Set the value
             self.parameters[paramName][0] = paramVal
         else:
-            raise TypeError("Attempted to set Config value of inappropriate type")
+            raise TypeError(f"Attempted to set Config value of inappropriate type, type={type(paramVal)}")
 
     def get_param(self, paramName: str, getString=False) -> str | float | int:
         if (paramName in self.typechart.keys()) and not getString:
@@ -94,9 +103,13 @@ class ConfigObject():
             for p in self_.parameters.keys():
                 if p not in ["Notes"] and p not in self_.readOnly:
                     if p in self_.typechart.keys():
-                        parser.add_argument(f"--{p}", choices=self_.typechart[p].keys(), type=self_.typechart[""][self_.parameters[p][2]], default=self_.parameters[p][0], help=self_.parameters[p][1], required=False)
+                        t = self_.typechart[""][self_.parameters[p][2]]
+                        t = t[0] if isinstance(t, (list, tuple)) else t
+                        parser.add_argument(f"--{p}", choices=self_.typechart[p].keys(), type=t, default=self_.parameters[p][0], help=self_.parameters[p][1], required=False)
                     else:
-                        parser.add_argument(f"--{p}", type=self_.typechart[""][self_.parameters[p][2]], default=self_.parameters[p][0], help=self_.parameters[p][1], required=False)
+                        t = self_.typechart[""][self_.parameters[p][2]]
+                        t = t[0] if isinstance(t, (list, tuple)) else t
+                        parser.add_argument(f"--{p}", type=t, default=self_.parameters[p][0], help=self_.parameters[p][1], required=False)
 
             # Parse the args
             args = parser.parse_args()

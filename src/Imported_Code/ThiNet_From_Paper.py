@@ -2,7 +2,7 @@
 # Implementation made by Alexandre Broggi 2024, I hope I am not making any big mistakes
 import torch
 import torch.utils.data
-import modelstruct
+from .. import modelstruct
 
 
 def thinet_pruning(model: torch.nn.Module, parameterNumber: int, config, dataset: torch.utils.data.DataLoader | torch.utils.data.Dataset | None = None):
@@ -46,7 +46,7 @@ def thinet_pruning(model: torch.nn.Module, parameterNumber: int, config, dataset
         # pruning_mask = torch.zeros(len(input_storage.inp[0]))
         # removed_bias = torch.ones(len(input_storage.out[0]))
 
-        remove_handle = modelstruct.SoftPruningLayer(module)
+        remove_handle = modelstruct.PreSoftPruningLayer(module)
         remove_handle.para.data = torch.zeros_like(remove_handle.para.data)
         pruning_mask = remove_handle.para.data
 

@@ -1,5 +1,5 @@
 import torch
-import modelfunctions
+from . import modelfunctions
 import torch.nn.utils.prune
 
 
@@ -71,7 +71,7 @@ class SwappingDetectionModel(BaseDetectionModel):
         print("done")
 
 
-class SoftPruningLayer():
+class PreSoftPruningLayer():
     def __init__(self, module: torch.nn.Module):
         if isinstance(module, torch.nn.Linear):
             self.para = torch.nn.Parameter(torch.ones(module.in_features))
@@ -96,6 +96,35 @@ class SoftPruningLayer():
         self.remove_hook.remove()
         if update_weights:
             self.module.__getattr__("weight").data *= self.para.data
+        self.module.__setattr__(f"v_{self.module._get_name()}", None)
+        del self.para
+
+
+class PostSoftPruningLayer():
+    def __init__(self, module: torch.nn.Module):
+        if isinstance(module, torch.nn.Linear):
+            self.para = torch.nn.Parameter(torch.ones(module.out_features))
+        elif isinstance(module, torch.nn.Conv1d):
+            self.para = torch.nn.Parameter(torch.ones(module.out_channels))
+        else:
+            print(f"Soft Pruning for Module type {module._get_name()} not implemented yet")
+        self.module = module
+        module.register_parameter(f"v_{module._get_name()}", self.para)
+        self.remove_hook = module.register_forward_hook(self)
+
+    def __call__(self, module: torch.nn.Module, args: list[torch.Tensor], output: torch.Tensor):
+        if isinstance(module, torch.nn.Linear):
+            return output * self.para[None, :]
+        elif isinstance(module, torch.nn.Conv1d):
+            return output * self.para[None, :, None]
+        else:
+            print("Soft Pruning Layer Failed")
+            return output
+
+    def remove(self, update_weights=True):
+        self.remove_hook.remove()
+        if update_weights:
+            self.module.__getattr__("weight").mT.data *= self.para.data
         self.module.__setattr__(f"v_{self.module._get_name()}", None)
         del self.para
 
@@ -126,13 +155,13 @@ def getModel(name_or_config: str | object, **kwargs) -> BaseDetectionModel:
     # Check that config variables have enough values:
     if len(return_val.cfg("LayerPruneTargets")) != layer_count:
         if len(return_val.cfg("LayerPruneTargets")) > layer_count:
-            return_val.cfg("LayerPruneTargets", str(*(return_val.cfg("LayerPruneTargets")[:layer_count])))
+            return_val.cfg("LayerPruneTargets", (return_val.cfg("LayerPruneTargets")[:layer_count]))
         else:
             raise ValueError("config value 'LayerPruneTargets' needs to have at least as many layers as do exist in the model")
 
     if len(return_val.cfg("WeightPrunePercent")) != layer_count:
         if len(return_val.cfg("WeightPrunePercent")) > layer_count:
-            return_val.cfg("WeightPrunePercent", str(*(return_val.cfg("WeightPrunePercent")[:layer_count])))
+            return_val.cfg("WeightPrunePercent", return_val.cfg("WeightPrunePercent")[:layer_count])
         else:
             return_val.cfg("WeightPrunePercent", str(*(return_val.cfg("WeightPrunePercent"), *[1 for _ in range(layer_count - len(return_val.cfg("WeightPrunePercent")))])))
 
