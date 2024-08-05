@@ -46,7 +46,7 @@ def add_addm_v_layers(model: torch.nn.Module):
     for module in model.modules():
         print(module)
         if isinstance(module, torch.nn.Linear) or isinstance(module, torch.nn.Conv1d):
-            model.pruning_layers.append(modelstruct.PostSoftPruningLayer(module))
+            model.pruning_layers.append(modelstruct.PostMutablePruningLayer(module))
             model.register_parameter(f"v{count}", model.pruning_layers[-1].para)
             count += 1
 

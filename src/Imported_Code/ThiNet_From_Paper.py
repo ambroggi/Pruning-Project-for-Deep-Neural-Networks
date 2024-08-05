@@ -46,7 +46,7 @@ def thinet_pruning(model: torch.nn.Module, parameterNumber: int, config, dataset
         # pruning_mask = torch.zeros(len(input_storage.inp[0]))
         # removed_bias = torch.ones(len(input_storage.out[0]))
 
-        remove_handle = modelstruct.PreSoftPruningLayer(module)
+        remove_handle = modelstruct.PreMutablePruningLayer(module)
         remove_handle.para.data = torch.zeros_like(remove_handle.para.data)
         pruning_mask = remove_handle.para.data
 

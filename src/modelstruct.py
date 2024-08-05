@@ -71,7 +71,7 @@ class SwappingDetectionModel(BaseDetectionModel):
         print("done")
 
 
-class PreSoftPruningLayer():
+class PreMutablePruningLayer():
     def __init__(self, module: torch.nn.Module):
         if isinstance(module, torch.nn.Linear):
             self.para = torch.nn.Parameter(torch.ones(module.in_features))
@@ -100,7 +100,7 @@ class PreSoftPruningLayer():
         del self.para
 
 
-class PostSoftPruningLayer():
+class PostMutablePruningLayer():
     def __init__(self, module: torch.nn.Module):
         if isinstance(module, torch.nn.Linear):
             self.para = torch.nn.Parameter(torch.ones(module.out_features))
