@@ -124,7 +124,8 @@ class PostSoftPruningLayer():
     def remove(self, update_weights=True):
         self.remove_hook.remove()
         if update_weights:
-            self.module.__getattr__("weight").mT.data *= self.para.data
+            w = self.module.__getattr__("weight")
+            self.module.__getattr__("weight").permute(*torch.arange(w.ndim - 1, -1, -1)).data *= self.para.data
         self.module.__setattr__(f"v_{self.module._get_name()}", None)
         del self.para
 
