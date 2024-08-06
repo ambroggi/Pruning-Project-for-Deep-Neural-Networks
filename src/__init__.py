@@ -116,7 +116,7 @@ def addm_test(config: cfg.ConfigObject | bool | None = None, **kwargs):
     return {"model": model, "logger": logger, "data": data, "config": config}
 
 
-def thinet_test(config: cfg.ConfigObject | bool | None = None, **kwargs):
+def thinet_test_old(config: cfg.ConfigObject | bool | None = None, **kwargs):
     from . import Imported_Code
 
     # Get the defaults
@@ -130,6 +130,57 @@ def thinet_test(config: cfg.ConfigObject | bool | None = None, **kwargs):
 
     for i in range(len(config("WeightPrunePercent")) - 1):
         Imported_Code.thinet_pruning(model, i, config=config)
+
+    config("PruningSelection", "thinet")
+    logger = filemanagement.ExperimentLineManager(cfg=config)
+
+    # This is just adding thigns to the log
+    model.epoch_callbacks.append(lambda x: ([logger(a, b, can_overwrite=True) for a, b in x.items()]))
+
+    # This is complicated. It is adding only the mean loss to the log, but only when the epoch number is even, and it is adding it as a new row.
+    model.epoch_callbacks.append(lambda x: ([logger(f"Epoch {x['epoch']} {a}", b) for a, b in x.items() if a in ["mean_loss"]] if (x["epoch"] % 2 == 0) else None))
+    print(model.fit(config("NumberOfEpochs")))
+    recordModelInfo(model, logger)
+
+    return {"model": model, "logger": logger, "config": config}
+
+
+def thinet_test(config: cfg.ConfigObject | bool | None = None, **kwargs):
+    from . import Imported_Code
+
+    # Get the defaults
+    if config is None:
+        config = cfg.ConfigObject.get_param_from_args()
+    elif not config:
+        config = cfg.ConfigObject()
+    model: modelstruct.SwappingDetectionModel = modelstruct.getModel(config) if "model" not in kwargs else kwargs["model"]
+    # logger = filemanagement.ExperimentLineManager(cfg=config) if "logger" not in kwargs else kwargs["logger"]
+    data = datareader.get_dataset(config) if "data" not in kwargs else kwargs["data"]
+
+    # Create sample of dataset, Fancy load_kwargs is just there to load the collate_fn
+    training_data = iter(torch.utils.data.DataLoader(data.dataset, 100000, **(data.dataset.load_kwargs if hasattr(data.dataset, "load_kwargs") else {}))).__next__()[0]
+
+    for i in range(len(config("WeightPrunePercent")) - 1):
+        module_results: list[Imported_Code.forward_hook] = Imported_Code.collect_module_is(model, [i, i+1], training_data)
+        x = module_results[0].inp.detach()
+        y = module_results[0].out_no_bias.detach()
+
+        if (x.ndim > 2 and x.shape[1] != 1):
+            x = torch.sum(x, dim=-1)
+        elif x.shape[1] == 1:
+            x = torch.flatten(x, start_dim=1)
+
+        if (y.ndim > 2 and y.shape[1] != 1):
+            y = torch.sum(y, dim=-1)
+        elif y.shape[1] == 1:
+            y = torch.flatten(y, start_dim=1)
+
+        indexes, weight_mod = Imported_Code.value_sum(x, y, config("WeightPrunePercent")[i-1])
+
+        keep_tensor = torch.zeros_like(x[0], dtype=torch.bool)
+        keep_tensor[indexes] = True
+
+        Imported_Code.remove_layers(model, i, keepint_tensor=keep_tensor)
 
     config("PruningSelection", "thinet")
     logger = filemanagement.ExperimentLineManager(cfg=config)

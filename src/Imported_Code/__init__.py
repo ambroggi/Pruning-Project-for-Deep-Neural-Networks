@@ -15,8 +15,11 @@ from .admm_joint_pruning.joint_pruning.main import prune_admm, apply_filter, app
 prune_admm, apply_filter, apply_prune, apply_l1_prune
 sys.path.remove("src/Imported_Code/admm_joint_pruning/joint_pruning")
 
-from .ThiNet_From_Paper import thinet_pruning
-thinet_pruning
+from .ThiNet_From_Paper import thinet_pruning, collect_module_is, remove_layers, forward_hook
+thinet_pruning, collect_module_is, remove_layers, forward_hook
+
+from .ThiNet_From_Code import value_sum, value_sum_another
+value_sum, value_sum_another
 
 
 class ConfigCompatabilityWrapper():

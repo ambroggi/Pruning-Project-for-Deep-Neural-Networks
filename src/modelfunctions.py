@@ -79,8 +79,8 @@ class ModelFunctions():
 
             results["total_loss"] += loss.detach().item()
 
-            results_of_predictions["True"].extend(y.detach())
-            results_of_predictions["Predicted"].extend(y_predict.argmax(dim=1).detach())
+            results_of_predictions["True"].extend(y.detach().cpu())
+            results_of_predictions["Predicted"].extend(y_predict.argmax(dim=1).detach().cpu())
 
             # Reset frozen weights
             self.load_state_dict(self.frozen, strict=False)
@@ -118,11 +118,11 @@ class ModelFunctions():
         return torch.tensor([0])
 
     def get_FLOPS(self):
-        macs, params = profile(self, inputs=(self.dataloader.dataset.__getitem__(0)[0].unsqueeze(dim=0), ))
+        macs, params = profile(self, inputs=(self.dataloader.dataset.__getitem__(0)[0].unsqueeze(dim=0).to(self.cfg("Device")), ))
         return macs
 
     def get_parameter_count(self):
-        macs, params = profile(self, inputs=(self.dataloader.dataset.__getitem__(0)[0].unsqueeze(dim=0), ))
+        macs, params = profile(self, inputs=(self.dataloader.dataset.__getitem__(0)[0].unsqueeze(dim=0).to(self.cfg("Device")), ))
         return params
 
     def get_zero_weights(self):
