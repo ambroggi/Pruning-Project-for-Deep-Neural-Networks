@@ -161,26 +161,7 @@ def thinet_test(config: cfg.ConfigObject | bool | None = None, **kwargs):
     training_data = iter(torch.utils.data.DataLoader(data.dataset, 100000, **(data.dataset.load_kwargs if hasattr(data.dataset, "load_kwargs") else {}))).__next__()[0]
 
     for i in range(len(config("WeightPrunePercent")) - 1):
-        module_results: list[Imported_Code.forward_hook] = Imported_Code.collect_module_is(model, [i, i+1], training_data)
-        x = module_results[0].inp.detach()
-        y = module_results[0].out_no_bias.detach()
-
-        if (x.ndim > 2 and x.shape[1] != 1):
-            x = torch.sum(x, dim=-1)
-        elif x.shape[1] == 1:
-            x = torch.flatten(x, start_dim=1)
-
-        if (y.ndim > 2 and y.shape[1] != 1):
-            y = torch.sum(y, dim=-1)
-        elif y.shape[1] == 1:
-            y = torch.flatten(y, start_dim=1)
-
-        indexes, weight_mod = Imported_Code.value_sum(x, y, config("WeightPrunePercent")[i-1])
-
-        keep_tensor = torch.zeros_like(x[0], dtype=torch.bool)
-        keep_tensor[indexes] = True
-
-        Imported_Code.remove_layers(model, i, keepint_tensor=keep_tensor)
+        Imported_Code.run_thinet_on_layer(model, i, training_data=training_data, config=config)
 
     config("PruningSelection", "thinet")
     logger = filemanagement.ExperimentLineManager(cfg=config)

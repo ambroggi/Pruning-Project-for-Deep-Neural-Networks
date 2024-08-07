@@ -15,8 +15,8 @@ from .admm_joint_pruning.joint_pruning.main import prune_admm, apply_filter, app
 prune_admm, apply_filter, apply_prune, apply_l1_prune
 sys.path.remove("src/Imported_Code/admm_joint_pruning/joint_pruning")
 
-from .ThiNet_From_Paper import thinet_pruning, collect_module_is, remove_layers, forward_hook
-thinet_pruning, collect_module_is, remove_layers, forward_hook
+from .ThiNet_From_Paper import thinet_pruning, collect_module_is, remove_layers, run_one_channel_module, forward_hook
+thinet_pruning, collect_module_is, remove_layers, run_one_channel_module, forward_hook
 
 from .ThiNet_From_Code import value_sum, value_sum_another
 value_sum, value_sum_another
@@ -60,6 +60,38 @@ def remove_addm_v_layers(model: torch.nn.Module):
         model.__setattr__(f"v{count}", None)
         model.pruning_layers.pop().remove()
         count += 1
+
+
+def run_thinet_on_layer(model: torch.nn.Module, layerIndex: int, training_data, config):
+    module_results: list[forward_hook] = collect_module_is(model, [layerIndex, layerIndex+1], training_data)
+    x = torch.stack(run_one_channel_module(module_results[0].modu, module_results[0].inp.detach())).detach().T
+    y = module_results[1].out_no_bias.detach()
+
+    if (y.ndim > 2 and y.shape[1] != 1):
+        y = torch.sum(y, dim=-1)
+    elif y.shape[1] == 1:
+        y = torch.flatten(y, start_dim=1)
+
+    indexes, weight_mod = value_sum(x, y, config("WeightPrunePercent")[layerIndex-1])
+
+    keep_tensor = torch.zeros_like(x[0], dtype=torch.bool)
+    keep_tensor[indexes] = True
+
+    if module_results[1].modu.weight.data.ndim == 3:
+        # This is for CNN layers
+        module_results[1].modu.weight.data[:, keep_tensor, :] *= weight_mod.T[:, :, None]
+    elif module_results[1].modu.weight.data.ndim == 2:
+        # This is for fully connected layers
+        if len(keep_tensor) != len(module_results[1].modu.weight.data[0]):
+            # This is just for a transition layer from CNN to FC
+            multiplier = len(module_results[1].modu.weight.data[0])//len(keep_tensor)
+            t2 = torch.zeros(len(module_results[1].modu.weight.data[0]), dtype=torch.bool)
+            for i in range(len(keep_tensor)):
+                t2[i*multiplier:(i+1)*multiplier] = keep_tensor[i]
+        else:
+            module_results[1].modu.weight.data[:, keep_tensor] *= weight_mod.T
+
+    remove_layers(model, layerIndex, keepint_tensor=keep_tensor)
 
 
 print("test")

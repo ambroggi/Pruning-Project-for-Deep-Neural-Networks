@@ -42,9 +42,9 @@ class SwappingDetectionModel(BaseDetectionModel):
         modelfunctions.ModelFunctions.__init__(self)
         super(BaseDetectionModel, self).__init__()
 
-        self.fc_test_lin = torch.nn.Linear(100, 100)
-        self.fc_test_lhidden = torch.nn.Linear(100, 100)
-        self.fc_test_lout = torch.nn.Linear(100, 100)
+        self.fc_test_lin = torch.nn.Linear(100, 101)
+        self.fc_test_lhidden = torch.nn.Linear(101, 102)
+        self.fc_test_lout = torch.nn.Linear(102, 100)
 
     def forward(self, tensor):
         x = self.fc_test_lin(tensor)
@@ -53,7 +53,7 @@ class SwappingDetectionModel(BaseDetectionModel):
         return z
 
     def swap_testlhidden(self, value=50):
-        self.fc_test_lhidden = torch.nn.Linear(100, value)
+        self.fc_test_lhidden = torch.nn.Linear(101, value)
 
         state_info = self.fc_test_lout.state_dict()
         for name in state_info:
