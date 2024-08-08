@@ -147,3 +147,35 @@ class ModelFunctions():
                     counts = counts + str((param.data.sum(dim=1) != 0).sum().item()) + ", "
 
         return counts[:-2]
+
+    def load_model_state_dict_with_structure(self: torch.nn.Module, state_dict: dict):
+        for name, weights in state_dict.items():
+            name: str
+            weights: torch.Tensor
+
+            if name not in self.state_dict().keys():
+                print("This function can only load state dictionaries like the ones in the model structure")
+
+            contained_by = self
+            old = self
+            for module in name.split(".")[:-1]:
+                contained_by = old
+                old = old.__getattr__(module)
+
+            if contained_by == old:
+                print("Failed to find the actual path to the module")
+
+            # # https://stackoverflow.com/a/7616959
+            # obj_class = old.__class__
+            # new = obj_class()
+
+            if "weight" in name.split(".")[-1]:
+                shape = weights.shape
+                if isinstance(old, torch.nn.Linear):
+                    contained_by.__setattr__(name.split(".")[-2], torch.nn.Linear(shape[1], shape[0]))
+                elif isinstance(old, torch.nn.Conv1d):
+                    contained_by.__setattr__(name.split(".")[-2], torch.nn.Conv1d(shape[1], shape[0], old.kernel_size))
+                else:
+                    print("Module not yet able to be replaced")
+
+        self.load_state_dict(state_dict=state_dict, strict=False)

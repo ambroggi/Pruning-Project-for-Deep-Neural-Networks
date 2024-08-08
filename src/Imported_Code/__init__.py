@@ -1,22 +1,23 @@
-import glob
 import sys
 import torch
 
 from .. import modelstruct
 # import os
 
-for subpackage in glob.glob("Imported_Code"):
-    print(f"Adding \'{subpackage}\' to system path")
-    sys.path.append(subpackage)
+# for subpackage in glob.glob("src/Imported_Code"):
+#     print(f"Adding \'{subpackage}\' to system path")
+#     sys.path.append(subpackage)
 
+from .helperFunctions import collect_module_is, remove_layers, run_one_channel_module, forward_hook
+collect_module_is, remove_layers, run_one_channel_module, forward_hook
 
 sys.path.append("src/Imported_Code/admm_joint_pruning/joint_pruning")
 from .admm_joint_pruning.joint_pruning.main import prune_admm, apply_filter, apply_prune, apply_l1_prune
 prune_admm, apply_filter, apply_prune, apply_l1_prune
 sys.path.remove("src/Imported_Code/admm_joint_pruning/joint_pruning")
 
-from .ThiNet_From_Paper import thinet_pruning, collect_module_is, remove_layers, run_one_channel_module, forward_hook
-thinet_pruning, collect_module_is, remove_layers, run_one_channel_module, forward_hook
+from .ThiNet_From_Paper import thinet_pruning
+thinet_pruning
 
 from .ThiNet_From_Code import value_sum, value_sum_another
 value_sum, value_sum_another

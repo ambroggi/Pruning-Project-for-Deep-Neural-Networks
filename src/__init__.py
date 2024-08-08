@@ -53,7 +53,7 @@ def swapping_run(config: cfg.ConfigObject | bool | None = None, **kwargs):
     config("PruningSelection", "Theseus")
     logger = filemanagement.ExperimentLineManager(cfg=config)
 
-    # This is just adding thigns to the log
+    # This is just adding things to the log
     model.epoch_callbacks.append(lambda x: ([logger(a, b, can_overwrite=True) for a, b in x.items()]))
 
     # This is complicated. It is adding only the mean loss to the log, but only when the epoch number is even, and it is adding it as a new row.
@@ -166,7 +166,7 @@ def thinet_test(config: cfg.ConfigObject | bool | None = None, **kwargs):
     config("PruningSelection", "thinet")
     logger = filemanagement.ExperimentLineManager(cfg=config)
 
-    # This is just adding thigns to the log
+    # This is just adding things to the log
     model.epoch_callbacks.append(lambda x: ([logger(a, b, can_overwrite=True) for a, b in x.items()]))
 
     # This is complicated. It is adding only the mean loss to the log, but only when the epoch number is even, and it is adding it as a new row.

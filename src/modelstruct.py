@@ -20,16 +20,16 @@ class SimpleCNNModel(BaseDetectionModel):
         super(BaseDetectionModel, self).__init__()
 
         self.conv1 = torch.nn.Conv1d(1, 12, 4)
-        # self.pool1 = torch.nn.MaxPool1d(3)
+        self.pool1 = torch.nn.MaxPool1d(3)
         self.conv2 = torch.nn.Conv1d(12, 3, 3)
         self.flatten = torch.nn.Flatten()
-        self.fc1 = torch.nn.Linear(285, 100)
+        self.fc1 = torch.nn.Linear(90, 100)
         self.fc2 = torch.nn.Linear(100, 100)
 
     def forward(self, tensor: torch.Tensor):
         x = tensor.unsqueeze(dim=1)
         x = self.conv1(x)
-        # x = self.pool1(x)
+        x = self.pool1(x)
         x = self.conv2(x)
         x = self.flatten(x)
         x = self.fc1(x)
