@@ -121,6 +121,13 @@ class ConfigObject():
 
         return self_
 
+    def clone(self):
+        new = ConfigObject()
+        for x in self.parameters:
+            if x not in self.readOnly:
+                new(x, self(x, getString=True))
+        return new
+
 
 def get_version():
     repo = git.Repo(os.getcwd())

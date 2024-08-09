@@ -179,3 +179,17 @@ class ModelFunctions():
                     print("Module not yet able to be replaced")
 
         self.load_state_dict(state_dict=state_dict, strict=False)
+
+    def state_dict_of_layer_i(self: torch.nn.Module, layer_i):
+        state_dict = {}
+        idx = -1
+        for name, param in self.named_parameters():
+            if "weight" in name:
+                idx += 1
+                if idx == layer_i:
+                    state_dict = state_dict | {name: param.data.clone()}
+
+            if "bias" in name and idx == layer_i:
+                state_dict = state_dict | {name: param.data.clone()}
+
+        return state_dict

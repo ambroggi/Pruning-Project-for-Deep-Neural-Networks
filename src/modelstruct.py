@@ -52,24 +52,6 @@ class SwappingDetectionModel(BaseDetectionModel):
         z = self.fc_test_lout(y)
         return z
 
-    def swap_testlhidden(self, value=50):
-        self.fc_test_lhidden = torch.nn.Linear(101, value)
-
-        state_info = self.fc_test_lout.state_dict()
-        for name in state_info:
-            # print(state_info[name])
-            if isinstance(state_info[name], torch.Tensor):
-                state_value: torch.Tensor = state_info[name]
-                if len(state_value.shape) == 2:
-                    state_value = state_value[:, :value]
-                # elif len(state_value.shape) == 1:
-                #     state_value = state_value[:value]
-                state_info[name] = state_value
-        self.fc_test_lout = torch.nn.Linear(value, 100)
-        self.fc_test_lout.load_state_dict(state_info)
-        self.optimizer = None
-        print("done")
-
 
 class PreMutablePruningLayer():
     def __init__(self, module: torch.nn.Module):

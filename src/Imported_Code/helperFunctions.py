@@ -76,6 +76,34 @@ def remove_layers(model: torch.nn.Module, parameter_to_reduce: int, keepint_tens
     return state_dict
 
 
+def get_layer_by_state(model: torch.nn.Module, state_dict_key: str):
+    if state_dict_key.split(".")[-1] in ["weight", "bias"]:
+        pth = state_dict_key.split(".")[:-1]
+    else:
+        pth = state_dict_key.split(".")
+
+    old = model
+    for p in pth:
+        old = old.__getattr__(p)
+
+    return old
+
+
+def set_layer_by_state(model: torch.nn.Module, state_dict_key: str, obj):
+    if state_dict_key.split(".")[-1] in ["weight", "bias"]:
+        pth = state_dict_key.split(".")[:-1]
+    else:
+        pth = state_dict_key.split(".")
+
+    contained_by = model
+    old = contained_by
+    for p in pth:
+        contained_by = old
+        old = old.__getattr__(p)
+
+    contained_by.__setattr__(p, obj)
+
+
 class forward_hook():
     def __init__(self):
         self.inp: None | torch.Tensor = None
