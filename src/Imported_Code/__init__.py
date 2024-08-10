@@ -22,6 +22,8 @@ thinet_pruning
 from .ThiNet_From_Code import value_sum, value_sum_another
 value_sum, value_sum_another
 
+from .BERT_Theseus_From_Paper import Theseus_Replacement
+Theseus_Replacement
 
 class ConfigCompatabilityWrapper():
     def __init__(self, config):

@@ -125,3 +125,18 @@ class forward_hook():
             if self.out is None:
                 self.out = out
         # print(f"input: {inp}")
+
+
+class Nothing_Module(torch.nn.Module):
+    def __init__(self, old):
+        super().__init__()
+        self.old = [old]  # Making it a list so torch cannot find it
+
+    def forward(self, args, **kwargs):
+        return args
+
+    def set_extra_state(self, state):
+        pass
+
+    def get_extra_state(self):
+        return "NONE"

@@ -101,11 +101,11 @@ def swapping_run(config: cfg.ConfigObject, model: torch.nn.Module, data, layers:
                 model.load_model_state_dict_with_structure(state_dict)
 
                 # Run a standard run
-                kw = kwargs | {"model": model, "logger": None, "PruningSelection": None}
+                kw = kwargs | {"model": model, "logger": None, "PruningSelection": None, "data": data, "config": config}
                 kw.pop("modelStateDict")  # keep changes from being overrided
                 standard_run(**kw)
 
-    config("PruningSelection", "Theseus")
+    config("PruningSelection", "iteritive_full_theseus")
     logger = filemanagement.ExperimentLineManager(cfg=config)
 
     return {"model": model, "logger": logger, "data": data, "config": config}
@@ -172,6 +172,33 @@ def thinet_test(config: cfg.ConfigObject, data: torch.utils.data.DataLoader, mod
     return kwargs | {"model": model, "logger": logger, "config": config, "data": data, "layers": layers}
 
 
+def bert_of_theseus(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObject, **kwargs):
+    lst = [model.conv1, model.pool1, model.conv2]
+
+    start, end = Imported_Code.forward_hook(), Imported_Code.forward_hook()
+    rm1 = lst[0].register_forward_hook(start)
+    rm2 = lst[-1].register_forward_hook(end)
+
+    # Create sample of dataset, Fancy load_kwargs is just there to load the collate_fn
+    training_data = iter(torch.utils.data.DataLoader(data.dataset, 100, **(data.dataset.load_kwargs if hasattr(data.dataset, "load_kwargs") else {}))).__next__()[0]
+
+    model(training_data)
+
+    rm1.remove()
+    rm2.remove()
+
+    replace_object = Imported_Code.Theseus_Replacement(lst, start.inp.shape[1:], end.out.shape[1:])
+
+    model.fit(10)
+
+    replace_object.condense_in_model(model)
+
+    config("PruningSelection", "BERT_theseus")
+    logger = filemanagement.ExperimentLineManager(cfg=config)
+
+    return kwargs | {"model": model, "data": data, "config": config, "logger": logger}
+
+
 def recordModelInfo(model: modelstruct.BaseDetectionModel, logger: filemanagement.ExperimentLineManager):
     logger("macs", model.get_FLOPS())
     logger("parameters", model.get_parameter_count())
@@ -184,7 +211,8 @@ types_of_tests = {
     "ADDM_Joint": addm_test,
     "thinet_recreation": thinet_test_old,
     "thinet": thinet_test,
-    "Theseus": swapping_run
+    "iteritive_full_theseus": swapping_run,
+    "BERT_theseus": bert_of_theseus
 }
 
 

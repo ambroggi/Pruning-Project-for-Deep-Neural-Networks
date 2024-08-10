@@ -21,6 +21,7 @@ class SimpleCNNModel(BaseDetectionModel):
 
         self.conv1 = torch.nn.Conv1d(1, 12, 4)
         self.pool1 = torch.nn.MaxPool1d(3)
+        self.pool1.register_parameter("Active_check", param=torch.nn.Parameter(torch.tensor([1], dtype=torch.float, requires_grad=False)))
         self.conv2 = torch.nn.Conv1d(12, 3, 3)
         self.flatten = torch.nn.Flatten()
         self.fc1 = torch.nn.Linear(90, 100)

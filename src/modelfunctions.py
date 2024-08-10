@@ -4,6 +4,7 @@ from numpy import ndarray
 from thop import profile
 from sklearn.metrics import f1_score
 from . import cfg
+from .Imported_Code.helperFunctions import Nothing_Module
 
 
 class ModelFunctions():
@@ -56,6 +57,8 @@ class ModelFunctions():
 
         if not keep_callbacks:
             self.epoch_callbacks = []
+
+        return f'Ran model with {epoch_results["f1_score"]:2.3f}% F1 on final epoch {e}'
 
     def run_single_epoch(self, dataloader) -> dict[str, float]:
         results = {"total_loss": 0, "f1_score": 0.0}
@@ -153,8 +156,9 @@ class ModelFunctions():
             name: str
             weights: torch.Tensor
 
-            if name not in self.state_dict().keys():
-                print("This function can only load state dictionaries like the ones in the model structure")
+            # if name not in self.state_dict().keys() and "Active_check" not in name:
+            #     # The Active check is just a flag to make sure that this function reactivates the module
+            #     print("This function can only load state dictionaries like the ones in the model structure")
 
             contained_by = self
             old = self
@@ -169,14 +173,23 @@ class ModelFunctions():
             # obj_class = old.__class__
             # new = obj_class()
 
+            if isinstance(old, Nothing_Module):
+                # If a module has been deleted, this resets it
+                contained_by.__setattr__(name.split(".")[-2], old.old[0])
+                del old
+                old = contained_by.__getattr__(name.split(".")[-2])
+
             if "weight" in name.split(".")[-1]:
                 shape = weights.shape
                 if isinstance(old, torch.nn.Linear):
                     contained_by.__setattr__(name.split(".")[-2], torch.nn.Linear(shape[1], shape[0]))
                 elif isinstance(old, torch.nn.Conv1d):
-                    contained_by.__setattr__(name.split(".")[-2], torch.nn.Conv1d(shape[1], shape[0], old.kernel_size))
+                    contained_by.__setattr__(name.split(".")[-2], torch.nn.Conv1d(shape[1], shape[0], shape[2]))
                 else:
                     print("Module not yet able to be replaced")
+
+            if "_extra_state" in name.split(".")[-1] and weights in "NONE":
+                contained_by.__setattr__(name.split(".")[-2], Nothing_Module(contained_by.__getattr__(name.split(".")[-2])))
 
         self.load_state_dict(state_dict=state_dict, strict=False)
 
