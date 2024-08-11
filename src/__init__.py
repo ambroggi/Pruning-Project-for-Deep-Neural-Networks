@@ -172,7 +172,7 @@ def thinet_test(config: cfg.ConfigObject, data: torch.utils.data.DataLoader, mod
     return kwargs | {"model": model, "logger": logger, "config": config, "data": data, "layers": layers}
 
 
-def bert_of_theseus(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObject, **kwargs):
+def bert_of_theseus_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObject, **kwargs):
     lst = [model.conv1, model.pool1, model.conv2]
 
     start, end = Imported_Code.forward_hook(), Imported_Code.forward_hook()
@@ -187,13 +187,44 @@ def bert_of_theseus(model: modelstruct.BaseDetectionModel, data, config: cfg.Con
     rm1.remove()
     rm2.remove()
 
-    replace_object = Imported_Code.Theseus_Replacement(lst, start.inp.shape[1:], end.out.shape[1:])
+    replace_object = Imported_Code.Theseus_Replacement(lst, start.inp.shape[1:], end.out.shape[1:], model=model)
 
     model.fit(10)
 
     replace_object.condense_in_model(model)
 
     config("PruningSelection", "BERT_theseus")
+    logger = filemanagement.ExperimentLineManager(cfg=config)
+
+    return kwargs | {"model": model, "data": data, "config": config, "logger": logger}
+
+
+def DAIS_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObject, layers: list[int] | None = None, **kwargs):
+    # Save any freezes
+    pre_frozen = model.frozen
+    model.frozen = {name: val for name, val in model.state_dict().items()}
+    # Find the layers to apply it to
+    if layers is None:
+        layers = range(1, len(config("WeightPrunePercent")))
+
+    alphas = []
+    layer = -1
+    for module in model.modules():
+        if isinstance(module, (torch.nn.Conv1d, torch.nn.Linear)):
+            layer += 1
+
+            if layer in layers:
+                alphas.append(Imported_Code.add_alpha(module, 0.2))
+
+    model.fit(10)
+
+    for a in alphas:
+        a.remove()
+
+    # Reload any old freezes
+    model.frozen = pre_frozen
+    config("PruningSelection", "DAIS")
+
     logger = filemanagement.ExperimentLineManager(cfg=config)
 
     return kwargs | {"model": model, "data": data, "config": config, "logger": logger}
@@ -212,7 +243,8 @@ types_of_tests = {
     "thinet_recreation": thinet_test_old,
     "thinet": thinet_test,
     "iteritive_full_theseus": swapping_run,
-    "BERT_theseus": bert_of_theseus
+    "BERT_theseus": bert_of_theseus_test,
+    "DAIS": DAIS_test
 }
 
 

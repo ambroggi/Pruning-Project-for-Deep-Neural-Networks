@@ -2,12 +2,12 @@
 # Implementation made by Alexandre Broggi 2024, I hope I am not making any big mistakes
 # Most of this is just to get things into the format that I want it to be in, only a few lines are actually directly related to the paper
 import torch
-from .helperFunctions import Nothing_Module
+from ..extramodules import Nothing_Module
 
 
 class Theseus_Replacement(torch.nn.Module):
 
-    def __init__(self, module_list: list[torch.nn.Module], input_shape, output_shape):
+    def __init__(self, module_list: list[torch.nn.Module], input_shape, output_shape, model):
         super().__init__()
         self.replacing = torch.nn.ModuleList(module_list)
 
@@ -24,9 +24,13 @@ class Theseus_Replacement(torch.nn.Module):
         self.rm1 = module_list[0].register_forward_pre_hook(lambda module, args: self.get_start_replacement(module, args))
         self.rm2 = module_list[-1].register_forward_hook(lambda module, args, output: self.get_end_replacement(module, args, output))
 
-        self.p = 0.5
+        self.b = model.cfg("BERTTheseusStartingLearningRate")
+        self.k = model.cfg("BERTTheseusLearningRateModifier")/model.cfg("NumberOfEpochs")
+        self.p = model.cfg("BERTTheseusStartingLearningRate")
         self.r = None
         self.output = None
+
+        model.epoch_callbacks.append(lambda results: self.update_p(results["epoch"]))
 
     def get_start_replacement(self, module: torch.nn.Module, args: torch.Tensor):
         self.r = torch.bernoulli(self.p * torch.ones(len(args[0])))
@@ -77,3 +81,6 @@ class Theseus_Replacement(torch.nn.Module):
         # print(model.state_dict())
         self.rm1.remove()
         self.rm2.remove()
+
+    def update_p(self, t):
+        self.p = min(1, self.b + self.k * t)

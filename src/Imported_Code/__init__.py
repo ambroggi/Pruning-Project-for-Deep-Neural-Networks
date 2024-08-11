@@ -1,7 +1,7 @@
 import sys
 import torch
 
-from .. import modelstruct
+from ..extramodules import PostMutablePruningLayer
 # import os
 
 # for subpackage in glob.glob("src/Imported_Code"):
@@ -24,6 +24,9 @@ value_sum, value_sum_another
 
 from .BERT_Theseus_From_Paper import Theseus_Replacement
 Theseus_Replacement
+
+from .DAIS_From_Paper import add_alpha
+add_alpha
 
 class ConfigCompatabilityWrapper():
     def __init__(self, config):
@@ -52,7 +55,7 @@ def add_addm_v_layers(model: torch.nn.Module):
     for module in model.modules():
         print(module)
         if isinstance(module, torch.nn.Linear) or isinstance(module, torch.nn.Conv1d):
-            model.pruning_layers.append(modelstruct.PostMutablePruningLayer(module))
+            model.pruning_layers.append(PostMutablePruningLayer(module))
             model.register_parameter(f"v{count}", model.pruning_layers[-1].para)
             count += 1
 

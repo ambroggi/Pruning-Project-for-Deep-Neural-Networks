@@ -1,4 +1,5 @@
 from src import *
+from .src.extramodules import PreMutablePruningLayer, PostMutablePruningLayer
 
 # args = standard_run()
 
@@ -17,7 +18,7 @@ basic_output = module(test_data)
 
 print(basic_output)
 
-remove = modelstruct.PreMutablePruningLayer(module)
+remove = PreMutablePruningLayer(module)
 
 remove.para.data = torch.tensor([x % 2 for x in range(7)], dtype=torch.float)
 
@@ -36,7 +37,7 @@ for x, y in zip(with_active_prelayer, with_inactive_prelayer):
 
 print("Done pt 1")
 
-remove = modelstruct.PostMutablePruningLayer(module)
+remove = PostMutablePruningLayer(module)
 
 remove.para.data = torch.tensor([x % 2 for x in range(13)], dtype=torch.float)
 

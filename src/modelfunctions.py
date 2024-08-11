@@ -4,7 +4,7 @@ from numpy import ndarray
 from thop import profile
 from sklearn.metrics import f1_score
 from . import cfg
-from .Imported_Code.helperFunctions import Nothing_Module
+from .extramodules import Nothing_Module
 
 
 class ModelFunctions():

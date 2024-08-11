@@ -1,17 +1,17 @@
 # This is an implementation of DAIS from the paper: DAIS: Automatic Channel Pruning via Differentiable Annealing Indicator Search (https://arxiv.org/pdf/2011.02166)
 # Implementation made by Alexandre Broggi 2024, I hope I am not making any big mistakes
 import torch
-from .. import modelstruct
+from ..extramodules import PreMutablePruningLayer
 
 
-class add_alpha(modelstruct.PreMutablePruningLayer):
+class add_alpha(PreMutablePruningLayer):
 
     def __init__(self, module: torch.nn.Module, target_percent: float):
-        super().__init__(self, module)
+        super().__init__(module)
         self.T_value = 1
         self.T_anneal = lambda x: 0.1/x
         self.epoch = 0
-        self.pl = torch.prod(module.weight.shape)  # In equation 9
+        self.pl = torch.prod(torch.tensor([x for x in module.weight.shape]))  # In equation 9 (or at least I think that is how it is calculated?)
         self.target_percent = target_percent
 
     def __call__(self, module: torch.nn.Module, args: list[torch.Tensor], output: torch.Tensor):

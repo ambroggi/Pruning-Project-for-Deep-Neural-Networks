@@ -2,7 +2,7 @@
 # Implementation made by Alexandre Broggi 2024, I hope I am not making any big mistakes
 import torch
 import torch.utils.data
-from .. import modelstruct
+from ..extramodules import PreMutablePruningLayer
 from .helperFunctions import forward_hook
 
 
@@ -47,7 +47,7 @@ def thinet_pruning(model: torch.nn.Module, parameterNumber: int, config, dataset
         # pruning_mask = torch.zeros(len(input_storage.inp[0]))
         # removed_bias = torch.ones(len(input_storage.out[0]))
 
-        remove_handle = modelstruct.PreMutablePruningLayer(module)
+        remove_handle = PreMutablePruningLayer(module)
         remove_handle.para.data = torch.zeros_like(remove_handle.para.data)
         pruning_mask = remove_handle.para.data
 
