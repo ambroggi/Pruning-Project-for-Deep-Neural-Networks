@@ -42,6 +42,10 @@ class ModelFunctions():
         if self.loss_fn is None:
             self.loss_fn = self.cfg("LossFunction")()
 
+        if epochs == 0:
+            self.train(False)
+            epochs = 1
+
         self = self.to(self.cfg("Device"))
         for e in range(epochs):
             epoch_results = self.run_single_epoch(dl)
@@ -77,7 +81,7 @@ class ModelFunctions():
 
             loss: torch.Tensor = self.loss_fn(y_predict, y) + self.additive_loss()
 
-            if self.train:
+            if self.training:
                 loss.backward()
                 self.optimizer.step()
                 # TODO: Scheduler steps
@@ -104,7 +108,7 @@ class ModelFunctions():
                 return outputs_tensor.detach().numpy()
 
         # Check if you want the gradients
-        if self.train:
+        if self.training:
             with torch.no_grad():
                 if inputs_.ndim == 1:
                     return self(inputs_.unsqueeze(0))[0]

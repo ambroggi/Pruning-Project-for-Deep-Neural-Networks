@@ -211,7 +211,7 @@ def DAIS_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObj
             layer += 1
 
             if layer in layers:
-                alphas.append(Imported_Code.add_alpha(module, 0.2))
+                alphas.append(Imported_Code.add_alpha(module, 0.2, config("NumberOfEpochs")))
 
     model.epoch_callbacks.extend([a.callback_fn for a in alphas])
 
@@ -228,6 +228,8 @@ def DAIS_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObj
     config("PruningSelection", "DAIS")
 
     logger = filemanagement.ExperimentLineManager(cfg=config)
+
+    model.train(False)
 
     return kwargs | {"model": model, "data": data, "config": config, "logger": logger}
 

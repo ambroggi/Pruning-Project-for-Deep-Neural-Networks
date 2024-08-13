@@ -10,10 +10,11 @@ from ..modelstruct import BaseDetectionModel
 
 class add_alpha(PostMutablePruningLayer):
 
-    def __init__(self, module: torch.nn.Module, target_percent: float):
+    def __init__(self, module: torch.nn.Module, target_percent: float, max_epochs: int):
         super().__init__(module)
+        self.para.data *= torch.rand_like(self.para.data)
         self.T_value = 1
-        self.T_anneal = lambda x: 0.1/x
+        self.T_anneal = lambda x: 1/(1+(49 * x/max_epochs))
         self.epoch = 0
         self.pl = torch.prod(torch.tensor([x for x in module.weight.shape]))  # In equation 9 (or at least I think that is how it is calculated?)
         self.target_percent = target_percent
@@ -54,19 +55,23 @@ class add_alpha(PostMutablePruningLayer):
     def callback_fn(self, results):
         return self.anneal(results["epoch"] + 1)
 
+    def remove(self):
+        self.para = self.HT().greater(0.5)
+        super().remove()
+
 
 def regulizer_loss(lst: list[add_alpha]):
     # Equation 8
     lasso = torch.sum(torch.stack([x.lasso_reg() for x in lst]))
 
     # Equation 9... I think? Pl is not defined well
-    E_flops = sum([(a.pl * sum(a.HT()) * sum(b.HT())) for a, b in zip(lst, lst[1:])])
-    F = sum([(a.pl * (len(a.HT()) * a.target_percent) * (len(b.HT()) * b.target_percent)) for a, b in zip(lst, lst[1:])])
+    E_flops = sum([(b.pl * sum(a.HT()) * sum(b.HT())) for a, b in zip(lst, lst[1:])])
+    F = sum([(b.pl * (len(a.HT()) * a.target_percent) * (len(b.HT()) * b.target_percent)) for a, b in zip(lst, lst[1:])])
 
     # Equation 10, or it should be, F is not well defined as far as I can tell.
     if E_flops/F > 1:
         flops = torch.log(E_flops)
-    elif E_flops/F < 0.999999:
+    elif E_flops/F < 0.9999:
         flops = -torch.log(E_flops)
     else:
         flops = torch.tensor(0)
