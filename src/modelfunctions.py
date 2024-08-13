@@ -15,7 +15,7 @@ class ModelFunctions():
         self.validation_dataloader = None
         self.optimizer: torch.optim.Optimizer | None = None
         self.loss_fn = None
-        self.loss_additive = torch.zeros(1)
+        self.loss_additive_info: tuple[callable, tuple] = torch.zeros, (1, )
         self.frozen = {}
         self.pruning_layers = []
 
@@ -66,6 +66,7 @@ class ModelFunctions():
         results_of_predictions = {"True": [], "Predicted": []}
         for batch in dataloader:
             self.optimizer.zero_grad()
+            self.zero_grad()
             X, y = batch
             X = X.to(self.cfg("Device"))
             y = y.to(self.cfg("Device"))
@@ -74,7 +75,7 @@ class ModelFunctions():
             # print(y_predict)
             # print(y)
 
-            loss: torch.Tensor = self.loss_fn(y_predict, y) + self.loss_additive
+            loss: torch.Tensor = self.loss_fn(y_predict, y) + self.additive_loss()
 
             if self.train:
                 loss.backward()
@@ -207,3 +208,8 @@ class ModelFunctions():
                 state_dict = state_dict | {name: param.data.clone()}
 
         return state_dict
+
+    def additive_loss(self, **kwargs):
+        # Any additional terms to be added to the loss
+        val = self.loss_additive_info[0](*(self.loss_additive_info[1]), **kwargs)
+        return val
