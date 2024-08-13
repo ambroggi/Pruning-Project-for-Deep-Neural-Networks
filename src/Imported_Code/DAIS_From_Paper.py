@@ -1,10 +1,14 @@
 # This is an implementation of DAIS from the paper: DAIS: Automatic Channel Pruning via Differentiable Annealing Indicator Search (https://arxiv.org/pdf/2011.02166)
 # Implementation made by Alexandre Broggi 2024, I hope I am not making any big mistakes
 import torch
-from ..extramodules import PreMutablePruningLayer
+import torch.utils.data
+from torch.utils.data import DataLoader
+import torch.utils.data.dataloader
+from ..extramodules import PostMutablePruningLayer
+from ..modelstruct import BaseDetectionModel
 
 
-class add_alpha(PreMutablePruningLayer):
+class add_alpha(PostMutablePruningLayer):
 
     def __init__(self, module: torch.nn.Module, target_percent: float):
         super().__init__(module)
@@ -44,13 +48,32 @@ class add_alpha(PreMutablePruningLayer):
     def HT(self):
         return torch.sigmoid(self.para/self.T_value)
 
-    @staticmethod
-    def regulizer_loss(lst):
+    # def e_flops(self):
+    #     # This is equation 9, again, without the last sum
+
+    def callback_fn(self):
+        return lambda results: self.anneal(results["epoch"])
+
+
+class loss_with_regulizer():
+    # NOTE: This is one of the things that I am less sure I implemented correctly.
+
+    def __init__(self, loss_fn, lst: list[add_alpha]):
+        self.lst = lst
+        self.loss_fn = loss_fn
+
+    def __call__(self, *x):
+        return self.loss_fn(*x) + self.regulizer_loss(self.loss_fn)
+
+    def regulizer_loss(lst: list[add_alpha]):
+        # Equation 8
         lasso = torch.sum(torch.cat([x.lasso_reg() for x in lst]))
 
+        # Equation 9... I think? Pl is not defined well
         E_flops = sum([(a.pl * sum(a.HT()) * sum(b.HT())) for a, b in zip(lst, lst[1:])])
         F = sum([(a.pl * (len(a.HT()) * a.target_percent) * (len(b.HT()) * b.target_percent)) for a, b in zip(lst, lst[1:])])
 
+        # Equation 10, or it should be, F is not well defined as far as I can tell.
         if E_flops/F > 1:
             flops = torch.log(E_flops)
         elif E_flops/F < 0.999999:
@@ -61,8 +84,76 @@ class add_alpha(PreMutablePruningLayer):
         # We are not using residual blocks so we don't have a place for equation 11
 
         return lasso + flops
-    # def e_flops(self):
-    #     # This is equation 9, again, without the last sum
 
-    def callback_fn(self):
-        return lambda results: self.anneal(results["epoch"])
+
+def DAIS_fit(model: BaseDetectionModel, alpha_hooks: list[add_alpha], epochs: int = 0, dataloader: DataLoader | None = None, keep_callbacks=False):
+    # This is an implementation of the DAIS regularizer and DARTS (https://arxiv.org/pdf/1806.09055) search method.
+    # DARTS is used because that is the method that DAIS says that their method is based on.
+    # The exact DAIS method is supposedly in a different file, that I cannot find. "more details provided in the reference paper" - DAIS
+
+    # Find the alpha parameters
+    alp = [a.para for a in alpha_hooks]
+
+    assert True in [alp[0] is x for x in model.parameters()]
+
+    # Fit set-up
+    if dataloader is None:
+        if model.dataloader is None:
+            raise TypeError("No dataset selected for Automatic Vulnerability Detection training")
+        dl = model.dataloader
+    else:
+        dl = dataloader
+
+    # Build the training and 'validation' datasets
+    weight_dl, alpha_dl = torch.utils.data.random_split(dl.dataset, [0.7, 0.3])
+    weight_dl = torch.utils.data.DataLoader(weight_dl, **(dl.dataset.load_kwargs if hasattr(dl.dataset, "load_kwargs") else {}))
+    alpha_dl = torch.utils.data.DataLoader(alpha_dl, **(dl.dataset.load_kwargs if hasattr(dl.dataset, "load_kwargs") else {}))
+
+    if model.optimizer is None:
+        model.optimizer = model.cfg("Optimizer")([x for x in model.parameters() if x not in alp], lr=model.cfg("LearningRate"))
+    primary_optimizer = model.optimizer
+    secondary_optimizer = model.cfg("Optimizer")(alp, lr=model.cfg("LearningRate"))
+
+    if model.loss_fn is None:
+        model.loss_fn = model.cfg("LossFunction")()
+    primary_loss = model.loss_fn
+    secondary_loss = loss_with_regulizer(model.loss_fn, alpha_hooks)
+
+    model = model.to(model.cfg("Device"))
+    for e in range(epochs):
+        # Find speculative weights (This is training the model weights). DARTS Algorithm 1, step 1, estimate W*
+        model.loss_fn = primary_loss
+        model.optimizer = primary_optimizer
+        non_speculative_weights = {x: y for x, y in model.state_dict().items() if "v" not in x}  # Because of addm all of the alpha weights are called "v_"
+        epoch_results = model.run_single_epoch(weight_dl)
+        e_results = {f"spec_{x[0]}": x[1] for x in epoch_results.items()}
+
+        # Find new alpha values. DARTS Algorithm 1, step 1, update alpha
+        model.loss_fn = secondary_loss
+        model.optimizer = secondary_optimizer
+        epoch_results = model.run_single_epoch(alpha_dl)
+        e_results = e_results | {f"alph_{x[0]}": x[1] for x in epoch_results}
+
+        # Actually train the weights. DARTS Algorithm 1, step 1, update alpha
+        model.load_state_dict(non_speculative_weights, strict=False)  # First reset w* back to w
+        model.loss_fn = primary_loss
+        model.optimizer = primary_optimizer
+        epoch_results = model.run_single_epoch(weight_dl)
+        e_results = e_results | epoch_results
+
+        # I AM NOT CALLING A TRAINING DATASET "VALIDATION", it will be known as alpha_dl. This is the actual validation dataset
+        if model.validation_dataloader is not None:
+            val_epoch_results = {f"val_{x[0]}": x[1] for x in model.run_single_epoch(model.validation_dataloader).items()}
+        else:
+            val_epoch_results = {f"val_{x}": 0.0 for x in epoch_results.keys()}
+        e_results = e_results | val_epoch_results
+
+        e_results["epoch"] = e
+
+        for call in model.epoch_callbacks:
+            call(e_results)
+
+    if not keep_callbacks:
+        model.epoch_callbacks = []
+
+    return f'Ran model with {e_results["f1_score"]:2.3f}% F1 on final epoch {e}'

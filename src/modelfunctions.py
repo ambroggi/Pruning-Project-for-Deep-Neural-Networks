@@ -13,8 +13,9 @@ class ModelFunctions():
         self.epoch_callbacks = []
         self.dataloader = None
         self.validation_dataloader = None
-        self.optimizer: torch.optim.Optimizer = None
+        self.optimizer: torch.optim.Optimizer | None = None
         self.loss_fn = None
+        self.loss_additive = torch.zeros(1)
         self.frozen = {}
         self.pruning_layers = []
 
@@ -23,10 +24,10 @@ class ModelFunctions():
         # self.train = True
         # self.parameters = None  # <- Does not work as it overrides the actual function that should be there
 
-    def set_training_data(self, dataloader: DataLoader = None) -> None:
+    def set_training_data(self, dataloader: DataLoader | None = None) -> None:
         self.dataloader = dataloader
 
-    def fit(self, epochs: int = 0, dataloader: DataLoader = None, keep_callbacks=False) -> None:
+    def fit(self, epochs: int = 0, dataloader: DataLoader | None = None, keep_callbacks=False) -> str:
         if dataloader is None:
             if self.dataloader is None:
                 raise TypeError("No dataset selected for Automatic Vulnerability Detection training")
@@ -73,7 +74,7 @@ class ModelFunctions():
             # print(y_predict)
             # print(y)
 
-            loss: torch.Tensor = self.loss_fn(y_predict, y)
+            loss: torch.Tensor = self.loss_fn(y_predict, y) + self.loss_additive
 
             if self.train:
                 loss.backward()

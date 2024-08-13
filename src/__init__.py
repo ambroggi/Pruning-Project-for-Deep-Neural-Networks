@@ -40,13 +40,13 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, **kwargs):
 
     # Sometimes want to run for a while without logging (retraining runs)
     if logger is not None:
-        # This is just adding thigns to the log
+        # This is just adding things to the log
         model.epoch_callbacks.append(lambda x: ([logger(a, b, can_overwrite=True) for a, b in x.items()]))
 
         # This is complicated. It is adding only the mean loss to the log, but only when the epoch number is even, and it is adding it as a new row.
         model.epoch_callbacks.append(lambda x: ([logger(f"Epoch {x['epoch']} {a}", b) for a, b in x.items() if a in ["mean_loss"]] if (x["epoch"] % 2 == 0) else None))
 
-    print(model.fit(config("NumberOfEpochs")))
+    print(model.fit(config("NumberOfEpochs") if "NumberOfEpochs" not in kwargs else kwargs["NumberOfEpochs"]))
 
     if logger is not None:
         recordModelInfo(model, logger)
@@ -200,9 +200,6 @@ def bert_of_theseus_test(model: modelstruct.BaseDetectionModel, data, config: cf
 
 
 def DAIS_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObject, layers: list[int] | None = None, **kwargs):
-    # Save any freezes
-    pre_frozen = model.frozen
-    model.frozen = {name: val for name, val in model.state_dict().items()}
     # Find the layers to apply it to
     if layers is None:
         layers = range(1, len(config("WeightPrunePercent")))
@@ -216,13 +213,18 @@ def DAIS_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObj
             if layer in layers:
                 alphas.append(Imported_Code.add_alpha(module, 0.2))
 
-    model.fit(10)
+    model.epoch_callbacks.extend([a.callback_fn for a in alphas])
+
+    config("PruningSelection", "DAIS_training")
+    logger = filemanagement.ExperimentLineManager(cfg=config)
+    # This is just adding thigns to the log
+    model.epoch_callbacks.append(lambda x: ([logger(a, b, can_overwrite=True) for a, b in x.items()]))
+
+    Imported_Code.DAIS_fit(model, alphas, epochs=10)
 
     for a in alphas:
         a.remove()
 
-    # Reload any old freezes
-    model.frozen = pre_frozen
     config("PruningSelection", "DAIS")
 
     logger = filemanagement.ExperimentLineManager(cfg=config)

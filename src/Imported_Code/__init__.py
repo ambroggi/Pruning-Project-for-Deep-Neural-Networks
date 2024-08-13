@@ -25,8 +25,8 @@ value_sum, value_sum_another
 from .BERT_Theseus_From_Paper import Theseus_Replacement
 Theseus_Replacement
 
-from .DAIS_From_Paper import add_alpha
-add_alpha
+from .DAIS_From_Paper import add_alpha, DAIS_fit
+add_alpha, DAIS_fit
 
 class ConfigCompatabilityWrapper():
     def __init__(self, config):
