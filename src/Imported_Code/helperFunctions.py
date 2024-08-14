@@ -1,7 +1,31 @@
 import torch
 
 
-def collect_module_is(model: torch.nn.Module, paramNumbers: list, batch: torch.Tensor):
+class forward_hook():
+    def __init__(self):
+        self.inp: None | torch.Tensor = None
+        self.out: None | torch.Tensor = None
+        self.out_no_bias: None | torch.Tensor = None
+
+    def __call__(self, module: torch.nn.Module, inp: torch.Tensor, out: torch.Tensor):
+        self.modu = module
+        if hasattr(module, "bias") and module.bias is not None:
+            self.inp = inp[0]
+            self.out = out
+            bias = module.bias
+            module.bias = None
+            module(inp[0])
+            module.bias = bias
+        else:
+            self.inp = inp[0]
+            self.out_no_bias = out
+            if self.out is None:
+                self.out = out
+        # print(f"input: {inp}")
+
+
+def collect_module_is(model: torch.nn.Module, paramNumbers: list, batch: torch.Tensor) -> list[forward_hook]:
+    # Used in ThiNet
     i = 0
     hooks = []
     removers = []
@@ -21,7 +45,14 @@ def collect_module_is(model: torch.nn.Module, paramNumbers: list, batch: torch.T
     return hooks
 
 
-def run_one_channel_module(module: torch.nn.Module, dat: torch.Tensor):
+def run_one_channel_module(module: torch.nn.Module, dat: torch.Tensor) -> list[torch.Tensor]:
+    """
+    This runs the module once for each channel with all other channels being zeroed out.
+    Then sums up the output for that one channel and outputs these sums as a list.
+
+    So it outputs a list of values the same length as the number of channels that represents the activation for that channel.
+    (This is used for ThiNet)
+    """
     state_dict = {a: b.clone() for a, b in module.state_dict().items()}
     lst = []
     for x in range(len(state_dict["weight"])):
@@ -40,7 +71,13 @@ def run_one_channel_module(module: torch.nn.Module, dat: torch.Tensor):
     return lst
 
 
-def remove_layers(model: torch.nn.Module, parameter_to_reduce: int, keepint_tensor, length_of_single_channel=1):
+def remove_layers(model: torch.nn.Module, parameter_to_reduce: int, keepint_tensor, length_of_single_channel=1) -> dict[str, torch.Tensor]:
+    """
+    Reduces a layer (selected by its index (parameter_to_reduce)) using keepint_tensor, a tensor of bools.
+    This is used for ThiNet
+
+    The code is not great as this was made erlier in the project
+    """
 
     state_dict = {}
     idx = -1
@@ -76,7 +113,10 @@ def remove_layers(model: torch.nn.Module, parameter_to_reduce: int, keepint_tens
     return state_dict
 
 
-def get_layer_by_state(model: torch.nn.Module, state_dict_key: str):
+def get_layer_by_state(model: torch.nn.Module, state_dict_key: str) -> torch.nn.Module:
+    """
+    Use a state dictionary to find the specific Module.
+    """
     if state_dict_key.split(".")[-1] in ["weight", "bias"]:
         pth = state_dict_key.split(".")[:-1]
     else:
@@ -90,6 +130,9 @@ def get_layer_by_state(model: torch.nn.Module, state_dict_key: str):
 
 
 def set_layer_by_state(model: torch.nn.Module, state_dict_key: str, obj):
+    """
+    Set a layer module by using a state dictionary
+    """
     if state_dict_key.split(".")[-1] in ["weight", "bias"]:
         pth = state_dict_key.split(".")[:-1]
     else:
@@ -102,26 +145,3 @@ def set_layer_by_state(model: torch.nn.Module, state_dict_key: str, obj):
         old = old.__getattr__(p)
 
     contained_by.__setattr__(p, obj)
-
-
-class forward_hook():
-    def __init__(self):
-        self.inp: None | torch.Tensor = None
-        self.out: None | torch.Tensor = None
-        self.out_no_bias: None | torch.Tensor = None
-
-    def __call__(self, module: torch.nn.Module, inp: torch.Tensor, out: torch.Tensor):
-        self.modu = module
-        if hasattr(module, "bias") and module.bias is not None:
-            self.inp = inp[0]
-            self.out = out
-            bias = module.bias
-            module.bias = None
-            module(inp[0])
-            module.bias = bias
-        else:
-            self.inp = inp[0]
-            self.out_no_bias = out
-            if self.out is None:
-                self.out = out
-        # print(f"input: {inp}")

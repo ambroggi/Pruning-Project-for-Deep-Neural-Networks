@@ -19,7 +19,7 @@ class add_alpha(PostMutablePruningLayer):
         self.pl = torch.prod(torch.tensor([x for x in module.weight.shape]))  # In equation 9 (or at least I think that is how it is calculated?)
         self.target_percent = target_percent
 
-    def __call__(self, module: torch.nn.Module, args: list[torch.Tensor], output: torch.Tensor):
+    def __call__(self, module: torch.nn.Module, args: list[torch.Tensor], output: torch.Tensor) -> torch.Tensor:
         # I_relaxed is described in equation 7
         I_relaxed = self.HT()
 
@@ -41,18 +41,18 @@ class add_alpha(PostMutablePruningLayer):
             self.epoch += 1
             self.T_value = self.T_anneal(self.epoch)
 
-    def lasso_reg(self):
+    def lasso_reg(self) -> torch.Tensor:
         # Note this is equation 8 of the paper except for the largest sum,
         # which needs to be applied on the results of this object
         return torch.sum(torch.norm((self.HT()), p=1))
 
-    def HT(self):
+    def HT(self) -> torch.Tensor:
         return torch.sigmoid(self.para/self.T_value)
 
     # def e_flops(self):
     #     # This is equation 9, again, without the last sum
 
-    def callback_fn(self, results):
+    def callback_fn(self, results) -> None:
         return self.anneal(results["epoch"] + 1)
 
     def remove(self):

@@ -28,6 +28,7 @@ Theseus_Replacement
 from .DAIS_From_Paper import add_alpha, DAIS_fit
 add_alpha, DAIS_fit
 
+
 class ConfigCompatabilityWrapper():
     def __init__(self, config):
         self.config = config
