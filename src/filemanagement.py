@@ -3,17 +3,17 @@ import os
 import fcntl
 import time
 import datetime
+from cfg import ConfigObject
 
 
 class ExperimentLineManager():
-    def __init__(self, pth="results/record.csv", cfg=None):
+    def __init__(self, pth: str | os.PathLike = "results/record.csv", cfg: ConfigObject | None = None):
         self.pth = pth
 
         # Check that config exists
         if cfg is None:
             # Import is here because things should give a config when using the ExperimentLineManager
-            import cfg
-            self.cfg = cfg.ConfigObject()
+            self.cfg = ConfigObject()
             self.cfg("Notes", self.cfg("Notes") | 2)    # Bit 2 of notes is that the value may be inaccurate
         else:
             self.cfg = cfg
@@ -73,7 +73,7 @@ class ExperimentLineManager():
     def __call__(self, measure_name: str, val, **kwargs):
         self.add_measure(measure_name=measure_name, val=val, **kwargs)
 
-    def add_dict(self, dictionary_: dict):
+    def add_dict(self, dictionary_: dict[str, any]):
         for name, val in dictionary_.items():
             self(name, val)
 

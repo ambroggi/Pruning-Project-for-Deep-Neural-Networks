@@ -100,4 +100,4 @@ def run_thinet_on_layer(model: torch.nn.Module, layerIndex: int, training_data, 
     remove_layers(model, layerIndex, keepint_tensor=keep_tensor)
 
 
-print("test")
+print("Imported code __init__ file loaded.")

@@ -9,7 +9,11 @@ import torch
 class ConfigObject():
 
     def __init__(self):
-        self.typechart = {"": {"str": str, "int": int, "float": float, "strl": (str, list), "strdevice": (str, torch.device)},
+        # the typechart is supposed to define the possible values of a row
+        # Typechart[""] is supposed to convert the type (3rd item in self.parameters) into an actual type.
+        # The rest are supposed to list out the possible values of the associated parameter, and any translations from strings that are needed
+        self.typechart: dict[str, dict[str, object | str]] = {
+                          "": {"str": str, "int": int, "float": float, "strl": (str, list), "strdevice": (str, torch.device)},
                           "Optimizer": {"Adam": torch.optim.Adam, "SGD": torch.optim.SGD, "RMS": torch.optim.RMSprop},
                           "LossFunction": {"MSE": torch.nn.MSELoss, "CrossEntropy": torch.nn.CrossEntropyLoss},
                           "ModelStructure": {"BasicTest": "BasicTest", "SwappingTest": "SwappingTest", "SimpleCNN": "SimpleCNN"},
@@ -19,7 +23,7 @@ class ConfigObject():
 
         self.readOnly = ["Version"]
 
-        self.parameters = {
+        self.parameters: dict[str, list[any, str, str]] = {
             "Version": [get_version(), "Version Number", "str"],
             "Notes": [0, "This is supposed to store a integer associated with specific notes for this config. 0 is no Notes", "int"],
             "LossFunction": ["CrossEntropy", "Loss function being used", "str"],
@@ -41,49 +45,53 @@ class ConfigObject():
             "BERTTheseusLearningRateModifier": [0.5, "What k value (equation 6) the Bert Theseus method modifies the probibility by (devided by epoch count)", "float"]
         }
 
+        # This is for initial setup
         for name, values in self.parameters.items():
             if name not in self.readOnly:
                 self(name, values[0])
 
-    def __call__(self, paramName: str, paramVal: str | float | int | None = None, getString=False):
+    def __call__(self, paramName: str, paramVal: str | float | int | None = None, getString: bool = False) -> str | float | int | object | None:
         if paramVal is None:
             return self.get_param(paramName, getString=getString)
         else:
             return self.set_param(paramName, paramVal)
 
-    def set_param(self, paramName: str, paramVal: str | float | int):
+    def set_param(self, paramName: str, paramVal: str | float | int) -> None:
+        # Check if the type is valid by querrying typechart
         if isinstance(paramVal, self.typechart[""][self.parameters[paramName][2]]):
-            # Add extra conditionals here
-            if paramName in self.typechart.keys():
+            # Add extra conditionals here:
+
+            if paramName in self.typechart.keys():  # Check that the value is valid (if applicable)
                 if paramVal not in self.typechart[paramName].keys():
                     raise ValueError(f"{paramName} does not have an option for '{paramVal}'")
 
-            if paramName == "Device":
+            if paramName == "Device":  # Device is translated into a torch.device
                 paramVal = self.typechart["Device"][paramVal]
 
-            if paramName in ["LayerPruneTargets"]:
+            if paramName in ["LayerPruneTargets"]:  # This is a list, so we need to do  a little formatting (ints)
                 if isinstance(paramVal, str):
                     paramVal.strip("[]")
                     paramVal = [int(x) for x in paramVal.split(", ")]
 
-            if paramName in ["WeightPrunePercent"]:
+            if paramName in ["WeightPrunePercent"]:  # This is a list, so we need to do  a little formatting (floats)
                 if isinstance(paramVal, str):
                     paramVal.strip("[]")
                     paramVal = [float(x) for x in paramVal.split(", ")]
 
-            if paramName in ["PruningSelection"]:
+            if paramName in ["PruningSelection"]:  # This is supposed to be a running tally, so we need to add it on.
                 if not self.get_param(paramName) == "":
                     paramVal = self.get_param(paramName) + "|" + paramVal
 
-            if paramName in self.readOnly:
+            if paramName in self.readOnly:  # Some items should not be able to be modified.
                 print(f"Attempted to change config {paramName}, which is Read-Only")
+                return
 
             # Set the value
             self.parameters[paramName][0] = paramVal
         else:
             raise TypeError(f"Attempted to set Config value of inappropriate type, type={type(paramVal)}")
 
-    def get_param(self, paramName: str, getString=False) -> str | float | int:
+    def get_param(self, paramName: str, getString: bool = False) -> str | float | int | object:
         if (paramName in self.typechart.keys()) and not getString:
             return self.typechart[paramName][self.parameters[paramName][0]]
         return self.parameters[paramName][0]
@@ -131,7 +139,7 @@ class ConfigObject():
         return new
 
 
-def get_version():
+def get_version() -> str:
     repo = git.Repo(os.getcwd())
     # print(f"Tags: {repo.tags}")
     commit_count = len([1 for _ in repo.iter_commits()])

@@ -13,7 +13,7 @@ class PreMutablePruningLayer():
         module.register_parameter(f"v_{module._get_name()}", self.para)
         self.remove_hook = module.register_forward_pre_hook(self)
 
-    def __call__(self, module: torch.nn.Module, args: list[torch.Tensor]):
+    def __call__(self, module: torch.nn.Module, args: tuple[torch.Tensor]) -> torch.Tensor:
         if isinstance(module, torch.nn.Linear):
             return args[0] * self.para[None, :]
         elif isinstance(module, torch.nn.Conv1d):
@@ -22,7 +22,7 @@ class PreMutablePruningLayer():
             print("Soft Pruning Layer Failed")
             return args[0]
 
-    def remove(self, update_weights=True):
+    def remove(self, update_weights: bool = True):
         self.remove_hook.remove()
         if update_weights:
             self.module.__getattr__("weight").data *= self.para.data
@@ -42,7 +42,7 @@ class PostMutablePruningLayer():
         module.register_parameter(f"v_{module._get_name()}", self.para)
         self.remove_hook = module.register_forward_hook(self)
 
-    def __call__(self, module: torch.nn.Module, args: list[torch.Tensor], output: torch.Tensor):
+    def __call__(self, module: torch.nn.Module, args: list[torch.Tensor], output: torch.Tensor) -> torch.Tensor:
         if isinstance(module, torch.nn.Linear):
             return output * self.para[None, :]
         elif isinstance(module, torch.nn.Conv1d):
@@ -51,17 +51,17 @@ class PostMutablePruningLayer():
             print("Soft Pruning Layer Failed")
             return output
 
-    def remove(self, update_weights=True):
+    def remove(self, update_weights: bool = True):
         self.remove_hook.remove()
         if update_weights:
-            w = self.module.__getattr__("weight")
+            w: torch.nn.Parameter = self.module.__getattr__("weight")
             self.module.__getattr__("weight").permute(*torch.arange(w.ndim - 1, -1, -1)).data *= self.para.data
         self.module.__setattr__(f"v_{self.module._get_name()}", None)
         del self.para
 
 
 class Nothing_Module(torch.nn.Module):
-    def __init__(self, old):
+    def __init__(self, old: torch.nn.Module):
         super().__init__()
         self.old = [old]  # Making it a list so torch cannot find it
 
@@ -71,5 +71,5 @@ class Nothing_Module(torch.nn.Module):
     def set_extra_state(self, state):
         pass
 
-    def get_extra_state(self):
+    def get_extra_state(self) -> str:
         return "NONE"

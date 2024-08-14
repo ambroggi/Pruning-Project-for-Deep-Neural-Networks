@@ -10,7 +10,7 @@ class BaseDetectionModel(torch.nn.Module, modelfunctions.ModelFunctions):
 
         self.fc_test_lin = torch.nn.Linear(100, 100)
 
-    def forward(self, tensor):
+    def forward(self, tensor: torch.Tensor) -> torch.Tensor:
         return self.fc_test_lin(tensor)
 
 
@@ -27,7 +27,7 @@ class SimpleCNNModel(BaseDetectionModel):
         self.fc1 = torch.nn.Linear(90, 100)
         self.fc2 = torch.nn.Linear(100, 100)
 
-    def forward(self, tensor: torch.Tensor):
+    def forward(self, tensor: torch.Tensor) -> torch.Tensor:
         x = tensor.unsqueeze(dim=1)
         x = self.conv1(x)
         x = self.pool1(x)
@@ -47,7 +47,7 @@ class SwappingDetectionModel(BaseDetectionModel):
         self.fc_test_lhidden = torch.nn.Linear(101, 102)
         self.fc_test_lout = torch.nn.Linear(102, 100)
 
-    def forward(self, tensor):
+    def forward(self, tensor) -> torch.Tensor:
         x = self.fc_test_lin(tensor)
         y = self.fc_test_lhidden(x)
         z = self.fc_test_lout(y)

@@ -4,30 +4,33 @@ from numpy import ndarray
 from thop import profile
 from sklearn.metrics import f1_score
 from . import cfg
-from .extramodules import Nothing_Module
+from .extramodules import Nothing_Module, PreMutablePruningLayer, PostMutablePruningLayer
+from typing import Callable
 
 
 class ModelFunctions():
     def __init__(self):
         # Non-Overridden values (These actually store things)
-        self.epoch_callbacks = []
-        self.dataloader = None
-        self.validation_dataloader = None
+        self.epoch_callbacks: list[Callable[[dict], None]] = []
+        self.dataloader: None | DataLoader = None
+        self.validation_dataloader: None | DataLoader = None
         self.optimizer: torch.optim.Optimizer | None = None
-        self.loss_fn = None
-        self.loss_additive_info: tuple[callable, tuple] = torch.zeros, (1, )
-        self.frozen = {}
-        self.pruning_layers = []
+        self.loss_fn: torch.nn.Module | None = None
+        self.loss_additive_info: tuple[Callable, tuple] = torch.zeros, (1, )
+        self.frozen: dict[str, torch.Tensor] = {}
+        self.pruning_layers: list[PreMutablePruningLayer | PostMutablePruningLayer] = []
 
         # Overriden Values (should be overriden by multi-inheritence)
-        self.cfg = cfg.ConfigObject()
+        self.cfg: cfg.ConfigObject = cfg.ConfigObject()
         # self.train = True
         # self.parameters = None  # <- Does not work as it overrides the actual function that should be there
 
     def set_training_data(self, dataloader: DataLoader | None = None) -> None:
         self.dataloader = dataloader
 
-    def fit(self, epochs: int = 0, dataloader: DataLoader | None = None, keep_callbacks=False) -> str:
+    def fit(self, epochs: int = 0, dataloader: DataLoader | None = None, keep_callbacks: bool = False) -> str:
+        self: torch.nn.Module | ModelFunctions  # More typehint
+
         if dataloader is None:
             if self.dataloader is None:
                 raise TypeError("No dataset selected for Automatic Vulnerability Detection training")
@@ -42,38 +45,54 @@ class ModelFunctions():
         if self.loss_fn is None:
             self.loss_fn = self.cfg("LossFunction")()
 
+        # If no epochs, assume no training
         if epochs == 0:
             self.train(False)
-            epochs = 1
+            epochs = 1  # Run model to collect data still.
 
-        self = self.to(self.cfg("Device"))
+        self = self.to(self.cfg("Device"))  # Move things to the active device
+
         for e in range(epochs):
+            # Run the epoch
             epoch_results = self.run_single_epoch(dl)
+
+            # Run the validation dataset if it exists
             if self.validation_dataloader is not None:
+                # Validation data has the same name as normal data so it gets to be renamed
                 val_epoch_results = {f"val_{x[0]}": x[1] for x in self.run_single_epoch(self.validation_dataloader).items()}
             else:
+                # If no validation data exists, just mark it as zeros
                 val_epoch_results = {f"val_{x}": 0.0 for x in epoch_results.keys()}
+
+            # Combine the two dictionaries
             epoch_results = epoch_results | val_epoch_results
 
+            # Set current epoch number
             epoch_results["epoch"] = e
 
+            # Run all of the callbacks
             for call in self.epoch_callbacks:
                 call(epoch_results)
 
+        # Clear out old callbacks unless specified.
         if not keep_callbacks:
             self.epoch_callbacks = []
 
+        # Just a quick message about the run
         return f'Ran model with {epoch_results["f1_score"]:2.3f}% F1 on final epoch {e}'
 
-    def run_single_epoch(self, dataloader) -> dict[str, float]:
+    def run_single_epoch(self, dataloader: DataLoader) -> dict[str, float]:
+        self: torch.nn.Module | ModelFunctions  # More typehint
+
         results = {"total_loss": 0, "f1_score": 0.0}
         results_of_predictions = {"True": [], "Predicted": []}
+
         for batch in dataloader:
             self.optimizer.zero_grad()
             self.zero_grad()
             X, y = batch
-            X = X.to(self.cfg("Device"))
-            y = y.to(self.cfg("Device"))
+            X: torch.Tensor = X.to(self.cfg("Device"))
+            y: torch.Tensor = y.to(self.cfg("Device"))
             y_predict = self(X)
 
             # print(y_predict)
@@ -126,15 +145,18 @@ class ModelFunctions():
         assert False
         return torch.tensor([0])
 
-    def get_FLOPS(self):
+    def get_FLOPS(self) -> int:
         macs, params = profile(self, inputs=(self.dataloader.dataset.__getitem__(0)[0].unsqueeze(dim=0).to(self.cfg("Device")), ))
-        return macs
+        return int(macs)
 
-    def get_parameter_count(self):
+    def get_parameter_count(self) -> int:
         macs, params = profile(self, inputs=(self.dataloader.dataset.__getitem__(0)[0].unsqueeze(dim=0).to(self.cfg("Device")), ))
-        return params
+        return int(params)
 
-    def get_zero_weights(self):
+    def get_zero_weights(self) -> int:
+        """
+        Counts the number of weights in the model that are equal to zero
+        """
         count = 0
 
         for name, param in self.named_parameters():
@@ -143,7 +165,10 @@ class ModelFunctions():
 
         return count
 
-    def get_model_structure(self, count_zeros=False):
+    def get_model_structure(self, count_zeros: bool = False) -> str:
+        """
+        finds the structure of the weights, when flattned. If count_zeros is true, weights that are zero are included in this final count.
+        """
         counts = ""
 
         for name, param in self.named_parameters():
@@ -157,7 +182,10 @@ class ModelFunctions():
 
         return counts[:-2]
 
-    def load_model_state_dict_with_structure(self: torch.nn.Module, state_dict: dict):
+    def load_model_state_dict_with_structure(self: torch.nn.Module, state_dict: dict[str, torch.Tensor]):
+        """
+        Loads the model from a state dict that is a paired down version of the model.
+        """
         for name, weights in state_dict.items():
             name: str
             weights: torch.Tensor
@@ -199,7 +227,10 @@ class ModelFunctions():
 
         self.load_state_dict(state_dict=state_dict, strict=False)
 
-    def state_dict_of_layer_i(self: torch.nn.Module, layer_i):
+    def state_dict_of_layer_i(self: torch.nn.Module, layer_i: int) -> dict[str, torch.Tensor]:
+        """
+        Gets the state dict of the module at position i.
+        """
         state_dict = {}
         idx = -1
         for name, param in self.named_parameters():
@@ -213,7 +244,7 @@ class ModelFunctions():
 
         return state_dict
 
-    def additive_loss(self, **kwargs):
+    def additive_loss(self, **kwargs) -> torch.Tensor:
         # Any additional terms to be added to the loss
         val = self.loss_additive_info[0](*(self.loss_additive_info[1]), **kwargs)
         return val
