@@ -3,7 +3,8 @@ import os
 import fcntl
 import time
 import datetime
-from cfg import ConfigObject
+import platform
+from .cfg import ConfigObject
 
 
 class ExperimentLineManager():
@@ -22,6 +23,7 @@ class ExperimentLineManager():
         df = pd.DataFrame(self.cfg.parameters, columns=self.cfg.parameters.keys())[:1]
         df["ProcessID"] = [os.getpid()]
         df["StartTime"] = datetime.datetime.now()
+        df["cpuModel"] = platform.processor()
         # print(df["StartTime"])
 
         # Attach the history

@@ -1,5 +1,6 @@
 # import Imported_Code.admm_joint_pruning
 import torch
+import time
 from . import cfg
 from . import modelstruct
 from . import datareader
@@ -28,6 +29,7 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, **kwargs):
     # Save all parts
     kwargs = kwargs | {"model": model, "logger": logger, "data": data, "config": config}
 
+    t = time.time()
     if "PruningSelection" in kwargs.keys() and kwargs["PruningSelection"] is not None:
         kwargs = types_of_tests[kwargs["PruningSelection"]](**kwargs)
         model = kwargs["model"]
@@ -40,6 +42,7 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, **kwargs):
 
     # Sometimes want to run for a while without logging (retraining runs)
     if logger is not None:
+        logger("TimeForRun", time.time()-t)
         # This is just adding things to the log
         model.epoch_callbacks.append(lambda x: ([logger(a, b, can_overwrite=True) for a, b in x.items()]))
 
@@ -216,7 +219,7 @@ def DAIS_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObj
     model.epoch_callbacks.extend([a.callback_fn for a in alphas])
 
     config("PruningSelection", "DAIS_training")
-    logger = filemanagement.ExperimentLineManager(cfg=config)
+    logger = filemanagement.ExperimentLineManager(cfg=config, pth="results/extra.csv")
     # This is just adding thigns to the log
     model.epoch_callbacks.append(lambda x: ([logger(a, b, can_overwrite=True) for a, b in x.items()]))
 

@@ -1,7 +1,7 @@
 import torch
 import torch.utils.data
 import pandas as pd
-from cfg import ConfigObject
+from .cfg import ConfigObject
 
 
 class Targets(torch.Tensor):
