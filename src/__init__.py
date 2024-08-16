@@ -8,7 +8,7 @@ from . import filemanagement
 from . import Imported_Code
 
 
-def standard_run(config: cfg.ConfigObject | bool | None = None, **kwargs):
+def standard_run(config: cfg.ConfigObject | bool | None = None, **kwargs) -> dict[str, any]:
     # Get the defaults
     if config is None:
         config = cfg.ConfigObject.get_param_from_args()
@@ -32,6 +32,7 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, **kwargs):
     t = time.time()
     if "PruningSelection" in kwargs.keys() and kwargs["PruningSelection"] is not None:
         kwargs = types_of_tests[kwargs["PruningSelection"]](**kwargs)
+        kwargs.pop("PruningSelection")
         model = kwargs["model"]
         logger = kwargs["logger"]
         data = kwargs["data"]
@@ -54,7 +55,11 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, **kwargs):
     if logger is not None:
         recordModelInfo(model, logger)
 
-    return kwargs | {"model": model, "logger": logger, "data": data, "config": config}
+    # Create the model state
+    # The 'hasattr(b, "clone")' is for strings
+    # The 'if "total" not in a' is because the FLOPS count apparently saves itself as a Parameter for some reason
+    model_state = {"modelStateDict": {a: (b.clone() if hasattr(b, "clone") else b) for a, b in model.state_dict().items() if "total" not in a}}
+    return kwargs | {"model": model, "logger": logger, "data": data, "config": config} | model_state
 
 
 def swapping_run(config: cfg.ConfigObject, model: torch.nn.Module, data, layers: list[int] | None = None, **kwargs):
@@ -72,6 +77,8 @@ def swapping_run(config: cfg.ConfigObject, model: torch.nn.Module, data, layers:
         path_for_layer.append(changing_weight_and_bias[0])
         targets.append(int(len(state_dict[changing_weight_and_bias[0]])*config("WeightPrunePercent")[i]))
         currents.append(len(state_dict[changing_weight_and_bias[0]]))
+
+    config("PruningSelection", "iteritive_full_theseus_training")
 
     # This is so inefficent
     while True in [a > b for a, b in zip(currents, targets)]:
@@ -111,7 +118,7 @@ def swapping_run(config: cfg.ConfigObject, model: torch.nn.Module, data, layers:
     config("PruningSelection", "iteritive_full_theseus")
     logger = filemanagement.ExperimentLineManager(cfg=config)
 
-    return {"model": model, "logger": logger, "data": data, "config": config}
+    return kwargs | {"model": model, "logger": logger, "data": data, "config": config}
 
 
 def addm_test(model: torch.nn.Module, config: cfg.ConfigObject, data, **kwargs):
@@ -177,6 +184,7 @@ def thinet_test(config: cfg.ConfigObject, data: torch.utils.data.DataLoader, mod
 
 def bert_of_theseus_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObject, **kwargs):
     lst = [model.conv1, model.pool1, model.conv2]
+    # lst = [model.conv1, model.pool1, model.conv2, model.flatten, model.fc1]
 
     start, end = Imported_Code.forward_hook(), Imported_Code.forward_hook()
     rm1 = lst[0].register_forward_hook(start)
@@ -192,6 +200,7 @@ def bert_of_theseus_test(model: modelstruct.BaseDetectionModel, data, config: cf
 
     replace_object = Imported_Code.Theseus_Replacement(lst, start.inp.shape[1:], end.out.shape[1:], model=model)
 
+    config("PruningSelection", "BERT_theseus_training")
     model.fit(10)
 
     replace_object.condense_in_model(model)

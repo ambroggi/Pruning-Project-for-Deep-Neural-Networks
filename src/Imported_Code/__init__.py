@@ -74,12 +74,21 @@ def run_thinet_on_layer(model: torch.nn.Module, layerIndex: int, training_data, 
     x = torch.stack(run_one_channel_module(module_results[0].modu, module_results[0].inp.detach())).detach().T
     y = module_results[1].out_no_bias.detach()
 
-    if (y.ndim > 2 and y.shape[1] != 1):
+    if (y.ndim > 2):
         y = torch.sum(y, dim=-1)
     elif y.shape[1] == 1:
         y = torch.flatten(y, start_dim=1)
 
+    if x.shape[1] == 1:
+        print("Thinet does not make sense on layers with a single output channel")
+        remove_layers(model, layerIndex, keepint_tensor=torch.ones_like(x[0], dtype=torch.bool))
+        return
+
     indexes, weight_mod = value_sum(x, y, config("WeightPrunePercent")[layerIndex-1])
+
+    # Weight_mod is in the shape of the newly created weights for module_results
+    # That means it is C_in*C_out where C_in is the number of channels being kept (len(indexes))
+    # and C_out is the number of channels the layer used to have
 
     keep_tensor = torch.zeros_like(x[0], dtype=torch.bool)
     keep_tensor[indexes] = True
@@ -93,12 +102,17 @@ def run_thinet_on_layer(model: torch.nn.Module, layerIndex: int, training_data, 
             # This is just for a transition layer from CNN to FC
             multiplier = len(module_results[1].modu.weight.data[0])//len(keep_tensor)
             t2 = torch.zeros(len(module_results[1].modu.weight.data[0]), dtype=torch.bool)
+            w2 = torch.zeros((multiplier*len(weight_mod), len(weight_mod[0])), dtype=torch.float)
             for i in range(len(keep_tensor)):
                 t2[i*multiplier:(i+1)*multiplier] = keep_tensor[i]
+            for i in range(len(weight_mod)):
+                w2[i*multiplier:(i+1)*multiplier] += weight_mod[i]
+
+            module_results[1].modu.weight.data[:, t2] *= w2.T
         else:
             module_results[1].modu.weight.data[:, keep_tensor] *= weight_mod.T
 
     remove_layers(model, layerIndex, keepint_tensor=keep_tensor)
 
 
-print("Imported code __init__ file loaded.")
+print(f"Imported code __init__ file loaded as {__name__}.")

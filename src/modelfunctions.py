@@ -6,6 +6,8 @@ from sklearn.metrics import f1_score
 from . import cfg
 from .extramodules import Nothing_Module, PreMutablePruningLayer, PostMutablePruningLayer
 from typing import Callable
+import tqdm
+import os
 
 
 class ModelFunctions():
@@ -27,6 +29,24 @@ class ModelFunctions():
 
     def set_training_data(self, dataloader: DataLoader | None = None) -> None:
         self.dataloader = dataloader
+
+    def get_progress_bar(self, epochs):
+        self.progres_file = open("results/progressbar.txt", mode="r+")  # This might be useful so I am putting it here: https://stackoverflow.com/a/72412819
+        self.progres_file.seek(0, 2)
+        progres_pos = self.progres_file.tell()
+        progres_bar = tqdm.tqdm(range(epochs), desc=f"Fit \t|{self.cfg('PruningSelection')}| \tPID:{os.getpid()}\t", total=epochs, file=self.progres_file, ascii=True)
+        self.progress_need_to_remove = []
+        self.progress_need_to_remove.append(lambda r: self.progres_file.seek(progres_pos, 0))
+        self.progress_need_to_remove.append(lambda results: progres_bar.set_postfix_str(f"{results['f1_score']*100:2.3f}% F1"))
+        self.progress_need_to_remove.append(lambda r: self.progres_file.seek(progres_pos, 0))
+        self.epoch_callbacks.extend(self.progress_need_to_remove)
+
+        return progres_bar
+
+    def remove_progress_bar(self):
+        for x in self.progress_need_to_remove:
+            self.epoch_callbacks.remove(x)
+        self.progres_file.close()
 
     def fit(self, epochs: int = 0, dataloader: DataLoader | None = None, keep_callbacks: bool = False) -> str:
         self: torch.nn.Module | ModelFunctions  # More typehint
@@ -52,7 +72,13 @@ class ModelFunctions():
 
         self = self.to(self.cfg("Device"))  # Move things to the active device
 
-        for e in range(epochs):
+        frozen_bad = [x for x in self.frozen.keys() if (x not in self.state_dict().keys()) or (self.frozen[x].shape != self.state_dict()[x].shape)]
+        for incorrect_frozen in frozen_bad:
+            self.frozen.pop(incorrect_frozen)
+
+        progres_bar = self.get_progress_bar(epochs)
+
+        for e in progres_bar if progres_bar is not None else range(epochs):
             # Run the epoch
             epoch_results = self.run_single_epoch(dl)
 
@@ -74,12 +100,16 @@ class ModelFunctions():
             for call in self.epoch_callbacks:
                 call(epoch_results)
 
+        if progres_bar is not None:
+            # Clear out the tqdm callback
+            self.remove_progress_bar()
+
         # Clear out old callbacks unless specified.
         if not keep_callbacks:
             self.epoch_callbacks = []
 
         # Just a quick message about the run
-        return f'Ran model with {epoch_results["f1_score"]:2.3f}% F1 on final epoch {e}'
+        return f'Ran model with {epoch_results["f1_score"]*100:2.3f}% F1 on final epoch {e}'
 
     def run_single_epoch(self, dataloader: DataLoader) -> dict[str, float]:
         self: torch.nn.Module | ModelFunctions  # More typehint

@@ -10,14 +10,15 @@ class Theseus_Replacement(torch.nn.Module):
     def __init__(self, module_list: list[torch.nn.Module], input_shape, output_shape, model):
         super().__init__()
         self.replacing = torch.nn.ModuleList(module_list)
+        self.flatten = None
 
         if len(input_shape) > 1 and len(output_shape) > 1:
             self.main = torch.nn.Conv1d(input_shape[0], output_shape[0], input_shape[1]-output_shape[1]+1)
         elif len(input_shape) > 1:
-            self.main = torch.nn.Conv1d(input_shape[0], output_shape[0], input_shape[1]-output_shape[0]+1)
-            self.flatten = torch.nn.Flatten()
+            self.main = torch.nn.Conv1d(input_shape[0], output_shape[0], output_shape[0])
+            self.flatten = [flat_layer for flat_layer in module_list if isinstance(flat_layer, torch.nn.Flatten)][0]
         elif len(output_shape) > 1:
-            print("Not currently possible")
+            print("Not sure how this is supposed to work, going from linear to Convolutional")
         else:
             self.main = torch.nn.Linear(input_shape[0], output_shape[0])
 
@@ -33,15 +34,18 @@ class Theseus_Replacement(torch.nn.Module):
         model.epoch_callbacks.append(lambda results: self.update_p(results["epoch"]))
 
     def get_start_replacement(self, module: torch.nn.Module, args: torch.Tensor):
-        self.r = torch.bernoulli(self.p * torch.ones(len(args[0])))
+        self.r = torch.bernoulli(self.p * torch.ones(len(args[0]))).unsqueeze(-1)
         self.output = self.main(args[0])
-        if hasattr(self, "flatten"):
+        if self.flatten is not None:
             self.output = self.flatten(self.output)
+
+        while self.r.ndim < self.output.ndim:
+            self.r = self.r.unsqueeze(-1)
 
     def get_end_replacement(self, module, args, output):
         # Equation 3 from the paper split into parts
-        part1 = self.r[:, None, None] * self.output
-        part2 = (1 - self.r)[:, None, None] * output
+        part1 = self.r * self.output
+        part2 = (1 - self.r) * output
 
         # Test for failure:
         for x, y in zip(part1, part2):
@@ -54,7 +58,7 @@ class Theseus_Replacement(torch.nn.Module):
 
     def forward(self, args):
         output = self.main(args)
-        if hasattr(self, "flatten"):
+        if self.flatten is not None:
             output = self.flatten(output)
 
         return output
@@ -75,6 +79,8 @@ class Theseus_Replacement(torch.nn.Module):
 
                 if module is first:
                     current_look.__setattr__(name_path[-1], self.main)
+                elif module is self.flatten:
+                    pass
                 else:
                     current_look.__setattr__(name_path[-1], Nothing_Module(current_look.__getattr__(name_path[-1])))
 

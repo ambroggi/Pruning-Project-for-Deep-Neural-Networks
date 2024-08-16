@@ -113,7 +113,14 @@ def DAIS_fit(model: BaseDetectionModel, alpha_hooks: list[add_alpha], epochs: in
         model.loss_fn = model.cfg("LossFunction")()
 
     model = model.to(model.cfg("Device"))
-    for e in range(epochs):
+
+    frozen_bad = [x for x in model.frozen.keys() if (x not in model.state_dict().keys()) or (model.frozen[x].shape != model.state_dict()[x].shape)]
+    for incorrect_frozen in frozen_bad:
+        model.frozen.pop(incorrect_frozen)
+
+    progres_bar = model.get_progress_bar(epochs)
+
+    for e in progres_bar if progres_bar is not None else range(epochs):
         # Find speculative weights (This is training the model weights). DARTS Algorithm 1, step 1, estimate W*
         model.loss_additive_info = torch.zeros, (1, )
         model.optimizer = primary_optimizer
@@ -148,7 +155,11 @@ def DAIS_fit(model: BaseDetectionModel, alpha_hooks: list[add_alpha], epochs: in
         for call in model.epoch_callbacks:
             call(e_results)
 
+    # Clear out the tqdm callback
+    if progres_bar is not None:
+        model.remove_progress_bar()
+
     if not keep_callbacks:
         model.epoch_callbacks = []
 
-    return f'Ran model with {e_results["f1_score"]:2.3f}% F1 on final epoch {e}'
+    return f'Ran model with {e_results["f1_score"]*100:2.3f}% F1 on final epoch {e}'

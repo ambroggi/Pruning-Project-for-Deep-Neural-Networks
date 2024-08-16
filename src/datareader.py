@@ -45,7 +45,7 @@ class VulnerabilityDataset(torch.utils.data.Dataset):
 
 class RandomDummyDataset(torch.utils.data.Dataset):
     def __init__(self, target_format: str = "CrossEntropy"):
-        self.vals = pd.DataFrame([0 for _ in range(30)])
+        self.vals = pd.DataFrame([0 for _ in range(3000)])
         self.number_of_classes = 100
         self.format = target_format
         self.rand_seed = torch.randint(0, 100000, [1]).item()
