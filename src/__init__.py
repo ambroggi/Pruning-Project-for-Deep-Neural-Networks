@@ -253,6 +253,10 @@ def recordModelInfo(model: modelstruct.BaseDetectionModel, logger: filemanagemen
     logger("ModelWeightStructure", model.get_model_structure(count_zeros=True))
     logger("ModelWeightStructurePruneZero", model.get_model_structure())
 
+    # for name, x in model.named_parameters():
+    #     if ("total_ops" in name) or ("total_params" in name):
+    #         del x
+
 
 types_of_tests = {
     "ADDM_Joint": addm_test,
@@ -262,6 +266,16 @@ types_of_tests = {
     "BERT_theseus": bert_of_theseus_test,
     "DAIS": DAIS_test
 }
+
+
+def standardLoad() -> dict[str, any]:
+    config = filemanagement.load_cfg()
+    if config("SaveLocation") is not None:
+        modelStateDict = torch.load("savedModels/"+config("SaveLocation"), map_location=config("Device"))
+        config("FromSaveLocation", config("SaveLocation"))
+        config("SaveLocation", "None")
+        return {"config": config, "modelStateDict": modelStateDict}
+    return {"config": config}
 
 
 if __name__ == "__main__":

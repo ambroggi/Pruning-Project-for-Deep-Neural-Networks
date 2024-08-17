@@ -1,3 +1,4 @@
+import time
 import torch
 from torch.utils.data import DataLoader
 from numpy import ndarray
@@ -217,6 +218,9 @@ class ModelFunctions():
         Loads the model from a state dict that is a paired down version of the model.
         """
         for name, weights in state_dict.items():
+            if "total" in name:
+                # Skip any of these "total" values, no clue where they come from.
+                continue
             name: str
             weights: torch.Tensor
 
@@ -278,3 +282,12 @@ class ModelFunctions():
         # Any additional terms to be added to the loss
         val = self.loss_additive_info[0](*(self.loss_additive_info[1]), **kwargs)
         return val
+
+    def save_model_state_dict(self, logger: None | Callable, name: str | None = None):
+        if name is None:
+            if self.cfg("SaveLocation") is None:
+                self.cfg("SaveLocation", f"ModelStateDict{time.time()}.pt")
+        else:
+            self.cfg("SaveLocation", name if ".pt" in name else f"{name}.pt")
+        logger("SaveLocation", self.cfg("SaveLocation"))
+        torch.save(self.state_dict(), "savedModels/"+self.cfg("SaveLocation"))

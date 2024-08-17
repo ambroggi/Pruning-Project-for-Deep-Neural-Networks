@@ -4,6 +4,7 @@ import git
 import os
 import torch.optim
 import torch
+import numpy
 
 
 class ConfigObject():
@@ -13,7 +14,7 @@ class ConfigObject():
         # Typechart[""] is supposed to convert the type (3rd item in self.parameters) into an actual type.
         # The rest are supposed to list out the possible values of the associated parameter, and any translations from strings that are needed
         self.typechart: dict[str, dict[str, object | str]] = {
-                          "": {"str": str, "int": int, "float": float, "strl": (str, list), "strdevice": (str, torch.device)},
+                          "": {"str": str, "int": int, "float": float, "strl": (str, list), "strdevice": (str, torch.device), "strn": (str, None)},
                           "Optimizer": {"Adam": torch.optim.Adam, "SGD": torch.optim.SGD, "RMS": torch.optim.RMSprop},
                           "LossFunction": {"MSE": torch.nn.MSELoss, "CrossEntropy": torch.nn.CrossEntropyLoss},
                           "ModelStructure": {"BasicTest": "BasicTest", "SwappingTest": "SwappingTest", "SimpleCNN": "SimpleCNN"},
@@ -29,7 +30,7 @@ class ConfigObject():
             "LossFunction": ["CrossEntropy", "Loss function being used", "str"],
             "Optimizer": ["Adam", "Optimizer being used", "str"],
             "LearningRate": [0.0001, "Learning rate for training", "float"],
-            "NumberOfEpochs": [10, "Number of epochs used", "int"],
+            "NumberOfEpochs": [1, "Number of epochs used", "int"],
             "ModelStructure": ["SimpleCNN", "Model structure to use", "str"],
             "DatasetName": ["RandomDummy", "What dataset to use", "str"],
             "BatchSize": [3, "How many samples used per batch", "int"],
@@ -42,7 +43,9 @@ class ConfigObject():
             "WeightPrunePercent": ["0.72, 0.5, 0.7, 0.8", "Percent of weights to prune down to for each layer", "strl"],
             "PruningSelection": ["", "What pruning was applied", "str"],
             "BERTTheseusStartingLearningRate": [0.5, "What Probibility value the Bert Theseus method starts with", "float"],
-            "BERTTheseusLearningRateModifier": [0.5, "What k value (equation 6) the Bert Theseus method modifies the probibility by (devided by epoch count)", "float"]
+            "BERTTheseusLearningRateModifier": [0.5, "What k value (equation 6) the Bert Theseus method modifies the probibility by (devided by epoch count)", "float"],
+            "SaveLocation": [None, "What filename the statedict was saved as, if it was saved at all.", "strn"],
+            "FromSaveLocation": [None, "What filename the statedict was loaded as, if it was loaded at all.", "strn"]
         }
 
         # This is for initial setup
@@ -57,6 +60,12 @@ class ConfigObject():
             return self.set_param(paramName, paramVal)
 
     def set_param(self, paramName: str, paramVal: str | float | int) -> None:
+        # Deal with numpy types:
+        if isinstance(paramVal, numpy.generic):
+            paramVal = paramVal.item()
+        if paramVal == "None":
+            paramVal = "" if "str" in self.parameters[paramName][2] else None
+
         # Check if the type is valid by querrying typechart
         if isinstance(paramVal, self.typechart[""][self.parameters[paramName][2]]):
             # Add extra conditionals here:
@@ -68,14 +77,17 @@ class ConfigObject():
             if paramName == "Device":  # Device is translated into a torch.device
                 paramVal = self.typechart["Device"][paramVal]
 
+            if self.parameters[paramName][2] == "strn" and (paramVal == "" or paramVal == "None"):
+                paramVal = None
+
             if paramName in ["LayerPruneTargets"]:  # This is a list, so we need to do  a little formatting (ints)
                 if isinstance(paramVal, str):
-                    paramVal.strip("[]")
+                    paramVal = paramVal.strip("[]")
                     paramVal = [int(x) for x in paramVal.split(", ")]
 
             if paramName in ["WeightPrunePercent"]:  # This is a list, so we need to do  a little formatting (floats)
                 if isinstance(paramVal, str):
-                    paramVal.strip("[]")
+                    paramVal = paramVal.strip("[]")
                     paramVal = [float(x) for x in paramVal.split(", ")]
 
             if paramName in ["PruningSelection"]:  # This is supposed to be a running tally, so we need to add it on.
@@ -122,7 +134,8 @@ class ConfigObject():
                         parser.add_argument(f"--{p}", type=t, default=self_.parameters[p][0], help=self_.parameters[p][1], required=False)
 
             # Parse the args
-            args = parser.parse_args()
+            args, unknown_args = parser.parse_known_args()
+            # args = parser.parse_args()
             for paramName, paramValue in args._get_kwargs():
                 self_(paramName, paramValue)
         else:

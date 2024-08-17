@@ -80,6 +80,32 @@ class ExperimentLineManager():
             self(name, val)
 
 
+def load_cfg(pth: str | os.PathLike = "results/record.csv", row_number=-1) -> ConfigObject:
+    config = ConfigObject()
+
+    with open(pth, "r") as f:
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+
+        # Actual writing:
+        hist = pd.read_csv(pth, index_col=0, )
+
+        # File unlocking
+        fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+
+    hist.fillna(value="None", inplace=True)
+
+    if row_number < 0:
+        row_number += hist.last_valid_index() + 1
+
+    single_row = hist.iloc[row_number]
+
+    for entry_name in single_row.keys():
+        if entry_name in config.parameters.keys() and entry_name not in config.readOnly:
+            config(entry_name, single_row[entry_name])
+
+    return config
+
+
 class FileChangedError(Exception):
     def __init__(self, **kwargs):
         super.__init__(kwargs)
