@@ -7,8 +7,10 @@ from . import getdata
 from . import filemanagement
 from . import Imported_Code
 
+# This may be useful: https://stackoverflow.com/a/53593326
 
-def standard_run(config: cfg.ConfigObject | bool | None = None, **kwargs) -> dict[str, any]:
+
+def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypoints: bool = False, **kwargs) -> dict[str, any]:
     # Get the defaults
     if config is None:
         config = cfg.ConfigObject.get_param_from_args()
@@ -41,16 +43,23 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, **kwargs) -> dic
         # Making sure this is the same as well
         model.cfg = config
 
+    epochs = config("NumberOfEpochs") if "NumberOfEpochs" not in kwargs else kwargs["NumberOfEpochs"]
+
     # Sometimes want to run for a while without logging (retraining runs)
     if logger is not None:
         logger("TimeForRun", time.time()-t)
         # This is just adding things to the log
-        model.epoch_callbacks.append(lambda x: ([logger(a, b, can_overwrite=True) for a, b in x.items()]))
+        model.epoch_callbacks.append(lambda results: ([logger(name_of_value, value, can_overwrite=True) for name_of_value, value in results.items()]))
 
-        # This is complicated. It is adding only the mean loss to the log, but only when the epoch number is even, and it is adding it as a new row.
-        model.epoch_callbacks.append(lambda x: ([logger(f"Epoch {x['epoch']} {a}", b) for a, b in x.items() if a in ["mean_loss"]] if (x["epoch"] % 2 == 0) else None))
+        epoch_waypoints = (list(range(epochs)[-2::-epochs//5]) if epochs > 2 else [])[::-1]
+        # This is complicated. It is adding only the mean loss to the log, but only for the above epoch waypoints, and it is adding it as a new row.
+        model.epoch_callbacks.append(lambda results: ([logger(f"Epoch waypoint {epoch_waypoints.index(results['epoch'])} {name_of_value}", value) for name_of_value, value in results.items() if name_of_value in ["mean_loss"]] if (results["epoch"] in epoch_waypoints) else None))
 
-    print(model.fit(config("NumberOfEpochs") if "NumberOfEpochs" not in kwargs else kwargs["NumberOfEpochs"]))
+        if save_epoch_waypoints:
+            # This is saving the model, but only during epoch waypoints.
+            model.epoch_callbacks.append(lambda results: model.save_model_state_dict(logger, update_config=False, logger_column=f"-Waypoint_{epoch_waypoints.index(results['epoch'])}-") if results['epoch'] in epoch_waypoints else None)
+
+    print(model.fit(epochs))
 
     if logger is not None:
         recordModelInfo(model, logger)

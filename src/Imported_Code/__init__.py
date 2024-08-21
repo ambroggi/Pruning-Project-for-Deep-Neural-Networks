@@ -1,5 +1,6 @@
 import sys
 import torch
+import torch.utils.data
 
 from ..extramodules import PostMutablePruningLayer
 # import os
@@ -115,4 +116,7 @@ def run_thinet_on_layer(model: torch.nn.Module, layerIndex: int, training_data, 
     remove_layers(model, layerIndex, keepint_tensor=keep_tensor)
 
 
-print(f"Imported code __init__ file loaded as {__name__}.")
+if torch.utils.data.get_worker_info() is None:
+    print(f"Imported code __init__ file loaded as {__name__}.")
+else:
+    pass

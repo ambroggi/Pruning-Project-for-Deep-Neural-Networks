@@ -283,11 +283,25 @@ class ModelFunctions():
         val = self.loss_additive_info[0](*(self.loss_additive_info[1]), **kwargs)
         return val
 
-    def save_model_state_dict(self, logger: None | Callable, name: str | None = None):
-        if name is None:
-            if self.cfg("SaveLocation") is None:
-                self.cfg("SaveLocation", f"ModelStateDict{time.time()}.pt")
+    def save_model_state_dict(self, logger: None | Callable, name: str | None = None, update_config: bool = True, logger_column: None | str = None):
+        if logger_column is None:
+            loggercolumn = "SaveLocation"
         else:
-            self.cfg("SaveLocation", name if ".pt" in name else f"{name}.pt")
-        logger("SaveLocation", self.cfg("SaveLocation"))
-        torch.save(self.state_dict(), "savedModels/"+self.cfg("SaveLocation"))
+            loggercolumn = logger_column
+
+        if update_config:
+            if logger_column is not None:
+                print("Savepoint is being changed in the config but not in the log, are you sure you want to do this?")
+            # this is the default, where it saves the name as the config savelocation value
+            if name is None:
+                if self.cfg("SaveLocation") is None:
+                    self.cfg("SaveLocation", f"ModelStateDict{time.time()}.pt")
+            else:
+                self.cfg("SaveLocation", name if ".pt" in name else f"{name}.pt")
+            logger(loggercolumn, self.cfg("SaveLocation"))
+            torch.save(self.state_dict(), "savedModels/"+self.cfg("SaveLocation"))
+        else:
+            # This is if you want an extra save (making it for waypoints)
+            name = f"ModelStateDict{logger_column if logger_column is not None else ''}{time.time()}.pt" if name is None else (name if ".pt" in name else f"{name}.pt")
+            logger(loggercolumn, name)
+            torch.save(self.state_dict(), "savedModels/"+name)

@@ -1,6 +1,7 @@
 import torch
 import torch.utils.data
 import pandas as pd
+from sklearn.preprocessing import StandardScaler
 from .cfg import ConfigObject
 
 
