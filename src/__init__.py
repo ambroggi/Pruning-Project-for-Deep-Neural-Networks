@@ -3,7 +3,7 @@ import torch
 import time
 from . import cfg
 from . import modelstruct
-from . import datareader
+from . import getdata
 from . import filemanagement
 from . import Imported_Code
 
@@ -18,7 +18,7 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, **kwargs) -> dic
         config = config.clone()
     model = modelstruct.getModel(config) if "model" not in kwargs else kwargs["model"]
     logger = filemanagement.ExperimentLineManager(cfg=config) if "logger" not in kwargs else kwargs["logger"]
-    data = datareader.get_dataset(config) if "data" not in kwargs else kwargs["data"]
+    data = getdata.get_dataset(config) if "data" not in kwargs else kwargs["data"]
 
     # Model set up
     if "modelStateDict" in kwargs.keys():

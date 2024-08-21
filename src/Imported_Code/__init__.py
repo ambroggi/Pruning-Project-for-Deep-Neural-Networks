@@ -80,7 +80,7 @@ def run_thinet_on_layer(model: torch.nn.Module, layerIndex: int, training_data, 
         y = torch.flatten(y, start_dim=1)
 
     if x.shape[1] == 1:
-        print("Thinet does not make sense on layers with a single output channel")
+        print("Thinet does not make sense on layers with a single input channel")
         remove_layers(model, layerIndex, keepint_tensor=torch.ones_like(x[0], dtype=torch.bool))
         return
 
