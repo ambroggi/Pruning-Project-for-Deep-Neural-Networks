@@ -13,6 +13,7 @@ import os
 
 class ModelFunctions():
     def __init__(self):
+        assert isinstance(self, torch.nn.Module)
         # Non-Overridden values (These actually store things)
         self.epoch_callbacks: list[Callable[[dict], None]] = []
         self.dataloader: None | DataLoader = None
@@ -50,6 +51,7 @@ class ModelFunctions():
         self.progres_file.close()
 
     def fit(self, epochs: int = 0, dataloader: DataLoader | None = None, keep_callbacks: bool = False) -> str:
+        assert isinstance(self, torch.nn.Module)
         self: torch.nn.Module | ModelFunctions  # More typehint
 
         if dataloader is None:
@@ -113,6 +115,7 @@ class ModelFunctions():
         return f'Ran model with {epoch_results["f1_score"]*100:2.3f}% F1 on final epoch {e}'
 
     def run_single_epoch(self, dataloader: DataLoader) -> dict[str, float]:
+        assert isinstance(self, torch.nn.Module)
         self: torch.nn.Module | ModelFunctions  # More typehint
 
         results = {"total_loss": 0, "f1_score": 0.0}
@@ -188,6 +191,7 @@ class ModelFunctions():
         """
         Counts the number of weights in the model that are equal to zero
         """
+        assert isinstance(self, torch.nn.Module)
         count = 0
 
         for name, param in self.named_parameters():
@@ -200,6 +204,7 @@ class ModelFunctions():
         """
         finds the structure of the weights, when flattned. If count_zeros is true, weights that are zero are included in this final count.
         """
+        assert isinstance(self, torch.nn.Module)
         counts = ""
 
         for name, param in self.named_parameters():
@@ -217,6 +222,8 @@ class ModelFunctions():
         """
         Loads the model from a state dict that is a paired down version of the model.
         """
+        assert isinstance(self, torch.nn.Module)
+
         for name, weights in state_dict.items():
             if "total" in name:
                 # Skip any of these "total" values, no clue where they come from.
@@ -284,6 +291,7 @@ class ModelFunctions():
         return val
 
     def save_model_state_dict(self, logger: None | Callable, name: str | None = None, update_config: bool = True, logger_column: None | str = None):
+        assert isinstance(self, torch.nn.Module)
         if logger_column is None:
             loggercolumn = "SaveLocation"
         else:

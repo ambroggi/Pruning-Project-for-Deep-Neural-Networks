@@ -10,9 +10,14 @@ from . import Imported_Code
 # This may be useful: https://stackoverflow.com/a/53593326
 
 
-def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypoints: bool = False, **kwargs) -> dict[str, any]:
+def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypoints: bool = False, from_savepoint: None | int = None, **kwargs) -> dict[str, any]:
     # Get the defaults
-    if config is None:
+    # Priority: 1) savepoint, 2) config being None (None meaning not set yet), 3) config being False (false being do not set config), 4) normal config
+    if isinstance(from_savepoint, int):
+        savepoint = standardLoad(from_savepoint)
+        config = savepoint.pop("config")
+        kwargs = kwargs | savepoint
+    elif config is None:
         config = cfg.ConfigObject.get_param_from_args()
     elif not config:
         config = cfg.ConfigObject()
@@ -68,7 +73,8 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
     # The 'hasattr(b, "clone")' is for strings
     # The 'if "total" not in a' is because the FLOPS count apparently saves itself as a Parameter for some reason
     model_state = {"modelStateDict": {a: (b.clone() if hasattr(b, "clone") else b) for a, b in model.state_dict().items() if "total" not in a}}
-    return kwargs | {"model": model, "logger": logger, "data": data, "config": config} | model_state
+    logger_row = logger.row_id if logger is not None else {}
+    return kwargs | {"model": model, "logger": logger, "data": data, "config": config} | logger_row | model_state
 
 
 def swapping_run(config: cfg.ConfigObject, model: torch.nn.Module, data, layers: list[int] | None = None, **kwargs):
@@ -277,8 +283,8 @@ types_of_tests = {
 }
 
 
-def standardLoad() -> dict[str, any]:
-    config = filemanagement.load_cfg()
+def standardLoad(index: None | int = None) -> dict[str, any]:
+    config = filemanagement.load_cfg() if index is None else filemanagement.load_cfg(row_number=index)
     if config("SaveLocation") is not None:
         modelStateDict = torch.load("savedModels/"+config("SaveLocation"), map_location=config("Device"))
         config("FromSaveLocation", config("SaveLocation"))

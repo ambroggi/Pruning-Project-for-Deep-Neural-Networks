@@ -50,6 +50,8 @@ class RandomDummyDataset(torch.utils.data.Dataset):
         self.number_of_classes = 100
         self.format = target_format
         self.rand_seed = torch.randint(0, 100000, [1]).item()
+        self.scale = StandardScaler()
+        # self.scale.fit(range(256))
         pass
 
     def __len__(self) -> int:
@@ -58,6 +60,7 @@ class RandomDummyDataset(torch.utils.data.Dataset):
     def __getitem__(self, index: int) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
         torch.random.manual_seed(self.rand_seed)
         features = torch.randint(0, 256, [self.number_of_classes], requires_grad=False, dtype=torch.float32)
+        # features.apply_(lambda x: self.scale.transform(x))
         target = torch.randint(0, self.number_of_classes, [1], requires_grad=False, dtype=torch.long)
         if self.format in ["MSE"]:
             target = torch.nn.functional.one_hot(target, num_classes=self.number_of_classes).to(torch.float)
@@ -66,6 +69,7 @@ class RandomDummyDataset(torch.utils.data.Dataset):
     def __getitems__(self, indexs: list[int]) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
         torch.random.manual_seed(self.rand_seed)
         features = torch.randint(0, 256, [len(indexs), self.number_of_classes], requires_grad=False, dtype=torch.float32)
+        # features.apply_(lambda x: self.scale.transform(x))
         targets = torch.randint(0, self.number_of_classes, [len(indexs)], requires_grad=False, dtype=torch.long)
         if self.format in ["MSE"]:
             targets = torch.nn.functional.one_hot(targets, num_classes=self.number_of_classes).to(torch.float)

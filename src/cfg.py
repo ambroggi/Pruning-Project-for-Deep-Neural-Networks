@@ -35,7 +35,7 @@ class ConfigObject():
             "DatasetName": ["RandomDummy", "What dataset to use", "str"],
             "BatchSize": [3, "How many samples used per batch", "int"],
             "Dataparallel": [-2, "To use distributed data parallel and if it failed. 0 is off, 1 is active, -1 is failed, -2 is not implemented", "int"],
-            "NumberOfWorkers": [3, "Number of worker processes or dataparallel processes if Dataparallel is 1", "int"],
+            "NumberOfWorkers": [8, "Number of worker processes or dataparallel processes if Dataparallel is 1", "int"],
             "Device": ["cuda", "Use CPU or CUDA", "strdevice"],
             "AlphaForADMM": [5e-4, "Alpha value for ADMM model", "float"],
             "RhoForADMM": [1.5e-3, "Rho value for ADMM model", "float"],
