@@ -25,12 +25,14 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
         config = config.clone()
     model = modelstruct.getModel(config) if "model" not in kwargs else kwargs["model"]
     logger = filemanagement.ExperimentLineManager(cfg=config) if "logger" not in kwargs else kwargs["logger"]
-    data = getdata.get_dataset(config) if "data" not in kwargs else kwargs["data"]
+    data = getdata.get_dataloader(config) if "data" not in kwargs else kwargs["data"]
 
     # Model set up
     if "modelStateDict" in kwargs.keys():
         model.load_model_state_dict_with_structure(kwargs["modelStateDict"])
-    model.set_training_data(data)
+    train, validation = getdata.get_train_test(config, dataloader=data)
+    model.set_training_data(train)
+    model.set_validation_data(validation)
     model.cfg = config
 
     # Save all parts
@@ -53,6 +55,9 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
     # Sometimes want to run for a while without logging (retraining runs)
     if logger is not None:
         logger("TimeForRun", time.time()-t)
+        logger("LengthOfTrainingData", len(train.dataset))
+        logger("LengthOfValidationData", len(validation.dataset))
+
         # This is just adding things to the log
         model.epoch_callbacks.append(lambda results: ([logger(name_of_value, value, can_overwrite=True) for name_of_value, value in results.items()]))
 
@@ -73,7 +78,7 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
     # The 'hasattr(b, "clone")' is for strings
     # The 'if "total" not in a' is because the FLOPS count apparently saves itself as a Parameter for some reason
     model_state = {"modelStateDict": {a: (b.clone() if hasattr(b, "clone") else b) for a, b in model.state_dict().items() if "total" not in a}}
-    logger_row = logger.row_id if logger is not None else {}
+    logger_row = {"logger_row": logger.row_id} if logger is not None else {}
     return kwargs | {"model": model, "logger": logger, "data": data, "config": config} | logger_row | model_state
 
 

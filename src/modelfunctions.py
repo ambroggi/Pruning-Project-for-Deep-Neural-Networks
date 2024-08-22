@@ -32,6 +32,9 @@ class ModelFunctions():
     def set_training_data(self, dataloader: DataLoader | None = None) -> None:
         self.dataloader = dataloader
 
+    def set_validation_data(self, dataloader: DataLoader | None = None) -> None:
+        self.validation_dataloader = dataloader
+
     def get_progress_bar(self, epochs):
         self.progres_file = open("results/progressbar.txt", mode="r+")  # This might be useful so I am putting it here: https://stackoverflow.com/a/72412819
         self.progres_file.seek(0, 2)
@@ -39,7 +42,7 @@ class ModelFunctions():
         progres_bar = tqdm.tqdm(range(epochs), desc=f"Fit \t|{self.cfg('PruningSelection')}| \tPID:{os.getpid()}\t", total=epochs, file=self.progres_file, ascii=True)
         self.progress_need_to_remove = []
         self.progress_need_to_remove.append(lambda r: self.progres_file.seek(progres_pos, 0))
-        self.progress_need_to_remove.append(lambda results: progres_bar.set_postfix_str(f"{results['f1_score']*100:2.3f}% F1"))
+        self.progress_need_to_remove.append(lambda results: progres_bar.set_postfix_str(f"{results['f1_score']*100:2.3f}% Train F1, {results['val_f1_score']*100:2.3f}% Validation F1"))
         self.progress_need_to_remove.append(lambda r: self.progres_file.seek(progres_pos, 0))
         self.epoch_callbacks.extend(self.progress_need_to_remove)
 

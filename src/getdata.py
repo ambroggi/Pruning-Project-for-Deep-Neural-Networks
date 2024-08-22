@@ -84,12 +84,37 @@ def collate_fn_(items: tuple[InputFeatures | torch.Tensor, Targets | torch.Tenso
     return (torch.cat(features), torch.cat(tags))
 
 
-def get_dataset(config: ConfigObject | None = None) -> torch.utils.data.DataLoader:
+def get_dataloader(config: ConfigObject | None = None, dataset: None | torch.utils.data.Dataset = None) -> torch.utils.data.DataLoader:
+    if dataset is None:
+        if config is None:
+            print("Config was not given for dataset, creating config")
+            config = ConfigObject()
+        dataset = get_dataset(config)
+    return torch.utils.data.DataLoader(dataset, batch_size=config("BatchSize"), num_workers=config("NumberOfWorkers"), **dataset.load_kwargs)
+
+
+def get_dataset(config: ConfigObject) -> torch.utils.data.Dataset:
+    datasets: dict[str, torch.utils.data.Dataset] = {"Vulnerability": VulnerabilityDataset, "RandomDummy": RandomDummyDataset}
+    data: torch.utils.data.Dataset = datasets[config("DatasetName")](target_format=config("LossFunction", getString=True))
+    if config("MaxSamples") > 0:
+        data, _ = torch.utils.data.random_split(data, [config("MaxSamples"), len(data) - config("MaxSamples")], generator=torch.Generator().manual_seed(1))
+    data.load_kwargs = {"collate_fn": collate_fn_}
+    return data
+
+
+def get_train_test(config: ConfigObject | None = None, dataset: None | torch.utils.data.Dataset = None, dataloader: None | torch.utils.data.DataLoader = None) -> tuple[torch.utils.data.Dataset, torch.utils.data.Dataset] | tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
     if config is None:
         print("Config was not given for dataset, creating config")
         config = ConfigObject()
-
-    datasets: dict[str, torch.utils.data.Dataset] = {"Vulnerability": VulnerabilityDataset, "RandomDummy": RandomDummyDataset}
-    data: torch.utils.data.Dataset = datasets[config("DatasetName")](target_format=config("LossFunction", getString=True))
-    data.load_kwargs = {"collate_fn": collate_fn_}
-    return torch.utils.data.DataLoader(data, batch_size=config("BatchSize"), num_workers=config("NumberOfWorkers"), **data.load_kwargs)
+    if dataset is not None and dataloader is not None:
+        print("Incorrect usage of get_train_test splitting, please only give a dataset OR a dataloader, not both.")
+    elif dataset is not None:
+        train, test = torch.utils.data.random_split(dataset, [config("TrainTest"), 1 - config("TrainTest")], generator=torch.Generator().manual_seed(1))
+        train.load_kwargs = {"collate_fn": collate_fn_}
+        test.load_kwargs = {"collate_fn": collate_fn_}
+        return train, test
+    elif dataloader is not None:
+        train_ds, test_ds = get_train_test(config=config, dataset=dataloader.dataset)
+        return get_dataloader(config=config, dataset=train_ds), get_dataloader(config=config, dataset=test_ds)
+    else:
+        return get_train_test(config, get_dataset(config))
