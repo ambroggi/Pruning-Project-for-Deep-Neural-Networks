@@ -1,5 +1,6 @@
 # import Imported_Code.admm_joint_pruning
 import torch
+import gc
 import time
 from . import cfg
 from . import modelstruct
@@ -50,7 +51,7 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
         # Making sure this is the same as well
         model.cfg = config
 
-    epochs = config("NumberOfEpochs") if "NumberOfEpochs" not in kwargs else kwargs["NumberOfEpochs"]
+    epochs: int = config("NumberOfEpochs") if "NumberOfEpochs" not in kwargs else kwargs["NumberOfEpochs"]
 
     # Sometimes want to run for a while without logging (retraining runs)
     if logger is not None:
@@ -61,8 +62,9 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
         # This is just adding things to the log
         model.epoch_callbacks.append(lambda results: ([logger(name_of_value, value, can_overwrite=True) for name_of_value, value in results.items()]))
 
+        # Make a series of 5 (or fewer) evenly spaced points along the epochs for waypoints
         epoch_waypoints = (list(range(epochs)[-2::-epochs//5]) if epochs > 2 else [])[::-1]
-        # This is complicated. It is adding only the mean loss to the log, but only for the above epoch waypoints, and it is adding it as a new row.
+        # This is complicated. It is adding only the mean loss to the log, but only for each epoch waypoint, and it is adding it as a new row.
         model.epoch_callbacks.append(lambda results: ([logger(f"Epoch waypoint {epoch_waypoints.index(results['epoch'])} {name_of_value}", value) for name_of_value, value in results.items() if name_of_value in ["mean_loss"]] if (results["epoch"] in epoch_waypoints) else None))
 
         if save_epoch_waypoints:
@@ -106,7 +108,7 @@ def swapping_run(config: cfg.ConfigObject, model: torch.nn.Module, data, layers:
             if currents[i] > targets[i]:
                 state_dict = model.state_dict_of_layer_i(i+1)
 
-                currents[i] = max(targets[i], currents[i] - config("LayerPruneTargets")[i])
+                currents[i] = max(targets[i], currents[i] - config("LayerIteration")[i])
 
                 old_layer = Imported_Code.get_layer_by_state(model, path_for_layer[i])
                 if isinstance(old_layer, torch.nn.Linear):
@@ -203,7 +205,7 @@ def thinet_test(config: cfg.ConfigObject, data: torch.utils.data.DataLoader, mod
 
 
 def bert_of_theseus_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObject, **kwargs):
-    lst = [model.conv1, model.pool1, model.conv2]
+    lst: list[torch.nn.Module] = [model.conv1, model.pool1, model.conv2]
     # lst = [model.conv1, model.pool1, model.conv2, model.flatten, model.fc1]
 
     start, end = Imported_Code.forward_hook(), Imported_Code.forward_hook()
@@ -276,6 +278,27 @@ def recordModelInfo(model: modelstruct.BaseDetectionModel, logger: filemanagemen
     # for name, x in model.named_parameters():
     #     if ("total_ops" in name) or ("total_params" in name):
     #         del x
+
+    garbage_sum = 0
+    # found code for checking garbage collection: https://discuss.pytorch.org/t/how-to-debug-causes-of-gpu-memory-leaks/6741/3
+    for obj in gc.get_objects():
+        # hasattr() gets like every kind of error possible. I am just going to check for only Tensors
+        # try:
+        #     if torch.is_tensor(obj) or (hasattr(obj, 'data') and torch.is_tensor(obj.data)):
+        #         garbage_sum += sum(obj.size())
+        # except OSError:
+        #     # This is for the c python library loader
+        #     pass
+        # except AssertionError:
+        #     # This is for the torch "<cuFFTPlanCacheManager>" assertion that CUDA must be enabled
+        #     pass
+        # except RuntimeError:
+        #     # WHY IS THERE A "MODULE TORCH HAS NO MEMBER CALLED DATA" ERROR? This is hasattr()!
+        #     pass
+        if torch.is_tensor(obj):
+            garbage_sum += sum(obj.size())
+
+    logger("GarbageCollectionSizeTotal", garbage_sum)
 
 
 types_of_tests = {

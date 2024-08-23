@@ -78,11 +78,12 @@ def getModel(name_or_config: str | object, **kwargs) -> BaseDetectionModel:
         layer_count = model_layercount[name_or_config("ModelStructure")]
 
     # Check that config variables have enough values:
-    if len(return_val.cfg("LayerPruneTargets")) != layer_count:
-        if len(return_val.cfg("LayerPruneTargets")) > layer_count:
-            return_val.cfg("LayerPruneTargets", (return_val.cfg("LayerPruneTargets")[:layer_count]))
-        else:
-            raise ValueError("config value 'LayerPruneTargets' needs to have at least as many layers as do exist in the model")
+    for x in ["LayerPruneTargets", "LayerIteration"]:
+        if len(return_val.cfg(x)) != layer_count:
+            if len(return_val.cfg(x)) > layer_count:
+                return_val.cfg(x, (return_val.cfg(x)[:layer_count]))
+            else:
+                raise ValueError(f"config value {x} needs to have at least as many layers as do exist in the model")
 
     if len(return_val.cfg("WeightPrunePercent")) != layer_count:
         if len(return_val.cfg("WeightPrunePercent")) > layer_count:

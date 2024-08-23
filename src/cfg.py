@@ -41,11 +41,12 @@ class ConfigObject():
             "Device": ["cuda", "Use CPU or CUDA", "strdevice"],
             "AlphaForADMM": [5e-4, "Alpha value for ADMM model", "float"],
             "RhoForADMM": [1.5e-3, "Rho value for ADMM model", "float"],
-            "LayerPruneTargets": ["3, 1, 3, 3", "Number of nodes per layer starting with the first layer. NOTE: Will cause an error with ADMM if it is a larger number than the number of filters in that layer (also used for iteritive_full_theseus)", "strl"],
+            "LayerPruneTargets": ["3, 1, 3, 3", "Number of nodes per layer starting with the first layer. NOTE: Will cause an error with ADMM if it is a larger number than the number of filters in that layer", "strl"],
             "WeightPrunePercent": ["0.72, 0.5, 0.7, 0.8", "Percent of weights to prune down to for each layer", "strl"],
             "PruningSelection": ["", "What pruning was applied", "str"],
             "BERTTheseusStartingLearningRate": [0.5, "What Probibility value the Bert Theseus method starts with", "float"],
             "BERTTheseusLearningRateModifier": [0.5, "What k value (equation 6) the Bert Theseus method modifies the probibility by (devided by epoch count)", "float"],
+            "LayerIteration": ["3, 1, 3, 3", "iteritive_full_theseus amount each layer is reduced by in each iteration", "strl"],
             "SaveLocation": [None, "What filename the statedict was saved as, if it was saved at all.", "strn"],
             "FromSaveLocation": [None, "What filename the statedict was loaded as, if it was loaded at all.", "strn"]
         }
@@ -82,7 +83,7 @@ class ConfigObject():
             if self.parameters[paramName][2] == "strn" and (paramVal == "" or paramVal == "None"):
                 paramVal = None
 
-            if paramName in ["LayerPruneTargets"]:  # This is a list, so we need to do  a little formatting (ints)
+            if paramName in ["LayerPruneTargets", "LayerIteration"]:  # This is a list, so we need to do  a little formatting (ints)
                 if isinstance(paramVal, str):
                     paramVal = paramVal.strip("[]")
                     paramVal = [int(x) for x in paramVal.split(", ")]

@@ -90,7 +90,7 @@ def get_dataloader(config: ConfigObject | None = None, dataset: None | torch.uti
             print("Config was not given for dataset, creating config")
             config = ConfigObject()
         dataset = get_dataset(config)
-    return torch.utils.data.DataLoader(dataset, batch_size=config("BatchSize"), num_workers=config("NumberOfWorkers"), **dataset.load_kwargs)
+    return torch.utils.data.DataLoader(dataset, batch_size=config("BatchSize"), num_workers=config("NumberOfWorkers"), persistent_workers=True if config("NumberOfWorkers") > 1 else False, **dataset.load_kwargs)
 
 
 def get_dataset(config: ConfigObject) -> torch.utils.data.Dataset:
@@ -109,7 +109,7 @@ def get_train_test(config: ConfigObject | None = None, dataset: None | torch.uti
     if dataset is not None and dataloader is not None:
         print("Incorrect usage of get_train_test splitting, please only give a dataset OR a dataloader, not both.")
     elif dataset is not None:
-        train, test = torch.utils.data.random_split(dataset, [config("TrainTest"), 1 - config("TrainTest")], generator=torch.Generator().manual_seed(1))
+        train, test = torch.utils.data.random_split(dataset, [1 - config("TrainTest"), config("TrainTest")], generator=torch.Generator().manual_seed(1))
         train.load_kwargs = {"collate_fn": collate_fn_}
         test.load_kwargs = {"collate_fn": collate_fn_}
         return train, test
