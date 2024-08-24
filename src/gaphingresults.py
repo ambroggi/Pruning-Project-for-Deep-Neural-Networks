@@ -5,6 +5,23 @@ import plotly.express
 import plotly.graph_objects
 
 
+readability = {
+    "parameters": "Total number of parameters",
+    "val_f1_score": "F1 score in validation",
+    "actual_parameters": "Number of non-zero parameters",
+    "TimeForRun": "Time for normal fit after pruning",
+    "TimeForPrune": "Time for pruning the model"
+}
+
+
+scatterpairs = [
+    ("parameters", "val_f1_score"),
+    ("actual_parameters", "val_f1_score"),
+    ("actual_parameters", "TimeForRun"),
+    ("actual_parameters", "TimeForPrune")
+]
+
+
 def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.DataFrame, pd.DataFrame]:
     df = pd.read_csv(path, index_col=0)
 
@@ -19,21 +36,42 @@ def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.Dat
 
     # Calculate the actual parameters out of the normal parameters
     df["actual_parameters"] = df["parameters"] - df["NumberOfZeros"]
-    pt = df.pivot_table(values=["val_f1_score", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune"], index=["PruningSelection", "ProcessID"], columns=[], aggfunc="mean")
+
+    # Normalize time
+    df["TimeForRun"] = df["TimeForRun"]/max(df["TimeForRun"])
+    df["TimeForPrune"] = df["TimeForPrune"]/max(df["TimeForPrune"])
+
+    pt = df.pivot_table(values=["val_f1_score", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc="mean")
     print(df.head())
     print(pt)
     return df, pt
 
 
-def graph_pt(pt: pd.DataFrame):
+def graph_pt(pt: pd.DataFrame, pair: int = 0):
     plot = plotly.graph_objects.Figure()
+    x_name, y_name = scatterpairs[pair]
+    pt = pt.T
 
-    for x in pt[:]:
-        print(x)
-        plot.add_trace(plotly.graph_objects.scatter(x, x="parameters", y="val_f1_score", log_x=True, labels="index", range_y=(0, 1)))
+    for x in pt.keys():
+        # print(pt[x[0]])
+        plot.add_trace(plotly.graph_objects.Scatter(x=pt[x[0]].T[x_name], y=pt[x[0]].T[y_name], name=x[0], marker={"size": 20}))
+
+    plot.update({
+        "layout": {"title": {
+                        "text": f"{readability.get(y_name, y_name)} vs {readability.get(x_name, x_name)}",
+                        "xanchor": "center",
+                        'x': 0.5},
+                   "xaxis_title": f"{readability.get(x_name, x_name)}",
+                   "yaxis_title": f"{readability.get(y_name, y_name)}",
+                   "legend_title": "Method of Pruning",
+                   "xaxis": {"type": "linear"},
+                   "yaxis": {"range": [-0.1, 1.1]}},
+        })
+    plot.update_layout(title_text=f"{readability.get(y_name, y_name)} vs {readability.get(x_name, x_name)}", title_xanchor="right")
     plot.show()
 
 
 if __name__ == "__main__":
     df, pt = read_results()
-    graph_pt(pt)
+    for x in range(len(scatterpairs)):
+        graph_pt(pt, x)

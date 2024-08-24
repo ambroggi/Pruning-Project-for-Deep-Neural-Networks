@@ -270,6 +270,10 @@ def DAIS_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObj
     return kwargs | {"model": model, "data": data, "config": config, "logger": logger}
 
 
+def Random_test(model: modelstruct.BaseDetectionModel):
+    pass
+
+
 def recordModelInfo(model: modelstruct.BaseDetectionModel, logger: filemanagement.ExperimentLineManager):
     logger("macs", model.get_FLOPS())
     logger("parameters", model.get_parameter_count())
