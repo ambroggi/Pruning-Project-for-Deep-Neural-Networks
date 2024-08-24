@@ -5,6 +5,7 @@ GitPython
 scikit-learn
 thop
 tqdm
+plotly
 
 # for ADMM:
 osqp

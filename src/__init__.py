@@ -55,7 +55,7 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
 
     # Sometimes want to run for a while without logging (retraining runs)
     if logger is not None:
-        logger("TimeForRun", time.time()-t)
+        logger("TimeForPrune", time.time()-t)
         logger("LengthOfTrainingData", len(train.dataset))
         logger("LengthOfValidationData", len(validation.dataset))
 
@@ -71,9 +71,11 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
             # This is saving the model, but only during epoch waypoints.
             model.epoch_callbacks.append(lambda results: model.save_model_state_dict(logger, update_config=False, logger_column=f"-Waypoint_{epoch_waypoints.index(results['epoch'])}-") if results['epoch'] in epoch_waypoints else None)
 
+    t = time.time()
     print(model.fit(epochs))
 
     if logger is not None:
+        logger("TimeForRun", time.time()-t)
         recordModelInfo(model, logger)
 
     # Create the model state
