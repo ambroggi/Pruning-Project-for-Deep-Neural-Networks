@@ -41,10 +41,20 @@ def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.Dat
     df["TimeForRun"] = df["TimeForRun"]/max(df["TimeForRun"])
     df["TimeForPrune"] = df["TimeForPrune"]/max(df["TimeForPrune"])
 
+    # Get dataframe for values before pruning
+    row_numbers = df["AssociatedOriginalRow"].fillna({x: x for x in df["AssociatedOriginalRow"].index.values})
+    df_pre = df.iloc[row_numbers]
+    df_scaled = df.copy()
+    numerical = ["val_f1_score", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune"]
+    for x in numerical:
+        df_scaled[x] = df[x].values/df_pre[x].values
+        df_scaled[x].fillna(-1)
+
     pt = df.pivot_table(values=["val_f1_score", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc="mean")
+    pt_scaled = df_scaled.pivot_table(values=["val_f1_score", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc="mean")
     print(df.head())
     print(pt)
-    return df, pt
+    return df, pt, pt_scaled
 
 
 def graph_pt(pt: pd.DataFrame, pair: int = 0):
@@ -52,9 +62,12 @@ def graph_pt(pt: pd.DataFrame, pair: int = 0):
     x_name, y_name = scatterpairs[pair]
     pt = pt.T
 
+    seen_keys = set()
     for x in pt.keys():
-        # print(pt[x[0]])
-        plot.add_trace(plotly.graph_objects.Scatter(x=pt[x[0]].T[x_name], y=pt[x[0]].T[y_name], name=x[0], marker={"size": 20}))
+        if x[0] not in seen_keys:
+            seen_keys.add(x[0])
+            # print(pt[x[0]])
+            plot.add_trace(plotly.graph_objects.Scatter(x=pt[x[0]].T[x_name], y=pt[x[0]].T[y_name], name=x[0], marker={"size": 20}))
 
     plot.update({
         "layout": {"title": {
@@ -72,6 +85,6 @@ def graph_pt(pt: pd.DataFrame, pair: int = 0):
 
 
 if __name__ == "__main__":
-    df, pt = read_results()
+    df, pt, pt_scaled = read_results()
     for x in range(len(scatterpairs)):
-        graph_pt(pt, x)
+        graph_pt(pt_scaled, x)

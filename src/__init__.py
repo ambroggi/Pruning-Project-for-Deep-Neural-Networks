@@ -58,6 +58,8 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
         logger("TimeForPrune", time.time()-t)
         logger("LengthOfTrainingData", len(train.dataset))
         logger("LengthOfValidationData", len(validation.dataset))
+        if "prior_logger_row" in kwargs:
+            logger("AssociatedOriginalRow", kwargs["prior_logger_row"])
 
         # This is just adding things to the log
         model.epoch_callbacks.append(lambda results: ([logger(name_of_value, value, can_overwrite=True) for name_of_value, value in results.items()]))
@@ -82,7 +84,7 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
     # The 'hasattr(b, "clone")' is for strings
     # The 'if "total" not in a' is because the FLOPS count apparently saves itself as a Parameter for some reason
     model_state = {"modelStateDict": {a: (b.clone() if hasattr(b, "clone") else b) for a, b in model.state_dict().items() if "total" not in a}}
-    logger_row = {"logger_row": logger.row_id} if logger is not None else {}
+    logger_row = {"prior_logger_row": logger.row_id} if logger is not None else {}
     return kwargs | {"model": model, "logger": logger, "data": data, "config": config} | logger_row | model_state
 
 
@@ -270,8 +272,23 @@ def DAIS_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObj
     return kwargs | {"model": model, "data": data, "config": config, "logger": logger}
 
 
-def Random_test(model: modelstruct.BaseDetectionModel):
-    pass
+def Random_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, **kwargs):
+    count = 0
+    for module in model.modules():
+        if isinstance(module, torch.nn.Linear) or isinstance(module, torch.nn.Conv1d):
+            pruning_layer = (Imported_Code.PostMutablePruningLayer(module))
+            n = len(pruning_layer.para)
+            random_permutation = torch.randperm(n)
+            random_filter: torch.Tensor = random_permutation.less((config("WeightPrunePercent")[count]*n)//1)
+            pruning_layer.para.data = random_filter.type_as(pruning_layer.para.data)
+            pruning_layer.remove(update_weights=True)
+            count += 1
+
+    config("PruningSelection", "RandomStructured")
+
+    logger = filemanagement.ExperimentLineManager(cfg=config)
+
+    return kwargs | {"model": model, "config": config, "logger": logger}
 
 
 def recordModelInfo(model: modelstruct.BaseDetectionModel, logger: filemanagement.ExperimentLineManager):
@@ -313,18 +330,19 @@ types_of_tests = {
     "thinet": thinet_test,
     "iteritive_full_theseus": swapping_run,
     "BERT_theseus": bert_of_theseus_test,
-    "DAIS": DAIS_test
+    "DAIS": DAIS_test,
+    "RandomStructured": Random_test
 }
 
 
 def standardLoad(index: None | int = None) -> dict[str, any]:
-    config = filemanagement.load_cfg() if index is None else filemanagement.load_cfg(row_number=index)
+    config, index = filemanagement.load_cfg() if index is None else filemanagement.load_cfg(row_number=index)
     if config("SaveLocation") is not None:
         modelStateDict = torch.load("savedModels/"+config("SaveLocation"), map_location=config("Device"))
         config("FromSaveLocation", config("SaveLocation"))
         config("SaveLocation", "None")
-        return {"config": config, "modelStateDict": modelStateDict}
-    return {"config": config}
+        return {"config": config, "modelStateDict": modelStateDict, "prior_logger_row": index}
+    return {"config": config, "prior_logger_row": index}
 
 
 if __name__ == "__main__":

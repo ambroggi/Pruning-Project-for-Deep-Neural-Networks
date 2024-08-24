@@ -103,7 +103,7 @@ def load_cfg(pth: str | os.PathLike = "results/record.csv", row_number=-1) -> Co
         if entry_name in config.parameters.keys() and entry_name not in config.readOnly:
             config(entry_name, single_row[entry_name])
 
-    return config
+    return config, row_number
 
 
 class FileChangedError(Exception):
