@@ -44,6 +44,8 @@ def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.Dat
     # Get dataframe for values before pruning
     row_numbers = df["AssociatedOriginalRow"].fillna({x: x for x in df["AssociatedOriginalRow"].index.values})
     df_pre = df.iloc[row_numbers]
+
+    # Create scaled version of dataframe based on the pretrained values
     df_scaled = df.copy()
     numerical = ["val_f1_score", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune"]
     for x in numerical:
@@ -77,9 +79,9 @@ def graph_pt(pt: pd.DataFrame, pair: int = 0):
                    "xaxis_title": f"{readability.get(x_name, x_name)}",
                    "yaxis_title": f"{readability.get(y_name, y_name)}",
                    "legend_title": "Method of Pruning",
-                   "xaxis": {"type": "linear"},
-                   "yaxis": {"range": [-0.1, 1.1]}},
+                   "xaxis": {"type": "linear"}}
         })
+    # "yaxis": {"range": [-0.1, 1.1]}},
     plot.update_layout(title_text=f"{readability.get(y_name, y_name)} vs {readability.get(x_name, x_name)}", title_xanchor="right")
     plot.show()
 

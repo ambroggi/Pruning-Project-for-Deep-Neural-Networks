@@ -74,7 +74,9 @@ class ModelFunctions():
         # If no epochs, assume no training
         if epochs == 0:
             self.train(False)
-            epochs = 1  # Run model to collect data still.
+            with torch.no_grad():
+                resultsmessage = self.fit(epochs=1, dataloader=dataloader, keep_callbacks=keep_callbacks)  # Run model to collect data still.
+            return resultsmessage
 
         self = self.to(self.cfg("Device"))  # Move things to the active device
 
