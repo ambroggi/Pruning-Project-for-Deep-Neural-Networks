@@ -166,3 +166,4 @@ setup.cfg
 !/savedModels/info.txt
 results/progressbar.txt
 results/progressbar.txt
+results/extra.csv
