@@ -1,23 +1,33 @@
 # This is supposed to be compatibility code to transfer the model into the format expected by the code in Task-Oriented-Feature_Distillation
+# The paper: https://proceedings.neurips.cc/paper_files/paper/2020/file/a96b65a721e561e1e3de768ac819ffbb-Paper.pdf
 # See: https://github.com/ArchipLab-LinfengZhang/Task-Oriented-Feature-Distillation/commit/fcfd4be5ff773d2d27adccdc7df206cdf502800e
 # For the origin of some code segments, code segments will be marked.
+# Changes will be marked with "CHANGE"
 
 import torch
+import torch.nn as nn
+import torch.optim as optim
+import torch.utils.data
+from TaskOrientedFeatureDistillation.utils import CrossEntropy
+# from TaskOrientedFeatureDistillation.utils import get_orth_loss
 
 
 class task_oriented_feature_wrapper(torch.nn.Module):
     def __init__(self):
         super().__init__()
+        self.link = torch.nn.ModuleList()
 
     def forward(self):
         pass
 
 
-def name_main():
-    # This is code from the __name__ == "__main__" block in /distill.py of the origin code
+def name_main(optimizer: torch.optim.Optimizer, teacher: task_oriented_feature_wrapper, net: task_oriented_feature_wrapper, trainloader: torch.utils.data.DataLoader, testloader: torch.utils.data.DataLoader, device: torch.device, LR: float, criterion: nn._Loss, args: 'ConfigCompatabilityWrapper', epochs: int = 250):
+    # This is code from before the __name__=="__main__" block in /distill.py of the origin code
+    init = False
+    # This is code from the __name__ == "__main__" block in /distill.py of the origin code (https://github.com/ArchipLab-LinfengZhang/Task-Oriented-Feature-Distillation)
     best_acc = 0
     print("Start Training")
-    for epoch in range(250):
+    for epoch in range(epochs):  # CHANGE, changed number of epochs to be a variable
         if epoch in [80, 160, 240]:
             for param_group in optimizer.param_groups:
                 param_group['lr'] /= 10
@@ -98,11 +108,8 @@ def name_main():
             correct += float(predicted.eq(labels.data).cpu().sum())
             total += float(labels.size(0))
 
-        print('Test Set AccuracyAcc:  %.4f%% ' % (100 * correct / total))
-        if correct / total > best_acc:
-            best_acc = correct / total
-            print("Best Accuracy Updated: ", best_acc * 100)
-            torch.save(net.state_dict(), "./checkpoint/" + args.model + ".pth")
-print("Training Finished, Best Accuracy is %.4f%%" % (best_acc * 100))
-
-
+        # print('Test Set AccuracyAcc:  %.4f%% ' % (100 * correct / total))
+        # if correct / total > best_acc:
+        #     best_acc = correct / total
+        #     print("Best Accuracy Updated: ", best_acc * 100)
+        #     torch.save(net.state_dict(), "./checkpoint/" + args.model + ".pth")

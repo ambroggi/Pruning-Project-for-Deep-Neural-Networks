@@ -2,5 +2,5 @@
 	path = src/Imported_Code/admm_joint_pruning
 	url = https://github.com/ambroggi/admm_joint_pruning
 [submodule "Task-Oriented-Feature-Distillation"]
-	path = src/Imported_Code/Task-Oriented-Feature-Distillation
+	path = src/Imported_Code/TaskOrientedFeatureDistillation
 	url = https://github.com/ambroggi/Task-Oriented-Feature-Distillation

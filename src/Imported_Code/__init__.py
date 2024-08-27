@@ -31,25 +31,34 @@ add_alpha, DAIS_fit
 
 
 class ConfigCompatabilityWrapper():
-    def __init__(self, config):
+    def __init__(self, config, translations="ADDM"):
         self.config = config
+        if translations == "ADDM":
+            self.translations = {
+                "num_epochs": "NumberOfEpochs",
+                "lr": "LearningRate",
+                "num_pre_epochs": "NumberOfEpochs",
+                "alpha": "AlphaForADMM",
+                "rho": "RhoForADMM",
+                "k": "LayerPruneTargets",
+                "percent": "WeightPrunePercent"
+            }
+        else:
+            self.translations = {
+                "alpha": "AlphaForTOFD",
+                "beta": "BetaForTOFD",
+                "t": "tForTOFD"
+            }
 
     def __getattr__(self, name: str):
-        transaltions = {
-            "num_epochs": "NumberOfEpochs",
-            "lr": "LearningRate",
-            "num_pre_epochs": "NumberOfEpochs",
-            "alpha": "AlphaForADMM",
-            "rho": "RhoForADMM",
-            "k": "LayerPruneTargets",
-            "percent": "WeightPrunePercent"
-        }
+        if name == "translations":
+            return super().__getattr__(name)
         if name in ["l2"]:
             return True
         if name in ["l1"]:
             return False
 
-        return self.config(transaltions.get(name, name))
+        return self.config(self.translations.get(name, name))
 
 
 def add_addm_v_layers(model: torch.nn.Module):
