@@ -14,6 +14,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data
+import torch.utils.hooks
 from TaskOrientedFeatureDistillation.utils import CrossEntropy
 from .helperFunctions import forward_hook
 # from TaskOrientedFeatureDistillation.utils import get_orth_loss
@@ -25,11 +26,11 @@ class task_oriented_feature_wrapper(torch.nn.Module):
         self.wrapped_module = wrapped_module
         # This part is solely just to get the dimentions of the outputs, it is not great but should work
         self.module_hooks_for_outdim = {}
-        fw_hooks = []
+        self.fw_hooks: list[torch.utils.hooks.RemovableHandle] = []
         for module in wrapped_module.modules():
             if isinstance(module, (torch.nn.Linear, torch.nn.Conv1d)):
                 self.module_hooks_for_outdim.update({module: forward_hook()})
-                fw_hooks.append(module.register_forward_hook(self.module_hooks_for_outdim[module]))
+                self.fw_hooks.append(module.register_forward_hook(self.module_hooks_for_outdim[module]))
         class_count = len(wrapped_module(wrapped_module.dataloader.__iter__().__next__())[0])
 
         # Create the auxillary modules
@@ -57,6 +58,10 @@ class task_oriented_feature_wrapper(torch.nn.Module):
 
         return features, outputs
 
+    def remove(self):
+        for x in self.fw_hooks:
+            x.remove()
+
 
 class auxillary_module(torch.nn.Module):
     def __init__(self, wrapped_module: torch.nn.Module, expected_tensor_example: torch.Tensor, number_of_classes: int):
@@ -70,7 +75,7 @@ class auxillary_module(torch.nn.Module):
         return feature, self.final(feature)
 
 
-def name_main(optimizer: torch.optim.Optimizer, teacher: task_oriented_feature_wrapper, net: task_oriented_feature_wrapper, trainloader: torch.utils.data.DataLoader, testloader: torch.utils.data.DataLoader, device: torch.device, LR: float, criterion: nn._Loss, args: ConfigCompatabilityWrapper, epochs: int = 250):
+def TOFD_name_main(optimizer: torch.optim.Optimizer, teacher: task_oriented_feature_wrapper, net: task_oriented_feature_wrapper, trainloader: torch.utils.data.DataLoader, testloader: torch.utils.data.DataLoader, device: torch.device, LR: float, criterion: nn._Loss, args: ConfigCompatabilityWrapper, epochs: int = 250):
     # This is code from before the __name__=="__main__" block in /distill.py of the origin code
     init = False
     # This is code from the __name__ == "__main__" block in /distill.py of the origin code (https://github.com/ArchipLab-LinfengZhang/Task-Oriented-Feature-Distillation)

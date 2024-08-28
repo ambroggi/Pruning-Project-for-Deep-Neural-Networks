@@ -40,6 +40,7 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
     kwargs = kwargs | {"model": model, "logger": logger, "data": data, "config": config}
 
     t = time.time()
+    mem = torch.cuda.memory_allocated()
     if "PruningSelection" in kwargs.keys() and kwargs["PruningSelection"] is not None:
         kwargs = types_of_tests[kwargs["PruningSelection"]](**kwargs)
         kwargs.pop("PruningSelection")
@@ -56,6 +57,7 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
     # Sometimes want to run for a while without logging (retraining runs)
     if logger is not None:
         logger("TimeForPrune", time.time()-t)
+        logger("Memory", torch.cuda.memory_allocated()-mem)
         logger("LengthOfTrainingData", len(train.dataset))
         logger("LengthOfValidationData", len(validation.dataset))
         if "prior_logger_row" in kwargs:
@@ -155,7 +157,7 @@ def addm_test(model: torch.nn.Module, config: cfg.ConfigObject, data, **kwargs):
     optimizer = model.cfg("Optimizer")(model.parameters(), lr=model.cfg("LearningRate"))
 
     # Adds an interpretation layer to the config so that it can be read
-    wrapped_cfg = Imported_Code.ConfigCompatabilityWrapper(config)
+    wrapped_cfg = Imported_Code.ConfigCompatabilityWrapper(config, translations="ADDM")
 
     # Performs the pruning method
     Imported_Code.prune_admm(wrapped_cfg, model, config("Device"), data, data, optimizer)
@@ -272,6 +274,20 @@ def DAIS_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObj
     return kwargs | {"model": model, "data": data, "config": config, "logger": logger}
 
 
+def TOFD_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObject, layers: list[int] | None = None, **kwargs):
+    wrap = Imported_Code.task_oriented_feature_wrapper(model)
+
+    optimizer = config("Optimizer")(wrap.parameters(), lr=config("LearningRate"))
+    train1, train2 = getdata.get_train_test(config, dataloader=data)
+    args = Imported_Code.ConfigCompatabilityWrapper(config=config, translations="TOFD")
+    new_net = modelstruct.getModel(config)
+    new_net.load_model_state_dict_with_structure({x: (y if "weight" not in x else y[:(y*0.5)//1]) for (x, y) in new_net.state_dict().items()})
+
+    Imported_Code.TOFD_name_main(optimizer=optimizer, teacher=wrap, net=None, trainloader=train1, testloader=train2, device=config("Device"), args=args, epochs=config("NumberOfEpochs"))
+
+    wrap.remove()
+
+
 def Random_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, **kwargs):
     count = 0
     for module in model.modules():
@@ -331,6 +347,7 @@ types_of_tests = {
     "iteritive_full_theseus": swapping_run,
     "BERT_theseus": bert_of_theseus_test,
     "DAIS": DAIS_test,
+    "TOFD": TOFD_test,
     "RandomStructured": Random_test
 }
 

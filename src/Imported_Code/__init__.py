@@ -29,6 +29,9 @@ Theseus_Replacement
 from .DAIS_From_Paper import add_alpha, DAIS_fit
 add_alpha, DAIS_fit
 
+from .Task_Oriented_Feature_Distillation_implementation import task_oriented_feature_wrapper, TOFD_name_main
+task_oriented_feature_wrapper, TOFD_name_main
+
 
 class ConfigCompatabilityWrapper():
     def __init__(self, config, translations="ADDM"):
@@ -43,12 +46,14 @@ class ConfigCompatabilityWrapper():
                 "k": "LayerPruneTargets",
                 "percent": "WeightPrunePercent"
             }
-        else:
+        elif translations == "TOFD":
             self.translations = {
                 "alpha": "AlphaForTOFD",
                 "beta": "BetaForTOFD",
                 "t": "tForTOFD"
             }
+        else:
+            self.translations = {}
 
     def __getattr__(self, name: str):
         if name == "translations":

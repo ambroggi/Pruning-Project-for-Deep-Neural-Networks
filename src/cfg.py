@@ -42,7 +42,7 @@ class ConfigObject():
             "AlphaForADMM": [5e-4, "Alpha value for ADMM model", "float"],
             "RhoForADMM": [1.5e-3, "Rho value for ADMM model", "float"],
             "LayerPruneTargets": ["3, 1, 3, 3", "Number of nodes per layer starting with the first layer. NOTE: Will cause an error with ADMM if it is a larger number than the number of filters in that layer", "strl"],
-            "WeightPrunePercent": ["0.72, 0.5, 0.7, 0.8", "Percent of weights to prune down to for each layer", "strl"],
+            "WeightPrunePercent": ["0.7, 0.7, 0.7, 0.7", "Percent of weights to prune down to for each layer", "strl"],
             "PruningSelection": ["", "What pruning was applied", "str"],
             "BERTTheseusStartingLearningRate": [0.5, "What Probibility value the Bert Theseus method starts with", "float"],
             "BERTTheseusLearningRateModifier": [0.5, "What k value (equation 6) the Bert Theseus method modifies the probibility by (devided by epoch count)", "float"],
