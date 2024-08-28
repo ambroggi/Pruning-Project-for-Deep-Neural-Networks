@@ -4,24 +4,73 @@
 # For the origin of some code segments, code segments will be marked.
 # Changes will be marked with "CHANGE"
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from src.Imported_Code import ConfigCompatabilityWrapper
+    from src.modelstruct import BaseDetectionModel
+
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data
 from TaskOrientedFeatureDistillation.utils import CrossEntropy
+from .helperFunctions import forward_hook
 # from TaskOrientedFeatureDistillation.utils import get_orth_loss
 
 
 class task_oriented_feature_wrapper(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, wrapped_module: BaseDetectionModel):
         super().__init__()
+        self.wrapped_module = wrapped_module
+        # This part is solely just to get the dimentions of the outputs, it is not great but should work
+        self.module_hooks_for_outdim = {}
+        fw_hooks = []
+        for module in wrapped_module.modules():
+            if isinstance(module, (torch.nn.Linear, torch.nn.Conv1d)):
+                self.module_hooks_for_outdim.update({module: forward_hook()})
+                fw_hooks.append(module.register_forward_hook(self.module_hooks_for_outdim[module]))
+        class_count = len(wrapped_module(wrapped_module.dataloader.__iter__().__next__())[0])
+
+        # Create the auxillary modules
+        self.aux = torch.nn.ModuleList()
+        for module in wrapped_module.modules():
+            if isinstance(module, (torch.nn.Linear, torch.nn.Conv1d)):
+                self.module_hooks_for_outdim[module].out
+                self.aux.append(auxillary_module(module, self.module_hooks_for_outdim[module].out, class_count))
         self.link = torch.nn.ModuleList()
 
-    def forward(self):
-        pass
+    def forward(self, x):
+        last_output = self.wrapped_module(x)
+
+        features = []
+        outputs = []
+
+        for i, module in enumerate(self.wrapped_module.modules()):
+            feat, out = self.aux[i](self.module_hooks_for_outdim[module].out)
+            features.append(feat)
+            outputs.append(out)
+
+        # Last aux is supposed to be the actual filter? For some reason?
+        features[-1] = self.module_hooks_for_outdim[module].out
+        outputs[-1] = last_output
+
+        return features, outputs
 
 
-def name_main(optimizer: torch.optim.Optimizer, teacher: task_oriented_feature_wrapper, net: task_oriented_feature_wrapper, trainloader: torch.utils.data.DataLoader, testloader: torch.utils.data.DataLoader, device: torch.device, LR: float, criterion: nn._Loss, args: 'ConfigCompatabilityWrapper', epochs: int = 250):
+class auxillary_module(torch.nn.Module):
+    def __init__(self, wrapped_module: torch.nn.Module, expected_tensor_example: torch.Tensor, number_of_classes: int):
+        super().__init__()
+        # NOTE: this auxillary module is not accurate to the paper, it is just to test for now.
+        self.intermidiate = torch.nn.Linear(len(expected_tensor_example[0].flatten()), len(expected_tensor_example[0].flatten()))
+        self.final = torch.nn.Linear(len(expected_tensor_example[0].flatten()), number_of_classes)
+
+    def forward(self, x: torch.Tensor):
+        feature = self.intermidiate(x.flatten(start_dim=1))
+        return feature, self.final(feature)
+
+
+def name_main(optimizer: torch.optim.Optimizer, teacher: task_oriented_feature_wrapper, net: task_oriented_feature_wrapper, trainloader: torch.utils.data.DataLoader, testloader: torch.utils.data.DataLoader, device: torch.device, LR: float, criterion: nn._Loss, args: ConfigCompatabilityWrapper, epochs: int = 250):
     # This is code from before the __name__=="__main__" block in /distill.py of the origin code
     init = False
     # This is code from the __name__ == "__main__" block in /distill.py of the origin code (https://github.com/ArchipLab-LinfengZhang/Task-Oriented-Feature-Distillation)
@@ -108,8 +157,11 @@ def name_main(optimizer: torch.optim.Optimizer, teacher: task_oriented_feature_w
             correct += float(predicted.eq(labels.data).cpu().sum())
             total += float(labels.size(0))
 
-        # print('Test Set AccuracyAcc:  %.4f%% ' % (100 * correct / total))
-        # if correct / total > best_acc:
-        #     best_acc = correct / total
-        #     print("Best Accuracy Updated: ", best_acc * 100)
-        #     torch.save(net.state_dict(), "./checkpoint/" + args.model + ".pth")
+        print('Test Set AccuracyAcc:  %.4f%% ' % (100 * correct / total))
+        if correct / total > best_acc:
+            best_acc = correct / total
+            print("Best Accuracy Updated: ", best_acc * 100)
+        #     torch.save(net.state_dict(), "./checkpoint/" + args.model + ".pth") # CHANGED: Removed the line here because it messes with the save structure
+
+    # End of code from the __name__ == "__main__" block in /distill.py of the origin code (https://github.com/ArchipLab-LinfengZhang/Task-Oriented-Feature-Distillation)
+    return net
