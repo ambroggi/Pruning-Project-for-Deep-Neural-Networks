@@ -15,30 +15,30 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data
 import torch.utils.hooks
-from TaskOrientedFeatureDistillation.utils import CrossEntropy
+from .TaskOrientedFeatureDistillation.utils import CrossEntropy
 from .helperFunctions import forward_hook
 # from TaskOrientedFeatureDistillation.utils import get_orth_loss
 
 
 class task_oriented_feature_wrapper(torch.nn.Module):
-    def __init__(self, wrapped_module: BaseDetectionModel):
+    def __init__(self, wrapped_module: 'BaseDetectionModel'):
         super().__init__()
         self.wrapped_module = wrapped_module
         # This part is solely just to get the dimentions of the outputs, it is not great but should work
         self.module_hooks_for_outdim = {}
         self.fw_hooks: list[torch.utils.hooks.RemovableHandle] = []
-        for module in wrapped_module.modules():
-            if isinstance(module, (torch.nn.Linear, torch.nn.Conv1d)):
-                self.module_hooks_for_outdim.update({module: forward_hook()})
-                self.fw_hooks.append(module.register_forward_hook(self.module_hooks_for_outdim[module]))
-        class_count = len(wrapped_module(wrapped_module.dataloader.__iter__().__next__())[0])
+        for module in [m for m in wrapped_module.modules() if isinstance(m, (torch.nn.Linear, torch.nn.Conv1d))]:
+            self.module_hooks_for_outdim.update({module: forward_hook()})
+            self.fw_hooks.append(module.register_forward_hook(self.module_hooks_for_outdim[module]))
+        class_count = len(wrapped_module(wrapped_module.dataloader.__iter__().__next__()[0])[0])
+        length_of_last_block_input = len(self.module_hooks_for_outdim[module].inp[0])
 
         # Create the auxillary modules
         self.aux = torch.nn.ModuleList()
         for module in wrapped_module.modules():
             if isinstance(module, (torch.nn.Linear, torch.nn.Conv1d)):
                 self.module_hooks_for_outdim[module].out
-                self.aux.append(auxillary_module(module, self.module_hooks_for_outdim[module].out, class_count))
+                self.aux.append(auxillary_module(module, self.module_hooks_for_outdim[module].out, class_count, features_len=length_of_last_block_input))
         self.link = torch.nn.ModuleList()
 
     def forward(self, x):
@@ -47,16 +47,16 @@ class task_oriented_feature_wrapper(torch.nn.Module):
         features = []
         outputs = []
 
-        for i, module in enumerate(self.wrapped_module.modules()):
-            feat, out = self.aux[i](self.module_hooks_for_outdim[module].out)
+        for i, module in enumerate([a for a in self.wrapped_module.modules() if a in self.module_hooks_for_outdim]):
+            out, feat = self.aux[i](self.module_hooks_for_outdim[module].out)
             features.append(feat)
             outputs.append(out)
 
         # Last aux is supposed to be the actual filter? For some reason?
-        features[-1] = self.module_hooks_for_outdim[module].out
+        features[-1] = self.module_hooks_for_outdim[module].inp
         outputs[-1] = last_output
 
-        return features, outputs
+        return outputs, features
 
     def remove(self):
         for x in self.fw_hooks:
@@ -64,18 +64,19 @@ class task_oriented_feature_wrapper(torch.nn.Module):
 
 
 class auxillary_module(torch.nn.Module):
-    def __init__(self, wrapped_module: torch.nn.Module, expected_tensor_example: torch.Tensor, number_of_classes: int):
+    def __init__(self, wrapped_module: torch.nn.Module, expected_tensor_example: torch.Tensor, number_of_classes: int, features_len: int):
         super().__init__()
         # NOTE: this auxillary module is not accurate to the paper, it is just to test for now.
-        self.intermidiate = torch.nn.Linear(len(expected_tensor_example[0].flatten()), len(expected_tensor_example[0].flatten()))
-        self.final = torch.nn.Linear(len(expected_tensor_example[0].flatten()), number_of_classes)
+        self.wrapped = wrapped_module
+        self.intermidiate = torch.nn.Linear(len(expected_tensor_example[0].flatten()), features_len)
+        self.final = torch.nn.Linear(features_len, number_of_classes)
 
     def forward(self, x: torch.Tensor):
         feature = self.intermidiate(x.flatten(start_dim=1))
-        return feature, self.final(feature)
+        return self.final(feature), feature
 
 
-def TOFD_name_main(optimizer: torch.optim.Optimizer, teacher: task_oriented_feature_wrapper, net: task_oriented_feature_wrapper, trainloader: torch.utils.data.DataLoader, testloader: torch.utils.data.DataLoader, device: torch.device, LR: float, criterion: nn._Loss, args: ConfigCompatabilityWrapper, epochs: int = 250):
+def TOFD_name_main(optimizer: torch.optim.Optimizer, teacher: task_oriented_feature_wrapper, net: task_oriented_feature_wrapper, trainloader: torch.utils.data.DataLoader, testloader: torch.utils.data.DataLoader, device: torch.device, LR: float, criterion: nn.Module, args: 'ConfigCompatabilityWrapper', epochs: int = 250):
     # This is code from before the __name__=="__main__" block in /distill.py of the origin code
     init = False
     # This is code from the __name__ == "__main__" block in /distill.py of the origin code (https://github.com/ArchipLab-LinfengZhang/Task-Oriented-Feature-Distillation)
@@ -109,7 +110,7 @@ def TOFD_name_main(optimizer: torch.optim.Optimizer, teacher: task_oriented_feat
                 for j in range(num_auxiliary_classifier):
                     link.append(nn.Linear(student_feature_size, teacher_feature_size, bias=False))
                 net.link = nn.ModuleList(link)
-                net.cuda()
+                # net.cuda()  # CHANGE: Removed CUDA requirement
                 #   we redefine optimizer here so it can optimize the net.link layers.
                 optimizer = optim.SGD(net.parameters(), lr=LR, weight_decay=5e-4, momentum=0.9)
                 init = True
@@ -125,14 +126,14 @@ def TOFD_name_main(optimizer: torch.optim.Optimizer, teacher: task_oriented_feat
                 #   task loss (cross entropy loss for the classification task)
                 loss += criterion(outputs[index], labels)
                 #   logit distillation loss, CrossEntropy implemented in utils.py.
-                loss += CrossEntropy(outputs[index], teacher_logits[index], 1 + (args.t / 250) * float(1 + epoch))
+                loss += CrossEntropy(outputs[index], teacher_logits[index], 1 + (args.t / epochs) * float(1 + epoch))  # CHANGE: changed "args.t / 250" to "args.t / epochs" because the number of epochs can change
 
             # Orthogonal Loss
             for index in range(len(student_feature)):
                 weight = list(net.link[index].parameters())[0]
                 weight_trans = weight.permute(1, 0)
-                ones = torch.eye(weight.size(0)).cuda()
-                ones2 = torch.eye(weight.size(1)).cuda()
+                ones = torch.eye(weight.size(0))  # CHANGE: removed ".cuda()"
+                ones2 = torch.eye(weight.size(1))  # CHANGE: removed ".cuda()"
                 loss += torch.dist(torch.mm(weight, weight_trans), ones, p=2) * args.beta
                 loss += torch.dist(torch.mm(weight_trans, weight), ones2, p=2) * args.beta
 

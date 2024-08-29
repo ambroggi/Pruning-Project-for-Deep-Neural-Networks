@@ -2,6 +2,7 @@
 import torch
 import gc
 import time
+import math
 from . import cfg
 from . import modelstruct
 from . import getdata
@@ -281,11 +282,43 @@ def TOFD_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObj
     train1, train2 = getdata.get_train_test(config, dataloader=data)
     args = Imported_Code.ConfigCompatabilityWrapper(config=config, translations="TOFD")
     new_net = modelstruct.getModel(config)
-    new_net.load_model_state_dict_with_structure({x: (y if "weight" not in x else y[:(y*0.5)//1]) for (x, y) in new_net.state_dict().items()})
 
-    Imported_Code.TOFD_name_main(optimizer=optimizer, teacher=wrap, net=None, trainloader=train1, testloader=train2, device=config("Device"), args=args, epochs=config("NumberOfEpochs"))
+    # Creating new state dict
+    new_net_state_dict = {}
+    module_num = 0
+    prior_percentage = 1
+    for name, module in new_net.named_modules():
+        if isinstance(module, (torch.nn.Linear, torch.nn.Conv1d)):
+            percentage = config("WeightPrunePercent")[module_num]
+            current_length = len(module.bias)
+            new_net_state_dict.update({f"{name}.{x}": y[:math.ceil(len(y)*percentage), :math.ceil(len(y[0])*prior_percentage)] for x, y in module.state_dict().items() if ("weight" in x)})
+            new_net_state_dict.update({f"{name}.{x}": y[:math.ceil(len(y)*percentage)] for x, y in module.state_dict().items() if ("bias" in x)})
+            prior_percentage = math.ceil(current_length*percentage)/current_length
+            module_num += 1
+
+    # print(*[f"{x}:{y.shape}\n" for x, y in model.state_dict().items()])
+    # print(*[f"{x}:{y.shape}\n" for x, y in new_net_state_dict.items()])
+    new_net.load_model_state_dict_with_structure(new_net_state_dict)
+
+    # Model set up
+    train, validation = getdata.get_train_test(config, dataloader=data)
+    new_net.set_training_data(train)
+    new_net.set_validation_data(validation)
+    new_net.cfg = config
+
+    new_wrap = Imported_Code.task_oriented_feature_wrapper(new_net)
+
+    Imported_Code.TOFD_name_main(optimizer=optimizer, teacher=wrap, net=new_wrap, trainloader=train1, testloader=train2, device=config("Device"), args=args, epochs=config("NumberOfEpochs"), LR=config("LearningRate"), criterion=config("LossFunction")())
 
     wrap.remove()
+
+    config("PruningSelection", "TOFD_INCOMPLETE")  # Incomplete because the auxillary modules are not exactly as described
+
+    logger = filemanagement.ExperimentLineManager(cfg=config)
+
+    new_net.train(False)
+
+    return kwargs | {"model": new_net, "data": data, "config": config, "logger": logger}
 
 
 def Random_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, **kwargs):
