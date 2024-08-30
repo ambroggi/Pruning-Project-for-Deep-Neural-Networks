@@ -102,7 +102,7 @@ def run_thinet_on_layer(model: "BaseDetectionModel", layerIndex: int, training_d
         remove_layers(model, layerIndex, keepint_tensor=torch.ones_like(x[0], dtype=torch.bool))
         return
 
-    indexes, weight_mod = value_sum(x, y, config("WeightPrunePercent")[layerIndex-1])
+    indexes, weight_mod = value_sum(x, y, config("WeightPrunePercent")[layerIndex])
 
     # Weight_mod is in the shape of the newly created weights for module_results
     # That means it is C_in*C_out where C_in is the number of channels being kept (len(indexes))

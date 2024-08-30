@@ -2,17 +2,20 @@ if __name__ != '__mp_main__':
     import src
 
 if __name__ == "__main__":
-    kwargs = src.standard_run(save_epoch_waypoints=True)
+    # kwargs = src.standard_run(save_epoch_waypoints=True)
     # kwargs["model"].save_model_state_dict(logger=kwargs["logger"])
-    # load = src.standardLoad()
-    # src.standard_run(**load)
+
+    load = src.standardLoad(index=5)
+    kwargs = src.standard_run(NumberOfEpochs=0, **load) | {"prior_logger_row": load["prior_logger_row"]}
+    kwargs.pop("NumberOfEpochs")
+
     # # swapping_run()
-    src.standard_run(PruningSelection="TOFD", **kwargs)
-    src.standard_run(PruningSelection="RandomStructured", **kwargs)
-    src.standard_run(PruningSelection="DAIS", **kwargs)
-    src.standard_run(PruningSelection="BERT_theseus", **kwargs)
-    src.standard_run(PruningSelection="iteritive_full_theseus", **kwargs)
-    src.standard_run(PruningSelection="thinet", **kwargs)
+    # src.standard_run(PruningSelection="TOFD", **kwargs)
+    # src.standard_run(PruningSelection="RandomStructured", **kwargs)
+    # src.standard_run(PruningSelection="DAIS", **kwargs)
+    # src.standard_run(PruningSelection="BERT_theseus", **kwargs)
+    # src.standard_run(PruningSelection="iteritive_full_theseus", **kwargs)
+    # src.standard_run(PruningSelection="thinet", **kwargs)
     src.standard_run(PruningSelection="ADDM_Joint", **kwargs)
     src.standard_run(**(kwargs | {"logger": None, "NumberOfEpochs": 0}))
 

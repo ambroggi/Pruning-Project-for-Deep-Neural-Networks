@@ -43,6 +43,7 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
     t = time.time()
     mem = torch.cuda.memory_allocated()
     if "PruningSelection" in kwargs.keys() and kwargs["PruningSelection"] is not None:
+        model.train(True)
         kwargs = types_of_tests[kwargs["PruningSelection"]](**kwargs)
         kwargs.pop("PruningSelection")
         model = kwargs["model"]
@@ -93,7 +94,7 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
 
 def swapping_run(config: cfg.ConfigObject, model: torch.nn.Module, data, layers: list[int] | None = None, **kwargs):
     if layers is None:
-        layers = range(len(config("WeightPrunePercent"))-1)
+        layers = [layernum for layernum, layerpercent in enumerate(config("WeightPrunePercent")) if layerpercent < 1]
 
     targets = []
     currents = []
@@ -160,6 +161,9 @@ def addm_test(model: torch.nn.Module, config: cfg.ConfigObject, data, **kwargs):
     # Adds an interpretation layer to the config so that it can be read
     wrapped_cfg = Imported_Code.ConfigCompatabilityWrapper(config, translations="ADDM")
 
+    # Expects model to have log_softmax applied (observed from the model used in the code)
+    remover = model.register_forward_hook(lambda module, args, output: torch.nn.functional.log_softmax(output, dim=1))
+
     # Performs the pruning method
     Imported_Code.prune_admm(wrapped_cfg, model, config("Device"), data, data, optimizer)
 
@@ -169,6 +173,9 @@ def addm_test(model: torch.nn.Module, config: cfg.ConfigObject, data, **kwargs):
 
     # Removes the added v layers from the model
     Imported_Code.remove_addm_v_layers(model)
+
+    # Remove F.log_softmax
+    remover.remove()
 
     # print(mask)
     # Calculates the weights that should be kept stable because they are pruned
@@ -184,7 +191,7 @@ def addm_test(model: torch.nn.Module, config: cfg.ConfigObject, data, **kwargs):
 
 def thinet_test_old(config: cfg.ConfigObject, model: torch.nn.Module, layers: list[int] | None = None, **kwargs):
     if layers is None:
-        layers = range(len(config("WeightPrunePercent")) - 1)
+        layers = [layernum for layernum, layerpercent in enumerate(config("WeightPrunePercent")) if layerpercent < 1]
 
     for i in layers:
         Imported_Code.thinet_pruning(model, i, config=config)
@@ -197,7 +204,7 @@ def thinet_test_old(config: cfg.ConfigObject, model: torch.nn.Module, layers: li
 
 def thinet_test(config: cfg.ConfigObject, data: torch.utils.data.DataLoader, model: torch.nn.Module, layers: list[int] | None = None, **kwargs):
     if layers is None:
-        layers = range(len(config("WeightPrunePercent")) - 1)
+        layers = [layernum for layernum, layerpercent in enumerate(config("WeightPrunePercent")) if layerpercent < 1]
 
     # Create sample of dataset, Fancy load_kwargs is just there to load the collate_fn
     training_data = iter(torch.utils.data.DataLoader(data.dataset, 100000, **(data.dataset.load_kwargs if hasattr(data.dataset, "load_kwargs") else {}))).__next__()[0]
@@ -212,7 +219,7 @@ def thinet_test(config: cfg.ConfigObject, data: torch.utils.data.DataLoader, mod
 
 
 def bert_of_theseus_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObject, **kwargs):
-    lst: list[torch.nn.Module] = [model.conv1, model.pool1, model.conv2]
+    lst: list[torch.nn.Module] = model.get_important_modules()
     # lst = [model.conv1, model.pool1, model.conv2, model.flatten, model.fc1]
 
     start, end = Imported_Code.forward_hook(), Imported_Code.forward_hook()
@@ -243,7 +250,7 @@ def bert_of_theseus_test(model: modelstruct.BaseDetectionModel, data, config: cf
 def DAIS_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObject, layers: list[int] | None = None, **kwargs):
     # Find the layers to apply it to
     if layers is None:
-        layers = range(len(config("WeightPrunePercent")))
+        layers = [layernum for layernum, layerpercent in enumerate(config("WeightPrunePercent")) if layerpercent < 1]
 
     alphas = []
     for layer, module in enumerate(model.get_important_modules()):

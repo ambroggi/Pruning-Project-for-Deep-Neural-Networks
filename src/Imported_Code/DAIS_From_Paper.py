@@ -105,7 +105,9 @@ def DAIS_fit(model: BaseDetectionModel, alpha_hooks: list[add_alpha], epochs: in
     alpha_dl = torch.utils.data.DataLoader(alpha_dl, **(dl.dataset.load_kwargs if hasattr(dl.dataset, "load_kwargs") else {}))
 
     if model.optimizer is None:
-        model.optimizer = model.cfg("Optimizer")([x for x in model.parameters() if x not in alp], lr=model.cfg("LearningRate"))
+        # This is really silly but it appears that parameters cannot be removed by .remove() if they are of different shapes?
+        pram = [a for a in model.parameters() if True not in [a is b for b in alp]]
+        model.optimizer = model.cfg("Optimizer")(pram, lr=model.cfg("LearningRate"))
     primary_optimizer = model.optimizer
     secondary_optimizer = model.cfg("Optimizer")(model.parameters(), lr=model.cfg("LearningRate"))
 
