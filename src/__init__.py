@@ -151,7 +151,7 @@ def swapping_run(config: cfg.ConfigObject, model: torch.nn.Module, data, layers:
     return kwargs | {"model": model, "logger": logger, "data": data, "config": config}
 
 
-def addm_test(model: torch.nn.Module, config: cfg.ConfigObject, data, **kwargs):
+def addm_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, data, **kwargs):
     # Adds the compatability to the model that is needed
     Imported_Code.add_addm_v_layers(model)
 
@@ -171,8 +171,16 @@ def addm_test(model: torch.nn.Module, config: cfg.ConfigObject, data, **kwargs):
     # Imported_Code.apply_filter(model, config("Device"), wrapped_cfg)  # Commenting out because I think this is redundent
     mask = Imported_Code.apply_prune(model, config("Device"), wrapped_cfg)
 
-    # Removes the added v layers from the model
-    Imported_Code.remove_addm_v_layers(model)
+    # Set all weights to their new values
+    with torch.no_grad():
+        # Only keeps the top magnitude weights as described in section "4.4. Network retraining"
+        for percent_to_prune, w in zip(config("WeightPrunePercent"), model.get_important_modules()):
+            w: torch.nn.Linear
+            indices = torch.topk(abs(w.weight.flatten()), int(len(w.weight.flatten())*(1-percent_to_prune)), largest=False).indices
+            w.weight.view(-1)[indices] = 0
+
+        # Removes the added v layers from the model
+        Imported_Code.remove_addm_v_layers(model)
 
     # Remove F.log_softmax
     remover.remove()
