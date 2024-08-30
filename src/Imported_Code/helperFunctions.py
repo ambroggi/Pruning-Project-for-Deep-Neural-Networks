@@ -1,4 +1,7 @@
 import torch
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from src.modelstruct import BaseDetectionModel
 
 
 class forward_hook():
@@ -24,18 +27,17 @@ class forward_hook():
         # print(f"input: {inp}")
 
 
-def collect_module_is(model: torch.nn.Module, paramNumbers: list, batch: torch.Tensor) -> list[forward_hook]:
+def collect_module_is(model: "BaseDetectionModel", paramNumbers: list, batch: torch.Tensor) -> list[forward_hook]:
     # Used in ThiNet
     i = 0
     hooks = []
     removers = []
-    for module in model.modules():
-        if isinstance(module, (torch.nn.Linear, torch.nn.Conv1d)):
-            if i in paramNumbers:
-                # Prepare to catch the data for the module
-                hooks.append(forward_hook())
-                removers.append(module.register_forward_hook(hooks[-1]))
-            i += 1
+    for module in model.get_important_modules():
+        if i in paramNumbers:
+            # Prepare to catch the data for the module
+            hooks.append(forward_hook())
+            removers.append(module.register_forward_hook(hooks[-1]))
+        i += 1
 
     model(batch)
 

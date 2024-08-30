@@ -100,12 +100,12 @@ def swapping_run(config: cfg.ConfigObject, model: torch.nn.Module, data, layers:
     path_for_layer = []
 
     for i in layers:
-        # This is the swapping
-        state_dict = model.state_dict_of_layer_i(i)
-        changing_weight_and_bias = list(state_dict.keys())
-        path_for_layer.append(changing_weight_and_bias[0])
-        targets.append(int(len(state_dict[changing_weight_and_bias[0]])*config("WeightPrunePercent")[i]))
-        currents.append(len(state_dict[changing_weight_and_bias[0]]))
+        # This is for finding the target dimentions
+        state_dict = model.state_dict_of_layer_i(i)  # get the state dict of current layer
+        weights_path = [x for x in state_dict.keys() if "weight" in x][0]  # find what the weights are called (it is in the form "x.weight")
+        path_for_layer.append(weights_path)  # save the path to weights so we dont need to calculate it again
+        targets.append(int(len(state_dict[weights_path])*config("WeightPrunePercent")[i]))  # find how small it should be pruned to
+        currents.append(len(state_dict[weights_path]))  # save the shape it currently is
 
     config("PruningSelection", "iteritive_full_theseus_training")
 
@@ -243,16 +243,12 @@ def bert_of_theseus_test(model: modelstruct.BaseDetectionModel, data, config: cf
 def DAIS_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObject, layers: list[int] | None = None, **kwargs):
     # Find the layers to apply it to
     if layers is None:
-        layers = range(1, len(config("WeightPrunePercent")))
+        layers = range(len(config("WeightPrunePercent")))
 
     alphas = []
-    layer = -1
-    for module in model.modules():
-        if isinstance(module, (torch.nn.Conv1d, torch.nn.Linear)):
-            layer += 1
-
-            if layer in layers:
-                alphas.append(Imported_Code.add_alpha(module, 0.2, config("NumberOfEpochs")))
+    for layer, module in enumerate(model.get_important_modules()):
+        if layer in layers:
+            alphas.append(Imported_Code.add_alpha(module, config("WeightPrunePercent")[layer], config("NumberOfEpochs")))
 
     model.epoch_callbacks.extend([a.callback_fn for a in alphas])
 
@@ -285,16 +281,14 @@ def TOFD_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObj
 
     # Creating new state dict
     new_net_state_dict = {}
-    module_num = 0
     prior_percentage = 1
-    for name, module in new_net.named_modules():
-        if isinstance(module, (torch.nn.Linear, torch.nn.Conv1d)):
-            percentage = config("WeightPrunePercent")[module_num]
-            current_length = len(module.bias)
-            new_net_state_dict.update({f"{name}.{x}": y[:math.ceil(len(y)*percentage), :math.ceil(len(y[0])*prior_percentage)] for x, y in module.state_dict().items() if ("weight" in x)})
-            new_net_state_dict.update({f"{name}.{x}": y[:math.ceil(len(y)*percentage)] for x, y in module.state_dict().items() if ("bias" in x)})
-            prior_percentage = math.ceil(current_length*percentage)/current_length
-            module_num += 1
+    for module_num, module in enumerate(model.get_important_modules()):
+        state_dict = new_net.state_dict_of_layer_i(module_num)
+        percentage = config("WeightPrunePercent")[module_num]
+        current_length = len(module.bias)
+        new_net_state_dict.update({x: y[:math.ceil(len(y)*percentage), :math.ceil(len(y[0])*prior_percentage)] for x, y in state_dict.items() if ("weight" in x)})
+        new_net_state_dict.update({x: y[:math.ceil(len(y)*percentage)] for x, y in state_dict.items() if ("bias" in x)})
+        prior_percentage = math.ceil(current_length*percentage)/current_length
 
     # print(*[f"{x}:{y.shape}\n" for x, y in model.state_dict().items()])
     # print(*[f"{x}:{y.shape}\n" for x, y in new_net_state_dict.items()])
@@ -322,16 +316,13 @@ def TOFD_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObj
 
 
 def Random_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, **kwargs):
-    count = 0
-    for module in model.modules():
-        if isinstance(module, torch.nn.Linear) or isinstance(module, torch.nn.Conv1d):
-            pruning_layer = (Imported_Code.PostMutablePruningLayer(module))
-            n = len(pruning_layer.para)
-            random_permutation = torch.randperm(n)
-            random_filter: torch.Tensor = random_permutation.less((config("WeightPrunePercent")[count]*n)//1)
-            pruning_layer.para.data = random_filter.type_as(pruning_layer.para.data)
-            pruning_layer.remove(update_weights=True)
-            count += 1
+    for count, module in enumerate(model.get_important_modules()):
+        pruning_layer = (Imported_Code.PostMutablePruningLayer(module))
+        n = len(pruning_layer.para)
+        random_permutation = torch.randperm(n)
+        random_filter: torch.Tensor = random_permutation.less((config("WeightPrunePercent")[count]*n)//1)
+        pruning_layer.para.data = random_filter.type_as(pruning_layer.para.data)
+        pruning_layer.remove(update_weights=True)
 
     config("PruningSelection", "RandomStructured")
 

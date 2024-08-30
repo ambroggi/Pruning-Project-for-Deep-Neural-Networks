@@ -19,16 +19,13 @@ def thinet_pruning(model: torch.nn.Module, parameterNumber: int, config, dataset
 
         input_storage = forward_hook()
 
-        i = 0
-        for module in model.modules():
-            if isinstance(module, (torch.nn.Linear, torch.nn.Conv1d)):
-                if parameterNumber + 1 == i:
-                    # Prepare to catch the data for the module
-                    removable = module.register_forward_hook(input_storage)
-                    break
-                elif parameterNumber == i:
-                    module_being_reduced = module
-                i += 1
+        for i, module in enumerate(model.get_important_modules()):
+            if parameterNumber + 1 == i:
+                # Prepare to catch the data for the module
+                removable = module.register_forward_hook(input_storage)
+                break
+            elif parameterNumber == i:
+                module_being_reduced = module
         else:
             # This runs if the break is not hit
             raise IndexError("thinet cannot be applied to the last layer")

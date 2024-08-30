@@ -8,16 +8,20 @@ class BaseDetectionModel(torch.nn.Module, modelfunctions.ModelFunctions):
         modelfunctions.ModelFunctions.__init__(self)
         super(BaseDetectionModel, self).__init__()
 
-        self.fc_test_lin = torch.nn.Linear(100, 100)
+        self.fc1 = torch.nn.Linear(100, 100)
 
     def forward(self, tensor: torch.Tensor) -> torch.Tensor:
-        return self.fc_test_lin(tensor)
+        return self.fc1(tensor)
+
+    def get_important_modules(self) -> torch.nn.ModuleList:
+        return torch.nn.ModuleList([x for x in self.modules() if isinstance(x, (torch.nn.Linear, torch.nn.Conv1d))])
 
 
 class SimpleCNNModel(BaseDetectionModel):
     def __init__(self):
         modelfunctions.ModelFunctions.__init__(self)
-        super(BaseDetectionModel, self).__init__()
+        super(SimpleCNNModel, self).__init__()
+        del self.fc1
 
         self.conv1 = torch.nn.Conv1d(1, 12, 4)
         self.pool1 = torch.nn.MaxPool1d(3)
@@ -70,28 +74,31 @@ model_layercount = {
 
 def getModel(name_or_config: str | object, **kwargs) -> BaseDetectionModel:
     if isinstance(name_or_config, str):
-        return_val = models[name_or_config](**kwargs)
-        layer_count = model_layercount[name_or_config]
+        return_model: BaseDetectionModel = models[name_or_config](**kwargs)
     else:
-        return_val = models[name_or_config("ModelStructure")](**kwargs)
-        return_val.cfg = name_or_config
-        layer_count = model_layercount[name_or_config("ModelStructure")]
+        return_model = models[name_or_config("ModelStructure")](**kwargs)
+        return_model.cfg = name_or_config
+
+    layer_count = len(return_model.get_important_modules())
+
+    for a, b in zip(return_model.get_important_modules(), [x for x in return_model.modules() if isinstance(x, (torch.nn.Linear, torch.nn.Conv1d))]):
+        assert a is b
 
     # Check that config variables have enough values:
     for x in ["LayerPruneTargets", "LayerIteration"]:
-        if len(return_val.cfg(x)) != layer_count:
-            if len(return_val.cfg(x)) > layer_count:
-                return_val.cfg(x, (return_val.cfg(x)[:layer_count]))
+        if len(return_model.cfg(x)) != layer_count:
+            if len(return_model.cfg(x)) > layer_count:
+                return_model.cfg(x, (return_model.cfg(x)[:layer_count]))
             else:
                 raise ValueError(f"config value {x} needs to have at least as many layers as do exist in the model")
 
-    if len(return_val.cfg("WeightPrunePercent")) != layer_count:
-        if len(return_val.cfg("WeightPrunePercent")) > layer_count:
-            return_val.cfg("WeightPrunePercent", return_val.cfg("WeightPrunePercent")[:layer_count])
+    if len(return_model.cfg("WeightPrunePercent")) != layer_count:
+        if len(return_model.cfg("WeightPrunePercent")) > layer_count:
+            return_model.cfg("WeightPrunePercent", return_model.cfg("WeightPrunePercent")[:layer_count])
         else:
-            return_val.cfg("WeightPrunePercent", str(*(return_val.cfg("WeightPrunePercent"), *[1 for _ in range(layer_count - len(return_val.cfg("WeightPrunePercent")))])))
+            return_model.cfg("WeightPrunePercent", str(*(return_model.cfg("WeightPrunePercent"), *[1 for _ in range(layer_count - len(return_model.cfg("WeightPrunePercent")))])))
 
-    return return_val
+    return return_model
 
 
 if __name__ == "__main__":

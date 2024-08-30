@@ -277,16 +277,10 @@ class ModelFunctions():
         """
         Gets the state dict of the module at position i.
         """
-        state_dict = {}
-        idx = -1
-        for name, param in self.named_parameters():
-            if "weight" in name:
-                idx += 1
-                if idx == layer_i:
-                    state_dict = state_dict | {name: param.data.clone()}
 
-            if "bias" in name and idx == layer_i:
-                state_dict = state_dict | {name: param.data.clone()}
+        for name, module in self.named_modules():
+            if module is self.get_important_modules()[layer_i]:
+                state_dict = {f"{name}.{x}": y for x, y in module.state_dict().items()}
 
         return state_dict
 

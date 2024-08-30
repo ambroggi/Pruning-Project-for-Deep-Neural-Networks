@@ -27,7 +27,7 @@ class task_oriented_feature_wrapper(torch.nn.Module):
         # This part is solely just to get the dimentions of the outputs, it is not great but should work
         self.module_hooks_for_outdim = {}
         self.fw_hooks: list[torch.utils.hooks.RemovableHandle] = []
-        for module in [m for m in wrapped_module.modules() if isinstance(m, (torch.nn.Linear, torch.nn.Conv1d))]:
+        for module in wrapped_module.get_important_modules():
             self.module_hooks_for_outdim.update({module: forward_hook()})
             self.fw_hooks.append(module.register_forward_hook(self.module_hooks_for_outdim[module]))
         class_count = len(wrapped_module(wrapped_module.dataloader.__iter__().__next__()[0])[0])

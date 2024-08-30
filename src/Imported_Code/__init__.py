@@ -1,6 +1,9 @@
 import sys
 import torch
 import torch.utils.data
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from src.modelstruct import BaseDetectionModel
 
 from ..extramodules import PostMutablePruningLayer
 # import os
@@ -66,9 +69,9 @@ class ConfigCompatabilityWrapper():
         return self.config(self.translations.get(name, name))
 
 
-def add_addm_v_layers(model: torch.nn.Module):
+def add_addm_v_layers(model: "BaseDetectionModel"):
     count = 1
-    for module in model.modules():
+    for module in model.get_important_modules():
         print(module)
         if isinstance(module, torch.nn.Linear) or isinstance(module, torch.nn.Conv1d):
             model.pruning_layers.append(PostMutablePruningLayer(module))
@@ -76,7 +79,7 @@ def add_addm_v_layers(model: torch.nn.Module):
             count += 1
 
 
-def remove_addm_v_layers(model: torch.nn.Module):
+def remove_addm_v_layers(model: "BaseDetectionModel"):
     count = 1
     while len(model.pruning_layers) > 0:
         model.__setattr__(f"v{count}", None)
@@ -84,7 +87,7 @@ def remove_addm_v_layers(model: torch.nn.Module):
         count += 1
 
 
-def run_thinet_on_layer(model: torch.nn.Module, layerIndex: int, training_data, config):
+def run_thinet_on_layer(model: "BaseDetectionModel", layerIndex: int, training_data, config):
     module_results: list[forward_hook] = collect_module_is(model, [layerIndex, layerIndex+1], training_data)
     x = torch.stack(run_one_channel_module(module_results[0].modu, module_results[0].inp.detach())).detach().T
     y = module_results[1].out_no_bias.detach()
