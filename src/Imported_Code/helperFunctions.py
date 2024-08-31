@@ -2,6 +2,40 @@ import torch
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from src.modelstruct import BaseDetectionModel
+    BaseDetectionModel
+
+
+class ConfigCompatabilityWrapper():
+    def __init__(self, config, translations="ADDM"):
+        self.config = config
+        if translations == "ADDM":
+            self.translations = {
+                "num_epochs": "NumberOfEpochs",
+                "lr": "LearningRate",
+                "num_pre_epochs": "NumberOfEpochs",
+                "alpha": "AlphaForADMM",
+                "rho": "RhoForADMM",
+                "k": "LayerPruneTargets",
+                "percent": "WeightPrunePercent"
+            }
+        elif translations == "TOFD":
+            self.translations = {
+                "alpha": "AlphaForTOFD",
+                "beta": "BetaForTOFD",
+                "t": "tForTOFD"
+            }
+        else:
+            self.translations = {}
+
+    def __getattr__(self, name: str):
+        if name == "translations":
+            return super().__getattr__(name)
+        if name in ["l2"]:
+            return True
+        if name in ["l1"]:
+            return False
+
+        return self.config(self.translations.get(name, name))
 
 
 class forward_hook():
@@ -27,58 +61,12 @@ class forward_hook():
         # print(f"input: {inp}")
 
 
-def collect_module_is(model: "BaseDetectionModel", paramNumbers: list, batch: torch.Tensor) -> list[forward_hook]:
-    # Used in ThiNet
-    i = 0
-    hooks = []
-    removers = []
-    for module in model.get_important_modules():
-        if i in paramNumbers:
-            # Prepare to catch the data for the module
-            hooks.append(forward_hook())
-            removers.append(module.register_forward_hook(hooks[-1]))
-        i += 1
-
-    model(batch)
-
-    for r in removers:
-        r.remove()
-
-    return hooks
-
-
-def run_one_channel_module(module: torch.nn.Module, dat: torch.Tensor) -> list[torch.Tensor]:
-    """
-    This runs the module once for each channel with all other channels being zeroed out.
-    Then sums up the output for that one channel and outputs these sums as a list.
-
-    So it outputs a list of values the same length as the number of channels that represents the activation for that channel.
-    (This is used for ThiNet)
-    """
-    state_dict = {a: b.clone() for a, b in module.state_dict().items()}
-    lst = []
-    for x in range(len(state_dict["weight"])):
-        state_dict_clone = {a: b.clone() for a, b in state_dict.items()}
-        state_dict_clone["bias"] = torch.zeros_like(state_dict_clone["bias"])
-        state_dict_clone["weight"] = torch.zeros_like(state_dict_clone["weight"])
-        state_dict_clone["weight"][x] = state_dict["weight"][x]
-
-        module.load_state_dict(state_dict_clone)
-        out = module(dat)
-        while out.ndim > 1:
-            out = torch.sum(out, dim=1)
-        lst.append(out)
-
-    module.load_state_dict(state_dict)
-    return lst
-
-
 def remove_layers(model: torch.nn.Module, parameter_to_reduce: int, keepint_tensor, length_of_single_channel=1) -> dict[str, torch.Tensor]:
     """
     Reduces a layer (selected by its index (parameter_to_reduce)) using keepint_tensor, a tensor of bools.
     This is used for ThiNet
 
-    The code is not great as this was made erlier in the project
+    The code is not great as this was made earlier in the project
     """
 
     state_dict = {}
@@ -133,7 +121,7 @@ def get_layer_by_state(model: torch.nn.Module, state_dict_key: str) -> torch.nn.
 
 def set_layer_by_state(model: torch.nn.Module, state_dict_key: str, obj):
     """
-    Set a layer module by using a state dictionary
+    Set a layer module by using a state dictionary (specifically the state dictionary key path)
     """
     if state_dict_key.split(".")[-1] in ["weight", "bias"]:
         pth = state_dict_key.split(".")[:-1]
