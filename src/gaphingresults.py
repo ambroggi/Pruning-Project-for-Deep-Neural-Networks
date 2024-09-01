@@ -64,12 +64,15 @@ def graph_pt(pt: pd.DataFrame, pair: int = 0):
     x_name, y_name = scatterpairs[pair]
     pt = pt.T
 
+    sizes = {x: 2*(i) for i, x in enumerate({weight_prune_group for _, weight_prune_group in pt.keys()})}
+
     seen_keys = set()
-    for x in pt.keys():
-        if x[0] not in seen_keys:
-            seen_keys.add(x[0])
-            # print(pt[x[0]])
-            plot.add_trace(plotly.graph_objects.Scatter(x=pt[x[0]].T[x_name], y=pt[x[0]].T[y_name], name=x[0], marker={"size": 20}))
+    for pruning_selection, weight_prune_group in pt.keys():
+        if pruning_selection not in seen_keys:
+            seen_keys.add(pruning_selection)
+            size = sizes[weight_prune_group] * 0 + 20
+            # print(pt[pruning_selection])
+            plot.add_trace(plotly.graph_objects.Scatter(x=pt[pruning_selection].T[x_name], y=pt[pruning_selection].T[y_name], name=pruning_selection, marker={"size": size}, text=pt[pruning_selection].keys()))
 
     plot.update({
         "layout": {"title": {

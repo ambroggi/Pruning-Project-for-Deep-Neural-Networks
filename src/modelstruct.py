@@ -16,6 +16,17 @@ class BaseDetectionModel(torch.nn.Module, modelfunctions.ModelFunctions):
     def get_important_modules(self) -> torch.nn.ModuleList:
         return torch.nn.ModuleList([x for x in self.modules() if isinstance(x, (torch.nn.Linear, torch.nn.Conv1d))])
 
+    def get_important_modules_channelsize(self) -> list[int]:
+        important = self.get_important_modules()
+        sizes = []
+        for x in important:
+            if isinstance(x, torch.nn.Linear):
+                sizes.append(int(x.in_features))
+            if isinstance(x, torch.nn.Conv1d):
+                sizes.append(int(x.in_channels))
+
+        return sizes
+
 
 class SimpleCNNModel(BaseDetectionModel):
     def __init__(self):
@@ -79,26 +90,44 @@ def getModel(name_or_config: str | object, **kwargs) -> BaseDetectionModel:
         return_model = models[name_or_config("ModelStructure")](**kwargs)
         return_model.cfg = name_or_config
 
-    layer_count = len(return_model.get_important_modules())
-
     for a, b in zip(return_model.get_important_modules(), [x for x in return_model.modules() if isinstance(x, (torch.nn.Linear, torch.nn.Conv1d))]):
         assert a is b
 
+    validateConfigInModel(return_model)
+
+    return return_model
+
+
+def validateConfigInModel(model: BaseDetectionModel):
+    """
+    Validates that the model.cfg config has reasonable values for LayerPruneTargets, LayerIteration, and WeightPrunePercent
+    """
+    layer_count = len(model.get_important_modules())
     # Check that config variables have enough values:
     for x in ["LayerPruneTargets", "LayerIteration"]:
-        if len(return_model.cfg(x)) != layer_count:
-            if len(return_model.cfg(x)) > layer_count:
-                return_model.cfg(x, (return_model.cfg(x)[:layer_count]))
+        config_val = model.cfg(x)
+        if len(config_val) != layer_count:
+            if len(config_val) > layer_count:
+                config_val = config_val[:layer_count]
+                model.cfg(x, config_val)
             else:
                 raise ValueError(f"config value {x} needs to have at least as many layers as do exist in the model")
 
-    if len(return_model.cfg("WeightPrunePercent")) != layer_count:
-        if len(return_model.cfg("WeightPrunePercent")) > layer_count:
-            return_model.cfg("WeightPrunePercent", return_model.cfg("WeightPrunePercent")[:layer_count])
-        else:
-            return_model.cfg("WeightPrunePercent", str(*(return_model.cfg("WeightPrunePercent"), *[1 for _ in range(layer_count - len(return_model.cfg("WeightPrunePercent")))])))
+        # Make sure the channels are bounded by 1 and the original size
+        config_val = [int(min(max(target, 1), original)) for target, original in zip(config_val, model.get_important_modules_channelsize())]
+        model.cfg(x, config_val)
 
-    return return_model
+    for x in ["WeightPrunePercent"]:
+        config_val = model.cfg(x)
+        if len(config_val) != layer_count:
+            if len(config_val) > layer_count:
+                config_val = config_val[:layer_count]
+            else:
+                config_val.extend([1 for _ in range(layer_count - len(config_val))])
+
+        # Make sure the percentages are bounded by 0 and 1
+        config_val = [float(min(max(target, 0), 1)) for target in config_val]
+        model.cfg(x, config_val)
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ from . import cfg
 from . import modelstruct
 from . import getdata
 from . import filemanagement
+from . import extramodules
 
 
 def swapping_run(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel, data, layers: list[int] | None = None, **kwargs):
@@ -23,7 +24,7 @@ def swapping_run(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel
         state_dict = model.state_dict_of_layer_i(i)  # get the state dict of current layer
         weights_path = [x for x in state_dict.keys() if "weight" in x][0]  # find what the weights are called (it is in the form "x.weight")
         path_for_layer.append(weights_path)  # save the path to weights so we dont need to calculate it again
-        targets.append(int(len(state_dict[weights_path])*config("WeightPrunePercent")[i]))  # find how small it should be pruned to
+        targets.append(math.ceil(len(state_dict[weights_path])*config("WeightPrunePercent")[i]))  # find how small it should be pruned to
         currents.append(len(state_dict[weights_path]))  # save the shape it currently is
 
     config("PruningSelection", "iteritive_full_theseus_training")
@@ -34,7 +35,7 @@ def swapping_run(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel
             if currents[i] > targets[i]:
                 # Reduce layer i
 
-                # First get layer i's state dictionary
+                # First get layer i+1's state dictionary
                 state_dict = model.state_dict_of_layer_i(i+1)
 
                 # check the planned reduction and save it
@@ -258,7 +259,7 @@ def TOFD_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObj
 
 def Random_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, **kwargs):
     for count, module in enumerate(model.get_important_modules()):
-        pruning_layer = (Imported_Code.PostMutablePruningLayer(module))
+        pruning_layer = (extramodules.PostMutablePruningLayer(module))
         n = len(pruning_layer.para)
         random_permutation = torch.randperm(n)
         random_filter: torch.Tensor = random_permutation.less((config("WeightPrunePercent")[count]*n)//1)
