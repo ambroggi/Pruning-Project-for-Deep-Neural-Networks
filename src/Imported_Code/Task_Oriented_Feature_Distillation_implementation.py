@@ -67,12 +67,28 @@ class auxillary_module(torch.nn.Module):
     def __init__(self, wrapped_module: torch.nn.Module, expected_tensor_example: torch.Tensor, number_of_classes: int, features_len: int):
         super().__init__()
         # NOTE: this auxillary module is not accurate to the paper, it is just to test for now.
-        self.wrapped = wrapped_module
-        self.intermidiate = torch.nn.Linear(len(expected_tensor_example[0].flatten()), features_len)
+        # self.wrapped = wrapped_module
+        if len(expected_tensor_example.shape) < 3:
+            self.expand = True
+            expected_tensor_example = expected_tensor_example.unsqueeze(1)
+        else:
+            self.expand = False
+        maxpool = 2
+        convkernel = 3
+
+        self.intermidiate = torch.nn.Sequential(
+            torch.nn.Conv1d(expected_tensor_example.shape[1], expected_tensor_example.shape[1], convkernel),
+            torch.nn.Conv1d(expected_tensor_example.shape[1], expected_tensor_example.shape[1], convkernel),
+            torch.nn.MaxPool1d(maxpool),
+            torch.nn.Flatten(),
+        )
+        self.intermidiate.append(torch.nn.Linear(self.intermidiate(expected_tensor_example).shape[-1], features_len))
         self.final = torch.nn.Linear(features_len, number_of_classes)
 
     def forward(self, x: torch.Tensor):
-        feature = self.intermidiate(x.flatten(start_dim=1))
+        if self.expand:
+            x = x.unsqueeze(1)
+        feature = self.intermidiate(x)
         return self.final(feature), feature
 
 

@@ -52,6 +52,9 @@ def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.Dat
         df_scaled[x] = df[x].values/df_pre[x].values
         df_scaled[x].fillna(-1)
 
+    # Get only the current version (Done this late just so the scaling is not indexing into a Null)
+    df = df[df["Version"] >= df["Version"].max()]
+
     pt = df.pivot_table(values=["val_f1_score", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc="mean")
     pt_scaled = df_scaled.pivot_table(values=["val_f1_score", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc="mean")
     print(df.head())

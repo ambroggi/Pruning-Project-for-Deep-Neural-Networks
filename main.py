@@ -9,7 +9,7 @@ if __name__ == "__main__":
     # kwargs = src.standard_run(NumberOfEpochs=0, **load) | {"prior_logger_row": load["prior_logger_row"]}
     # kwargs.pop("NumberOfEpochs")
 
-    for weight_prune_percent in [[(x/((num_variation+1)**0.5) if x < 1 else 1) for x in kwargs["config"]("WeightPrunePercent")] for num_variation in range(4)]:
+    for weight_prune_percent in [[(x/((num_variation+1)**0.5) if x < 1 else 1) for x in kwargs["config"]("WeightPrunePercent")] for num_variation in range(5)]:
         kwargs["config"]("WeightPrunePercent", weight_prune_percent)
 
         src.standard_run(PruningSelection="RandomStructured", **kwargs)

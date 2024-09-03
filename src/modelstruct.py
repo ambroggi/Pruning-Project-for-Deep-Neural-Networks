@@ -21,9 +21,9 @@ class BaseDetectionModel(torch.nn.Module, modelfunctions.ModelFunctions):
         sizes = []
         for x in important:
             if isinstance(x, torch.nn.Linear):
-                sizes.append(int(x.in_features))
+                sizes.append(int(x.out_features))
             if isinstance(x, torch.nn.Conv1d):
-                sizes.append(int(x.in_channels))
+                sizes.append(int(x.out_channels))
 
         return sizes
 
