@@ -4,11 +4,11 @@ import torch.nn.utils.prune
 
 
 class BaseDetectionModel(torch.nn.Module, modelfunctions.ModelFunctions):
-    def __init__(self):
+    def __init__(self, num_classes=100, num_features=100):
         modelfunctions.ModelFunctions.__init__(self)
         super(BaseDetectionModel, self).__init__()
 
-        self.fc1 = torch.nn.Linear(100, 100)
+        self.fc1 = torch.nn.Linear(num_features, num_classes)
 
     def forward(self, tensor: torch.Tensor) -> torch.Tensor:
         return self.fc1(tensor)
@@ -29,7 +29,7 @@ class BaseDetectionModel(torch.nn.Module, modelfunctions.ModelFunctions):
 
 
 class SimpleCNNModel(BaseDetectionModel):
-    def __init__(self):
+    def __init__(self, num_classes=100, num_features=100):
         modelfunctions.ModelFunctions.__init__(self)
         super(SimpleCNNModel, self).__init__()
         del self.fc1
@@ -39,8 +39,8 @@ class SimpleCNNModel(BaseDetectionModel):
         self.pool1.register_parameter("Active_check", param=torch.nn.Parameter(torch.tensor([1], dtype=torch.float, requires_grad=False)))
         self.conv2 = torch.nn.Conv1d(12, 3, 3)
         self.flatten = torch.nn.Flatten()
-        self.fc1 = torch.nn.Linear(90, 100)
-        self.fc2 = torch.nn.Linear(100, 100)
+        self.fc1 = torch.nn.Linear(int(9*num_features/10), 100)
+        self.fc2 = torch.nn.Linear(100, num_classes)
 
     def forward(self, tensor: torch.Tensor) -> torch.Tensor:
         x = tensor.unsqueeze(dim=1)
@@ -54,13 +54,13 @@ class SimpleCNNModel(BaseDetectionModel):
 
 
 class SwappingDetectionModel(BaseDetectionModel):
-    def __init__(self):
+    def __init__(self, num_classes=100, num_features=100):
         modelfunctions.ModelFunctions.__init__(self)
         super(BaseDetectionModel, self).__init__()
 
-        self.fc_test_lin = torch.nn.Linear(100, 101)
+        self.fc_test_lin = torch.nn.Linear(num_features, 101)
         self.fc_test_lhidden = torch.nn.Linear(101, 102)
-        self.fc_test_lout = torch.nn.Linear(102, 100)
+        self.fc_test_lout = torch.nn.Linear(102, num_classes)
 
     def forward(self, tensor) -> torch.Tensor:
         x = self.fc_test_lin(tensor)
@@ -87,6 +87,10 @@ def getModel(name_or_config: str | object, **kwargs) -> BaseDetectionModel:
     if isinstance(name_or_config, str):
         return_model: BaseDetectionModel = models[name_or_config](**kwargs)
     else:
+        if name_or_config("NumClasses") > 0:
+            kwargs.update({"num_classes": name_or_config("NumClasses")})
+        if name_or_config("NumFeatures") > 0:
+            kwargs.update({"num_features": name_or_config("NumFeatures")})
         return_model = models[name_or_config("ModelStructure")](**kwargs)
         return_model.cfg = name_or_config
 

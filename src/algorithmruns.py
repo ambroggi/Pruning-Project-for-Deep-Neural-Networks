@@ -139,7 +139,7 @@ def thinet_test(config: cfg.ConfigObject, data: torch.utils.data.DataLoader, mod
         layers = [layernum for layernum, layerpercent in enumerate(config("WeightPrunePercent")) if layerpercent < 1]
 
     # Create sample of dataset, Fancy load_kwargs is just there to load the collate_fn
-    training_data = iter(torch.utils.data.DataLoader(data.dataset, 100000, **(data.dataset.load_kwargs if hasattr(data.dataset, "load_kwargs") else {}))).__next__()[0]
+    training_data = iter(torch.utils.data.DataLoader(data.dataset, 100000, **(data.base.load_kwargs if hasattr(data, "base") else {}))).__next__()[0]
 
     for i in layers:
         Imported_Code.run_thinet_on_layer(model, i, training_data=training_data, config=config)
@@ -162,7 +162,7 @@ def bert_of_theseus_test(model: modelstruct.BaseDetectionModel, data, config: cf
     rm2 = lst[-1].register_forward_hook(end)
 
     # Create sample of dataset, Fancy load_kwargs is just there to load the collate_fn
-    training_data = iter(torch.utils.data.DataLoader(data.dataset, 100, **(data.dataset.load_kwargs if hasattr(data.dataset, "load_kwargs") else {}))).__next__()[0]
+    training_data = iter(torch.utils.data.DataLoader(data.dataset, 100, **(data.base.load_kwargs if hasattr(data, "base") else {}))).__next__()[0]
 
     model(training_data)
 

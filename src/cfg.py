@@ -18,7 +18,7 @@ class ConfigObject():
                           "Optimizer": {"Adam": torch.optim.Adam, "SGD": torch.optim.SGD, "RMS": torch.optim.RMSprop},
                           "LossFunction": {"MSE": torch.nn.MSELoss, "CrossEntropy": torch.nn.CrossEntropyLoss},
                           "ModelStructure": {"BasicTest": "BasicTest", "SwappingTest": "SwappingTest", "SimpleCNN": "SimpleCNN"},
-                          "DatasetName": {"RandomDummy": "RandomDummy", "Vulnerability": "Vulnerability"},
+                          "DatasetName": {"RandomDummy": "RandomDummy", "Vulnerability": "Vulnerability", "ACI": "ACI"},
                           "Device": {"cpu": torch.device("cpu"), "cuda": torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"), torch.device("cpu"): torch.device("cpu"), torch.device("cuda"): torch.device("cuda")}
                           }
 
@@ -30,12 +30,12 @@ class ConfigObject():
             "LossFunction": ["CrossEntropy", "Loss function being used", "str"],
             "Optimizer": ["Adam", "Optimizer being used", "str"],
             "LearningRate": [0.0001, "Learning rate for training", "float"],
-            "NumberOfEpochs": [100, "Number of epochs used", "int"],
-            "ModelStructure": ["SimpleCNN", "Model structure to use", "str"],
-            "DatasetName": ["RandomDummy", "What dataset to use", "str"],
+            "NumberOfEpochs": [10, "Number of epochs used", "int"],
+            "ModelStructure": ["SwappingTest", "Model structure to use", "str"],
+            "DatasetName": ["ACI", "What dataset to use", "str"],
             "BatchSize": [3, "How many samples used per batch", "int"],
             "TrainTest": [0.2, "Fraction of data used in the validation set. Also used for splitting Test from validation.", "float"],
-            "MaxSamples": [1000, "Maximum number of samples in the data, 0 is no limit. Note that the data is random split", "int"],
+            "MaxSamples": [100, "Maximum number of samples in the data, 0 is no limit. Note that the data is random split", "int"],
             "Dataparallel": [-2, "To use distributed data parallel and if it failed. 0 is off, 1 is active, -1 is failed, -2 is not implemented", "int"],
             "NumberOfWorkers": [0, "Number of worker processes or dataparallel processes if Dataparallel is 1", "int"],
             "Device": ["cuda", "Use CPU or CUDA", "strdevice"],
@@ -51,7 +51,9 @@ class ConfigObject():
             "tForTOFD": [3.0, "'temperature for logit distillation' - description from original code", "float"],
             "LayerIteration": ["3, 1, 3, 3", "iteritive_full_theseus amount each layer is reduced by in each iteration", "strl"],
             "SaveLocation": [None, "What filename the statedict was saved as, if it was saved at all.", "strn"],
-            "FromSaveLocation": [None, "What filename the statedict was loaded as, if it was loaded at all.", "strn"]
+            "FromSaveLocation": [None, "What filename the statedict was loaded as, if it was loaded at all.", "strn"],
+            "NumClasses": [-1, "How many classes the model is distiguishing between, -1 is to calculate default", "int"],
+            "NumFeatures": [-1, "How many features the model is using, -1 is to calculate default", "int"]
         }
 
         # This is for initial setup
@@ -72,6 +74,11 @@ class ConfigObject():
         if paramVal == "None":
             paramVal = "" if "str" in self.parameters[paramName][2] else None
 
+        # These arguments assume None is default
+        if paramName in ["NumClasses", "NumFeatures"]:
+            if paramVal is None:
+                paramVal = self.get_param(paramName)
+
         # Check if the type is valid by querrying typechart
         if isinstance(paramVal, self.typechart[""][self.parameters[paramName][2]]):
             # Add extra conditionals here:
@@ -82,6 +89,12 @@ class ConfigObject():
 
             if paramName == "Device":  # Device is translated into a torch.device
                 paramVal = self.typechart["Device"][paramVal]
+
+            # if paramName == "NumClasses" and paramVal == -1:
+            #     default_classes = {
+            #         "RandomDummy": 100
+            #     }
+            #     paramVal = default_classes.get(self.get_param("DatasetName"), -1)
 
             if self.parameters[paramName][2] == "strn" and (paramVal == "" or paramVal == "None"):
                 paramVal = None
@@ -111,7 +124,7 @@ class ConfigObject():
             # Set the value
             self.parameters[paramName][0] = paramVal
         else:
-            raise TypeError(f"Attempted to set Config value of inappropriate type, type={type(paramVal)}")
+            raise TypeError(f"Attempted to set Config value ({paramName}) of inappropriate type, type={type(paramVal)}")
 
     def get_param(self, paramName: str, getString: bool = False) -> str | float | int | object:
         if (paramName in self.typechart.keys()) and not getString:

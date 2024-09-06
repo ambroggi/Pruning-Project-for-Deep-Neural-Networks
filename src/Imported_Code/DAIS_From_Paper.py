@@ -101,8 +101,8 @@ def DAIS_fit(model: BaseDetectionModel, alpha_hooks: list[add_alpha], epochs: in
 
     # Build the training and 'validation' datasets
     weight_dl, alpha_dl = torch.utils.data.random_split(dl.dataset, [0.7, 0.3])
-    weight_dl = torch.utils.data.DataLoader(weight_dl, **(dl.dataset.load_kwargs if hasattr(dl.dataset, "load_kwargs") else {}))
-    alpha_dl = torch.utils.data.DataLoader(alpha_dl, **(dl.dataset.load_kwargs if hasattr(dl.dataset, "load_kwargs") else {}))
+    weight_dl = torch.utils.data.DataLoader(weight_dl, **(dl.base.load_kwargs if hasattr(dl, "base") else {}))
+    alpha_dl = torch.utils.data.DataLoader(alpha_dl, **(dl.base.load_kwargs if hasattr(dl, "base") else {}))
 
     if model.optimizer is None:
         # This is really silly but it appears that parameters cannot be removed by .remove() if they are of different shapes?

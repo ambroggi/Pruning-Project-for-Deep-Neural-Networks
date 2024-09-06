@@ -31,7 +31,7 @@ def thinet_pruning(model: torch.nn.Module, parameterNumber: int, config, dataset
             raise IndexError("thinet cannot be applied to the last layer")
 
         # Create sample of dataset, Fancy load_kwargs is just there to load the collate_fn
-        training_data = iter(torch.utils.data.DataLoader(dataset, 100000, **(dataset.load_kwargs if hasattr(dataset, "load_kwargs") else {}))).__next__()
+        training_data = iter(torch.utils.data.DataLoader(dataset, 100000, **(dataset.base.load_kwargs if hasattr(dataset, "base") else {}))).__next__()
 
         # Run data through the model
         model(training_data[0])

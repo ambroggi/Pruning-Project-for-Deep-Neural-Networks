@@ -26,9 +26,9 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
         config = cfg.ConfigObject()
     else:
         config = config.clone()
+    data = getdata.get_dataloader(config) if "data" not in kwargs else kwargs["data"]
     model = modelstruct.getModel(config) if "model" not in kwargs else kwargs["model"]
     logger = filemanagement.ExperimentLineManager(cfg=config) if "logger" not in kwargs else kwargs["logger"]
-    data = getdata.get_dataloader(config) if "data" not in kwargs else kwargs["data"]
 
     # Model set up
     if "modelStateDict" in kwargs.keys():
