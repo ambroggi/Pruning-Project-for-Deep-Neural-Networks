@@ -6,6 +6,7 @@ scikit-learn
 thop
 tqdm
 plotly
+pyarrow
 
 # for ADMM:
 osqp

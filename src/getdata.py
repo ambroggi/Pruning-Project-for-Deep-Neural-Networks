@@ -111,7 +111,7 @@ class ACIIOT2023(BaseDataset):
         if not os.path.exists("datasets/ACI-IOT-2023-formatted.csv"):
             if not os.path.exists("datasets/ACI-IoT-2023-Payload.csv"):
                 print("Dataset does not exist please download it from https://www.kaggle.com/datasets/emilynack/aci-iot-network-traffic-dataset-2023/data?select=ACI-IoT-2023-Payload.csv")
-            self.original_vals = pd.read_csv("datasets/ACI-IoT-2023-Payload.csv").head(10000)
+            self.original_vals = pd.read_csv("datasets/ACI-IoT-2023-Payload.csv")  # .sample(100000)
             # self.original_vals = pd.read_csv("datasets/ACI-IoT-Example.csv", index_col=0)
 
             # Drop the time column
@@ -127,7 +127,10 @@ class ACIIOT2023(BaseDataset):
 
             # test = self.vals["payload"].apply(self.from_bytestring)
             # print(test)
-            self.original_vals = pd.concat((self.original_vals, self.original_vals["payload"].apply(self.from_bytestring)), axis=1)
+            # This whole splitting thing is just because my computer ran out of RAM and using virutal memory slowed this down a lot
+            chunk_spliter = [2000*x for x in range(len(self.original_vals)//2000)] + [len(self.original_vals)]
+            byte_arrays = pd.concat([self.original_vals["payload"][x1:x2].apply(self.from_bytestring) for x1, x2 in zip(chunk_spliter, chunk_spliter[1:])])
+            self.original_vals = pd.concat((self.original_vals, byte_arrays), axis=1)
             self.original_vals.drop(["payload"], inplace=True, axis=1)
 
             # Picked parquet because of this article: https://towardsdatascience.com/the-best-format-to-save-pandas-data-414dca023e0d
@@ -188,7 +191,8 @@ class ACIIOT2023(BaseDataset):
         # small implementation based on payloadbyte things, https://github.com/Yasir-ali-farrukh/Payload-Byte/blob/main/Pipeline.ipynb
         np_x = np.array(bytearray.fromhex(x), dtype=np.dtype('u1'))
         np_x.resize(1500, refcheck=False)
-        return pd.Series(np_x, index=[f"Byte_{x}" for x in range(1500)], dtype='uint8')
+        series = pd.Series(np_x, index=[f"Byte_{x}" for x in range(1500)], dtype='uint8')
+        return series
 
 
 def collate_fn_(items: tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor] | list[tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]]) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
