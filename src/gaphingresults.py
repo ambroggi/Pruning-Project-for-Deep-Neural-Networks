@@ -27,6 +27,7 @@ def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.Dat
 
     # Remove runs that did not finish.
     df = df[~df["parameters"].isna()]
+    df.reset_index(inplace=True)
 
     # Strip the true version number out of the version id
     df["Version"] = df["Version"].apply(lambda x: int(str(x).split(" - ")[-1])).astype(int)
@@ -42,7 +43,9 @@ def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.Dat
     df["TimeForPrune"] = df["TimeForPrune"]/max(df["TimeForPrune"])
 
     # Get dataframe for values before pruning
-    row_numbers = df["AssociatedOriginalRow"].fillna({x: x for x in df["AssociatedOriginalRow"].index.values})
+    row_numbers = df["AssociatedOriginalRow"].fillna({x: x for x in df["AssociatedOriginalRow"].index.values}).astype(int)
+    test_for_missing = [x == y for x, y in enumerate(df.index.values)]
+    assert False not in test_for_missing
     df_pre = df.iloc[row_numbers]
 
     # Create scaled version of dataframe based on the pretrained values
@@ -85,8 +88,11 @@ def graph_pt(pt: pd.DataFrame, pair: int = 0):
                    "xaxis_title": f"{readability.get(x_name, x_name)}",
                    "yaxis_title": f"{readability.get(y_name, y_name)}",
                    "legend_title": "Method of Pruning",
-                   "xaxis": {"type": "linear"}}
+                   "xaxis": {"type": "linear", "autorange": "reversed"}}
         })
+
+    if "Time" in y_name:
+        plot.update({"layout": {"yaxis": {"type": "log"}}})
     # "yaxis": {"range": [-0.1, 1.1]}},
     plot.update_layout(title_text=f"{readability.get(y_name, y_name)} vs {readability.get(x_name, x_name)}", title_xanchor="right")
     plot.show()

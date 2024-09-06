@@ -48,13 +48,13 @@ class BaseDataset(torch.utils.data.Dataset):
 class VulnerabilityDataset(BaseDataset):
     def __init__(self, target_format: str = "CrossEntropy"):
         super().__init__()
-        self.vals = pd.DataFrame([0 for _ in range(30)])
+        self.original_vals = pd.DataFrame([0 for _ in range(30)])
         self.number_of_classes = 100
         self.format = target_format
         pass
 
     def __len__(self) -> int:
-        return len(self.vals)
+        return len(self.original_vals)
 
     def __getitem__(self, index: int) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
         features = torch.randint(0, 256, [self.number_of_classes], requires_grad=False, dtype=torch.float32)
@@ -74,7 +74,7 @@ class VulnerabilityDataset(BaseDataset):
 class RandomDummyDataset(BaseDataset):
     def __init__(self, target_format: str = "CrossEntropy", num_classes: int = -1):
         super().__init__()
-        self.vals = pd.DataFrame([0 for _ in range(3000)])
+        self.original_vals = pd.DataFrame([0 for _ in range(3000)])
         self.number_of_classes = num_classes if num_classes > 0 else 100
         self.format = target_format
         self.rand_seed = torch.randint(0, 100000, [1]).item()
@@ -83,7 +83,7 @@ class RandomDummyDataset(BaseDataset):
         pass
 
     def __len__(self) -> int:
-        return len(self.vals)
+        return len(self.original_vals)
 
     def __getitem__(self, index: int) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
         torch.random.manual_seed(self.rand_seed)
@@ -107,30 +107,40 @@ class RandomDummyDataset(BaseDataset):
 class ACIIOT2023(BaseDataset):
     def __init__(self, target_format: str = "CrossEntropy", num_classes: int = -1):
         super().__init__()
-        if not os.path.exists("datasets/ACI-IoT-2023-Payload.csv"):
-            print("Dataset does not exist please download it from https://www.kaggle.com/datasets/emilynack/aci-iot-network-traffic-dataset-2023/data?select=ACI-IoT-2023-Payload.csv")
-        # self.vals = pd.read_csv("datasets/ACI-IoT-2023-Payload.csv", index_col=0)
-        self.original_vals = pd.read_csv("datasets/ACI-IoT-Example.csv", index_col=0)
+
+        if not os.path.exists("datasets/ACI-IOT-2023-formatted.csv"):
+            if not os.path.exists("datasets/ACI-IoT-2023-Payload.csv"):
+                print("Dataset does not exist please download it from https://www.kaggle.com/datasets/emilynack/aci-iot-network-traffic-dataset-2023/data?select=ACI-IoT-2023-Payload.csv")
+            self.original_vals = pd.read_csv("datasets/ACI-IoT-2023-Payload.csv").head(10000)
+            # self.original_vals = pd.read_csv("datasets/ACI-IoT-Example.csv", index_col=0)
+
+            # Drop the time column
+            self.original_vals.drop(["stime"], inplace=True, axis=1)
+
+            # got how to split the ip columns from: https://stackoverflow.com/a/39358924
+            self.original_vals[["src_ip_3", "src_ip_2", "src_ip_1", "src_ip_0"]] = self.original_vals["srcip"].str.split(".", n=3, expand=True).astype(int)
+            self.original_vals[["dst_ip_3", "dst_ip_2", "dst_ip_1", "dst_ip_0"]] = self.original_vals["dstip"].str.split(".", n=3, expand=True).astype(int)
+            self.original_vals.drop(["srcip", "dstip"], inplace=True, axis=1)
+
+            # revied from (https://www.deeplearningnerds.com/pandas-add-columns-to-a-dataframe-copy/) but I knew .get_dummies() was possible before
+            self.original_vals = pd.get_dummies(self.original_vals, columns=["protocol_m"])
+
+            # test = self.vals["payload"].apply(self.from_bytestring)
+            # print(test)
+            self.original_vals = pd.concat((self.original_vals, self.original_vals["payload"].apply(self.from_bytestring)), axis=1)
+            self.original_vals.drop(["payload"], inplace=True, axis=1)
+
+            # Picked parquet because of this article: https://towardsdatascience.com/the-best-format-to-save-pandas-data-414dca023e0d
+            # It has best storage size
+            self.original_vals.to_parquet("datasets/ACI-IOT-2023-formatted")
+        else:
+            self.original_vals = pd.read_parquet("datasets/ACI-IoT-2023-formatted")
+
+        # Get the classes
         self.classes = {label: num for num, label in enumerate(self.original_vals["label"].unique())}
         self.classes.update({num: label for label, num in self.classes.items()})
         self.number_of_classes = len(self.classes)
         self.original_vals["label"] = self.original_vals["label"].map(self.classes)
-
-        # Drop the time column
-        self.original_vals.drop(["stime"], inplace=True, axis=1)
-
-        # got how to split the ip columns from: https://stackoverflow.com/a/39358924
-        self.original_vals[["src_ip_3", "src_ip_2", "src_ip_1", "src_ip_0"]] = self.original_vals["srcip"].str.split(".", n=3, expand=True).astype(int)
-        self.original_vals[["dst_ip_3", "dst_ip_2", "dst_ip_1", "dst_ip_0"]] = self.original_vals["dstip"].str.split(".", n=3, expand=True).astype(int)
-        self.original_vals.drop(["srcip", "dstip"], inplace=True, axis=1)
-
-        # revied from (https://www.deeplearningnerds.com/pandas-add-columns-to-a-dataframe-copy/) but I knew .get_dummies() was possible before
-        self.original_vals = pd.get_dummies(self.original_vals, columns=["protocol_m"])
-
-        # test = self.vals["payload"].apply(self.from_bytestring)
-        # print(test)
-        self.original_vals = pd.concat((self.original_vals, self.original_vals["payload"].apply(self.from_bytestring)), axis=1)
-        self.original_vals.drop(["payload"], inplace=True, axis=1)
 
         self.format = target_format
         # Scalers apparently work well with dataframes? https://stackoverflow.com/a/36475297
@@ -176,9 +186,9 @@ class ACIIOT2023(BaseDataset):
 
     def from_bytestring(self, x):
         # small implementation based on payloadbyte things, https://github.com/Yasir-ali-farrukh/Payload-Byte/blob/main/Pipeline.ipynb
-        np_x = np.array(bytearray.fromhex(x))
+        np_x = np.array(bytearray.fromhex(x), dtype=np.dtype('u1'))
         np_x.resize(1500, refcheck=False)
-        return pd.Series(np_x, index=[f"Byte_{x}" for x in range(1500)])
+        return pd.Series(np_x, index=[f"Byte_{x}" for x in range(1500)], dtype='uint8')
 
 
 def collate_fn_(items: tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor] | list[tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]]) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
