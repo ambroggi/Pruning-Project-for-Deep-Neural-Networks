@@ -108,9 +108,10 @@ class ACIIOT2023(BaseDataset):
     def __init__(self, target_format: str = "CrossEntropy", num_classes: int = -1):
         super().__init__()
 
-        if not os.path.exists("datasets/ACI-IOT-2023-formatted.csv"):
+        if not os.path.exists("datasets/ACI-IOT-2023-formatted"):
             if not os.path.exists("datasets/ACI-IoT-2023-Payload.csv"):
                 print("Dataset does not exist please download it from https://www.kaggle.com/datasets/emilynack/aci-iot-network-traffic-dataset-2023/data?select=ACI-IoT-2023-Payload.csv")
+            print("Formatting ACI dataset, this will take some time. eta 25 minutes.")
             self.original_vals = pd.read_csv("datasets/ACI-IoT-2023-Payload.csv")  # .sample(100000)
             # self.original_vals = pd.read_csv("datasets/ACI-IoT-Example.csv", index_col=0)
 

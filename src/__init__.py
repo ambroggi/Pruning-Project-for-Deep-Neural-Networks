@@ -2,6 +2,7 @@
 import torch
 import gc
 import time
+import psutil
 
 from . import cfg
 from . import modelstruct
@@ -42,7 +43,8 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
     kwargs = kwargs | {"model": model, "logger": logger, "data": data, "config": config}
 
     t = time.time()
-    mem = torch.cuda.memory_allocated()
+    mem = psutil.virtual_memory()[3]/1000000
+    cuda_mem = torch.cuda.memory_allocated()
     if "PruningSelection" in kwargs.keys() and kwargs["PruningSelection"] is not None:
         model.train(True)
         kwargs = types_of_tests[kwargs["PruningSelection"]](**kwargs)
@@ -60,7 +62,8 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
     # Sometimes want to run for a while without logging (retraining runs)
     if logger is not None:
         logger("TimeForPrune", time.time()-t)
-        logger("Memory", torch.cuda.memory_allocated()-mem)
+        logger("Memory", psutil.virtual_memory()[3]/1000000-mem)
+        logger("CudaMemory", torch.cuda.memory_allocated()-cuda_mem)
         logger("LengthOfTrainingData", len(train.dataset))
         logger("LengthOfValidationData", len(validation.dataset))
         if "prior_logger_row" in kwargs:
