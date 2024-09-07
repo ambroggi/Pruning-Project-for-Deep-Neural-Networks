@@ -164,4 +164,4 @@ def DAIS_fit(model: BaseDetectionModel, alpha_hooks: list[add_alpha], epochs: in
     if not keep_callbacks:
         model.epoch_callbacks = []
 
-    return f'Ran model with {e_results["f1_score"]*100:2.3f}% F1 on final epoch {e}'
+    return f'Ran model with {e_results["f1_score_macro"]*100:2.3f}% F1 on final epoch {e}'

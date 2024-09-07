@@ -227,10 +227,9 @@ def TOFD_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObj
     for module_num, module in enumerate(model.get_important_modules()):
         state_dict = new_net.state_dict_of_layer_i(module_num)
         percentage = config("WeightPrunePercent")[module_num]
-        current_length = len(module.bias)
         new_net_state_dict.update({x: y[:math.ceil(len(y)*percentage), :math.ceil(len(y[0])*prior_percentage)] for x, y in state_dict.items() if ("weight" in x)})
         new_net_state_dict.update({x: y[:math.ceil(len(y)*percentage)] for x, y in state_dict.items() if ("bias" in x)})
-        prior_percentage = math.ceil(current_length*percentage)/current_length
+        prior_percentage = percentage
 
     # print(*[f"{x}:{y.shape}\n" for x, y in model.state_dict().items()])
     # print(*[f"{x}:{y.shape}\n" for x, y in new_net_state_dict.items()])

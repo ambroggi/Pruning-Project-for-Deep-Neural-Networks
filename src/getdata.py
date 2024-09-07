@@ -74,7 +74,7 @@ class VulnerabilityDataset(BaseDataset):
 class RandomDummyDataset(BaseDataset):
     def __init__(self, target_format: str = "CrossEntropy", num_classes: int = -1):
         super().__init__()
-        self.original_vals = pd.DataFrame([0 for _ in range(3000)])
+        self.original_vals = pd.DataFrame({"label": [0 for _ in range(3000)]})
         self.number_of_classes = num_classes if num_classes > 0 else 100
         self.format = target_format
         self.rand_seed = torch.randint(0, 100000, [1]).item()
@@ -139,6 +139,9 @@ class ACIIOT2023(BaseDataset):
             self.original_vals.to_parquet("datasets/ACI-IOT-2023-formatted")
         else:
             self.original_vals = pd.read_parquet("datasets/ACI-IoT-2023-formatted")
+
+        if not os.path.exists("datasets/ACI-IoT-counts.csv"):
+            self.original_vals["label"].value_counts().to_csv("datasets/ACI-IoT-counts.csv")
 
         # Get the classes
         self.classes = {label: num for num, label in enumerate(self.original_vals["label"].unique())}

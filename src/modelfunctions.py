@@ -42,7 +42,7 @@ class ModelFunctions():
         progres_bar = tqdm.tqdm(range(epochs), desc=f"Fit \t|{self.cfg('PruningSelection')}| \tPID:{os.getpid()}\t", total=epochs, file=self.progres_file, ascii=True)
         self.progress_need_to_remove = []
         self.progress_need_to_remove.append(lambda r: self.progres_file.seek(progres_pos, 0))
-        self.progress_need_to_remove.append(lambda results: progres_bar.set_postfix_str(f"{results['f1_score']*100:2.3f}% Train F1, {results['val_f1_score']*100:2.3f}% Validation F1"))
+        self.progress_need_to_remove.append(lambda results: progres_bar.set_postfix_str(f"{results['f1_score_macro']*100:2.3f}% Train F1, {results['val_f1_score_macro']*100:2.3f}% Validation F1"))
         self.progress_need_to_remove.append(lambda r: self.progres_file.seek(progres_pos, 0))
         self.epoch_callbacks.extend(self.progress_need_to_remove)
 
@@ -117,13 +117,13 @@ class ModelFunctions():
             self.epoch_callbacks = []
 
         # Just a quick message about the run
-        return f'Ran model with {epoch_results["f1_score"]*100:2.3f}% F1 on final epoch {e}'
+        return f'Ran model with {epoch_results["f1_score_macro"]*100:2.3f}% or {epoch_results["f1_score_weight"]*100:2.3f} F1 on final epoch {e}'
 
     def run_single_epoch(self, dataloader: DataLoader) -> dict[str, float]:
         assert isinstance(self, torch.nn.Module)
         self: torch.nn.Module | ModelFunctions  # More typehint
 
-        results = {"total_loss": 0, "f1_score": 0.0}
+        results = {"total_loss": 0, "f1_score_weight": 0.0, "f1_score_macro": 0.0}
         results_of_predictions = {"True": [], "Predicted": []}
 
         for batch in dataloader:
@@ -152,7 +152,10 @@ class ModelFunctions():
             # Reset frozen weights
             self.load_state_dict(self.frozen, strict=False)
 
-        results["f1_score"] = f1_score(results_of_predictions["True"], results_of_predictions["Predicted"], average="weighted")
+        results["f1_score_weight"] = f1_score(results_of_predictions["True"], results_of_predictions["Predicted"], average="weighted")
+        results["f1_score_macro"] = f1_score(results_of_predictions["True"], results_of_predictions["Predicted"], average="macro")
+        # [results_of_predictions["True"] != results_of_predictions["True"][0]]
+        # results["max_class_removed_f1_score"] = f1_score(results_of_predictions["True"], results_of_predictions["Predicted"], average="weighted")
         results["mean_loss"] = results["total_loss"] / len(results_of_predictions["True"])
 
         return results
