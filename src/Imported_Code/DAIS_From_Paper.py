@@ -85,6 +85,7 @@ def DAIS_fit(model: BaseDetectionModel, alpha_hooks: list[add_alpha], epochs: in
     # This is an implementation of the DAIS regularizer and DARTS (https://arxiv.org/pdf/1806.09055) search method.
     # DARTS is used because that is the method that DAIS says that their method is based on.
     # The exact DAIS method is supposedly in a different file, that I cannot find. "more details provided in the reference paper" - DAIS
+    # The actual fit function is based off of the fit function we were using before.
 
     # Find the alpha parameters
     alp = [a.para for a in alpha_hooks]

@@ -69,17 +69,39 @@ class SwappingDetectionModel(BaseDetectionModel):
         return z
 
 
+class LinearLayer(torch.nn.Module):
+    def __init__(self, in_dim, out_dim, dropout):
+        torch.nn.Module.__init__(self)
+        self.fc = torch.nn.Linear(in_dim, out_dim)
+        self.act = torch.nn.LeakyReLU()
+        self.drop = torch.nn.Dropout1d()
+
+    def forward(self, tensor):
+        return self.drop(self.act(self.fc()))
+
+
+class MultiLinear(BaseDetectionModel):
+    def __init__(self, num_classes=100, num_features=100):
+        modelfunctions.ModelFunctions.__init__(self)
+        super(BaseDetectionModel, self).__init__()
+
+        hdim_size = self.cfg("HiddenDimSize")
+        self.fc_lin = torch.nn.Linear(num_features, hdim_size)
+        self.seq = torch.nn.Sequential(*[LinearLayer(hdim_size, hdim_size, self.cfg("Dropout")) for _ in range(self.cfg("HiddenDim"))])
+        self.fc_lout = torch.nn.Linear(hdim_size, num_classes)
+
+    def forward(self, tensor) -> torch.Tensor:
+        x = self.fc_lin(tensor)
+        y = self.seq(x)
+        z = self.fc_lout(y)
+        return z
+
+
 models = {
     "BasicTest": BaseDetectionModel,
     "SwappingTest": SwappingDetectionModel,
-    "SimpleCNN": SimpleCNNModel
-}
-
-
-model_layercount = {
-    "BasicTest": 1,
-    "SwappingTest": 3,
-    "SimpleCNN": 4
+    "SimpleCNN": SimpleCNNModel,
+    "MainLinear": MultiLinear
 }
 
 
@@ -115,7 +137,8 @@ def validateConfigInModel(model: BaseDetectionModel):
                 config_val = config_val[:layer_count]
                 model.cfg(x, config_val)
             else:
-                raise ValueError(f"config value {x} needs to have at least as many layers as do exist in the model")
+                config_val.extend([config_val[-1] for _ in range(layer_count - len(config_val))])
+                # raise ValueError(f"config value {x} needs to have at least as many layers as do exist in the model")
 
         # Make sure the channels are bounded by 1 and the original size
         config_val = [int(min(max(target, 1), original)) for target, original in zip(config_val, model.get_important_modules_channelsize())]

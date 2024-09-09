@@ -25,10 +25,6 @@ scatterpairs = [
 def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.DataFrame, pd.DataFrame]:
     df = pd.read_csv(path, index_col=0)
 
-    # Remove runs that did not finish.
-    df = df[~df["parameters"].isna()]
-    df.reset_index(inplace=True)
-
     # Strip the true version number out of the version id
     df["Version"] = df["Version"].apply(lambda x: int(str(x).split(" - ")[-1])).astype(int)
 
@@ -50,13 +46,18 @@ def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.Dat
 
     # Create scaled version of dataframe based on the pretrained values
     df_scaled = df.copy()
-    numerical = ["val_f1_score", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune"]
+    numerical = ["val_f1_score_macro", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune"]
     for x in numerical:
         df_scaled[x] = df[x].values/df_pre[x].values
         df_scaled[x].fillna(-1)
 
+    # Remove runs that did not finish.
+    df = df[~df["parameters"].isna()]
+    df.reset_index(inplace=True)
+
     # Get only the current version (Done this late just so the scaling is not indexing into a Null)
-    df = df[df["Version"] >= df["Version"].max()]
+    # df = df[df["Version"] >= df["Version"].max()]
+    df = df[df["LengthOfTrainingData"] > 100000]
 
     pt = df.pivot_table(values=["val_f1_score", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc="mean")
     pt_scaled = df_scaled.pivot_table(values=["val_f1_score", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc="mean")

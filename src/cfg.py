@@ -17,7 +17,7 @@ class ConfigObject():
                           "": {"str": str, "int": int, "float": float, "strl": (str, list), "strdevice": (str, torch.device), "strn": (str, None)},
                           "Optimizer": {"Adam": torch.optim.Adam, "SGD": torch.optim.SGD, "RMS": torch.optim.RMSprop},
                           "LossFunction": {"MSE": torch.nn.MSELoss, "CrossEntropy": torch.nn.CrossEntropyLoss},
-                          "ModelStructure": {"BasicTest": "BasicTest", "SwappingTest": "SwappingTest", "SimpleCNN": "SimpleCNN"},
+                          "ModelStructure": {"BasicTest": "BasicTest", "SwappingTest": "SwappingTest", "SimpleCNN": "SimpleCNN", "MainLinear": "MainLinear"},
                           "DatasetName": {"RandomDummy": "RandomDummy", "Vulnerability": "Vulnerability", "ACI": "ACI"},
                           "Device": {"cpu": torch.device("cpu"), "cuda": torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"), torch.device("cpu"): torch.device("cpu"), torch.device("cuda"): torch.device("cuda")}
                           }
@@ -30,8 +30,11 @@ class ConfigObject():
             "LossFunction": ["CrossEntropy", "Loss function being used", "str"],
             "Optimizer": ["Adam", "Optimizer being used", "str"],
             "LearningRate": [0.0001, "Learning rate for training", "float"],
-            "NumberOfEpochs": [10, "Number of epochs used", "int"],
-            "ModelStructure": ["SwappingTest", "Model structure to use", "str"],
+            "NumberOfEpochs": [100, "Number of epochs used", "int"],
+            "ModelStructure": ["MainLinear", "Model structure to use", "str"],
+            "Dropout": [0.003, "Dropout after each hidden layer", "float"],
+            "HiddenDim": [100, "Number of hidden dimensions", "int"],
+            "HiddenDimSize": [1000, "Number of filters in hidden dimension", "int"],
             "DatasetName": ["ACI", "What dataset to use", "str"],
             "BatchSize": [3000, "How many samples used per batch", "int"],
             "TrainTest": [0.2, "Fraction of data used in the validation set. Also used for splitting Test from validation.", "float"],
