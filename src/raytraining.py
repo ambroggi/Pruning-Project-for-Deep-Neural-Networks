@@ -42,7 +42,7 @@ def raytrain(config: cfg.ConfigObject | bool | None = None, **kwargs) -> dict[st
     train_data, validation = getdata.get_train_test(config, dataset=data)
 
     scheduler = ASHAScheduler(
-        metric="loss",
+        metric="total_loss",
         mode="min",
         max_t=config("NumberOfEpochs"),
         grace_period=1,
@@ -57,7 +57,7 @@ def raytrain(config: cfg.ConfigObject | bool | None = None, **kwargs) -> dict[st
         scheduler=scheduler,
     )
 
-    best = result.get_best_trial("loss", "min", "last")
+    best = result.get_best_trial("total_loss", "min", "last")
     print(best)
 
 

@@ -77,7 +77,7 @@ class LinearLayer(torch.nn.Module):
         self.drop = torch.nn.Dropout1d()
 
     def forward(self, tensor):
-        return self.drop(self.act(self.fc()))
+        return self.drop(self.act(self.fc(tensor)))
 
 
 class MultiLinear(BaseDetectionModel):

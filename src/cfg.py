@@ -105,16 +105,16 @@ class ConfigObject():
             if paramName in ["LayerPruneTargets", "LayerIteration"]:  # This is a list, so we need to do  a little formatting (ints)
                 if isinstance(paramVal, str):
                     paramVal = paramVal.strip("[]")
-                    paramVal = [int(x) for x in paramVal.split(", ")]
+                    paramVal = [int(x) if (x != "*") else x for x in paramVal.split(", ")]
                 else:
-                    paramVal = [int(x) for x in paramVal]
+                    paramVal = [int(x) if (x != "*") else x for x in paramVal]
 
             if paramName in ["WeightPrunePercent"]:  # This is a list, so we need to do  a little formatting (floats)
                 if isinstance(paramVal, str):
                     paramVal = paramVal.strip("[]")
-                    paramVal = [float(x) for x in paramVal.split(", ")]
+                    paramVal = [float(x) if (x != "*") else x for x in paramVal.split(", ")]
                 else:
-                    paramVal = [float(x) for x in paramVal]
+                    paramVal = [float(x) if (x != "*") else x for x in paramVal]
 
             if paramName in ["PruningSelection"]:  # This is supposed to be a running tally, so we need to add it on.
                 if not self.get_param(paramName) == "":
@@ -132,6 +132,12 @@ class ConfigObject():
     def get_param(self, paramName: str, getString: bool = False) -> str | float | int | object:
         if (paramName in self.typechart.keys()) and not getString:
             return self.typechart[paramName][self.parameters[paramName][0]]
+
+        if paramName in ["LayerPruneTargets", "LayerIteration", "WeightPrunePercent"] and not getString:
+            if "*" in self.parameters[paramName][0]:
+                i = self.parameters[paramName][0].index("*")
+                return self.parameters[paramName][0][:i] + [self.parameters[paramName][0][i-1] for _ in range(self("HiddenDim") - 1)] + self.parameters[paramName][0][i+1:]
+
         return self.parameters[paramName][0]
 
     def get_param_description(self, paramName: str) -> str:
