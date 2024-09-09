@@ -177,6 +177,19 @@ class ConfigObject():
                 new(x, self(x, getString=True))
         return new
 
+    def to_dict(self):
+        return {x: self.get_param(x, getString=True) for x in self.parameters.keys()}
+
+    @staticmethod
+    def from_dict(dictionary: dict):
+        self_ = ConfigObject()
+        # This is for initial setup
+        for name, value in dictionary.items():
+            if name not in self_.readOnly:
+                self_(name, value)
+
+        return self_
+
 
 def get_version() -> str:
     repo = git.Repo(os.getcwd())
