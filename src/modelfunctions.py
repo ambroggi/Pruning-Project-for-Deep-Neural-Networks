@@ -120,7 +120,7 @@ class ModelFunctions():
             self.epoch_callbacks = []
 
         # Just a quick message about the run
-        return f'Ran model with {epoch_results["f1_score_macro"]*100:2.3f}% or {epoch_results["f1_score_weight"]*100:2.3f} F1 on final epoch {e}'
+        return f'Ran model with {epoch_results["f1_score_macro"]*100:2.3f}% or {epoch_results["f1_score_weight"]*100:2.3f}% F1 on final epoch {e}'
 
     def run_single_epoch(self, dataloader: DataLoader) -> dict[str, float]:
         assert isinstance(self, torch.nn.Module)
