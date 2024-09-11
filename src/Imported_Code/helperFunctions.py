@@ -75,7 +75,7 @@ def remove_layers(model: torch.nn.Module, parameter_to_reduce: int, keepint_tens
         if "weight" in names:
             idx += 1
             if idx == parameter_to_reduce:
-                state_dict = state_dict | {f"{names.split('.')[0]}.weight": params.data[keepint_tensor[:: length_of_single_channel]]}
+                state_dict = state_dict | {names: params.data[keepint_tensor[:: length_of_single_channel]]}
             if idx == parameter_to_reduce + 1:
 
                 if len(keepint_tensor) != len(params.data[0]):
@@ -83,23 +83,27 @@ def remove_layers(model: torch.nn.Module, parameter_to_reduce: int, keepint_tens
                     t2 = torch.zeros(len(params.data[0]), dtype=torch.bool)
                     for i in range(len(keepint_tensor)):
                         t2[i*multiplier:(i+1)*multiplier] = keepint_tensor[i]
-                    state_dict = state_dict | {f"{names.split('.')[0]}.weight": params.data[:, t2]}
+                    state_dict = state_dict | {names: params.data[:, t2]}
 
                 else:
-                    state_dict = state_dict | {f"{names.split('.')[0]}.weight": params.data[:, keepint_tensor]}
+                    state_dict = state_dict | {names: params.data[:, keepint_tensor]}
 
     # This is actually replacing the model layers
     for name, values in state_dict.items():
         if name.split(".")[-1] == "weight":
             shape = values.shape
-            old = model.__getattr__(name.split(".")[-2])
+            m = model
+            for x in name.split(".")[:-2]:
+                m = m.__getattr__(x)
+            old = m.__getattr__(name.split(".")[-2])
             if isinstance(old, torch.nn.Linear):
-                model.__setattr__(name.split(".")[-2], torch.nn.Linear(shape[1], shape[0]))
+                m.__setattr__(name.split(".")[-2], torch.nn.Linear(shape[1], shape[0]))
             elif isinstance(old, torch.nn.Conv1d):
-                model.__setattr__(name.split(".")[-2], torch.nn.Conv1d(shape[1], shape[0], old.kernel_size))
+                m.__setattr__(name.split(".")[-2], torch.nn.Conv1d(shape[1], shape[0], old.kernel_size))
 
     # Then set the parameters
     model.load_state_dict(state_dict=state_dict, strict=False)
+    model.to(model.cfg("Device"))
     return state_dict
 
 

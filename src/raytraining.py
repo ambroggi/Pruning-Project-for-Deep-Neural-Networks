@@ -10,6 +10,8 @@ from src import modelstruct
 from src import getdata
 from src import filemanagement
 
+import os
+
 from functools import partial
 from ray import tune
 from ray import train
@@ -24,7 +26,8 @@ def searchspaceconfig(config: cfg.ConfigObject):
         "BatchSize": tune.choice(10**x for x in range(8)),
         "Dropout": tune.loguniform(1e-4, 1e-1),
         "HiddenDim": tune.randint(0, 100),
-        "HiddenDimSize": tune.randint(10, 1000)
+        "HiddenDimSize": tune.randint(10, 1000),
+        "MaxSamples": 0
     }
     return config.to_dict() | modifications
 
@@ -37,9 +40,7 @@ def raytrain(config: cfg.ConfigObject | bool | None = None, **kwargs) -> dict[st
     else:
         config = config.clone()
 
-    conf = searchspaceconfig(config)
-    data = getdata.get_dataset(config) if "data" not in kwargs else kwargs["data"]
-    train_data, validation = getdata.get_train_test(config, dataset=data)
+    conf = searchspaceconfig(config) | {"DatafolderPath": os.path.join(os.getcwd(), "datasets")}
 
     scheduler = ASHAScheduler(
         metric="total_loss",
@@ -50,10 +51,10 @@ def raytrain(config: cfg.ConfigObject | bool | None = None, **kwargs) -> dict[st
     )
 
     result = tune.run(
-        partial(singleraytrain, dataset=train_data),
-        resources_per_trial={"cpu": 2, "gpu": 0 if "data" not in kwargs else kwargs["gpus"]},
+        singleraytrain,
+        resources_per_trial={"cpu": 2, "gpu": 0.1 if "data" not in kwargs else kwargs["gpus"]},
         config=conf,
-        num_samples=10,
+        num_samples=9,
         scheduler=scheduler,
     )
 
@@ -61,14 +62,18 @@ def raytrain(config: cfg.ConfigObject | bool | None = None, **kwargs) -> dict[st
     print(best)
 
 
-def singleraytrain(conf_dict, dataset, **kwargs):
+def singleraytrain(conf_dict, **kwargs):
+    cwdpath = conf_dict.pop("DatafolderPath")
     config = cfg.ConfigObject.from_dict(conf_dict)
-    model = modelstruct.getModel(config)
 
     # Model set up
     # This is where I would load checkpoints if I wanted to.
-    data = getdata.get_dataloader(dataset=dataset)
-    train_data, validation = getdata.get_train_test(config, dataloader=data)
+    getdata.datasets_folder_path = cwdpath
+    data = getdata.get_dataloader(config=config)
+    training, testing = getdata.get_train_test(config, dataloader=data)
+    train_data, validation = getdata.get_train_test(config, dataloader=training)
+
+    model = modelstruct.getModel(config)
     model.set_training_data(train_data)
     model.set_validation_data(validation)
     model.cfg = config

@@ -7,6 +7,9 @@ from sklearn.preprocessing import StandardScaler
 from .cfg import ConfigObject
 
 
+datasets_folder_path = "datasets"
+
+
 class Targets(torch.Tensor):
     """
     Should be a 1 dimentisional vector where each value is a int corrisponding to a target class.
@@ -108,11 +111,11 @@ class ACIIOT2023(BaseDataset):
     def __init__(self, target_format: str = "CrossEntropy", num_classes: int = -1):
         super().__init__()
 
-        if not os.path.exists("datasets/ACI-IOT-2023-formatted"):
-            if not os.path.exists("datasets/ACI-IoT-2023-Payload.csv"):
+        if not os.path.exists(os.path.join(datasets_folder_path, "ACI-IoT-2023-formatted.parquet")):
+            if not os.path.exists(os.path.join(datasets_folder_path, "ACI-IoT-2023-Payload.csv")):
                 print("Dataset does not exist please download it from https://www.kaggle.com/datasets/emilynack/aci-iot-network-traffic-dataset-2023/data?select=ACI-IoT-2023-Payload.csv")
             print("Formatting ACI dataset, this will take some time. eta 25 minutes.")
-            self.original_vals = pd.read_csv("datasets/ACI-IoT-2023-Payload.csv")  # .sample(100000)
+            self.original_vals = pd.read_csv(os.path.join(datasets_folder_path, "ACI-IoT-2023-Payload.csv"))  # .sample(100000)
             # self.original_vals = pd.read_csv("datasets/ACI-IoT-Example.csv", index_col=0)
 
             # Drop the time column
@@ -136,12 +139,12 @@ class ACIIOT2023(BaseDataset):
 
             # Picked parquet because of this article: https://towardsdatascience.com/the-best-format-to-save-pandas-data-414dca023e0d
             # It has best storage size
-            self.original_vals.to_parquet("datasets/ACI-IOT-2023-formatted")
+            self.original_vals.to_parquet(os.path.join(datasets_folder_path, "ACI-IoT-2023-formatted.parquet"))
         else:
-            self.original_vals = pd.read_parquet("datasets/ACI-IoT-2023-formatted")
+            self.original_vals = pd.read_parquet(os.path.join(datasets_folder_path, "ACI-IoT-2023-formatted.parquet"))
 
-        if not os.path.exists("datasets/ACI-IoT-counts.csv"):
-            self.original_vals["label"].value_counts().to_csv("datasets/ACI-IoT-counts.csv")
+        if not os.path.exists(os.path.join(datasets_folder_path, "ACI-IoT-counts.csv")):
+            self.original_vals["label"].value_counts().to_csv(os.path.join(datasets_folder_path, "ACI-IoT-counts.csv"))
 
         # Get the classes
         self.classes = {label: num for num, label in enumerate(self.original_vals["label"].unique())}

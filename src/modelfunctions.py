@@ -36,17 +36,20 @@ class ModelFunctions():
         self.validation_dataloader = dataloader
 
     def get_progress_bar(self, epochs):
-        self.progres_file = open("results/progressbar.txt", mode="r+")  # This might be useful so I am putting it here: https://stackoverflow.com/a/72412819
-        self.progres_file.seek(0, 2)
-        progres_pos = self.progres_file.tell()
-        progres_bar = tqdm.tqdm(range(epochs), desc=f"Fit \t|{self.cfg('PruningSelection')}| \tPID:{os.getpid()}\t", total=epochs, file=self.progres_file, ascii=True)
-        self.progress_need_to_remove = []
-        self.progress_need_to_remove.append(lambda r: self.progres_file.seek(progres_pos, 0))
-        self.progress_need_to_remove.append(lambda results: progres_bar.set_postfix_str(f"{results['f1_score_macro']*100:2.3f}% Train F1, {results['val_f1_score_macro']*100:2.3f}% Validation F1"))
-        self.progress_need_to_remove.append(lambda r: self.progres_file.seek(progres_pos, 0))
-        self.epoch_callbacks.extend(self.progress_need_to_remove)
+        if os.path.exists("results/progressbar.txt"):
+            self.progres_file = open("results/progressbar.txt", mode="r+")  # This might be useful so I am putting it here: https://stackoverflow.com/a/72412819
+            self.progres_file.seek(0, 2)
+            progres_pos = self.progres_file.tell()
+            progres_bar = tqdm.tqdm(range(epochs), desc=f"Fit \t|{self.cfg('PruningSelection')}| \tPID:{os.getpid()}\t", total=epochs, file=self.progres_file, ascii=True)
+            self.progress_need_to_remove = []
+            self.progress_need_to_remove.append(lambda r: self.progres_file.seek(progres_pos, 0))
+            self.progress_need_to_remove.append(lambda results: progres_bar.set_postfix_str(f"{results['f1_score_macro']*100:2.3f}% Train F1, {results['val_f1_score_macro']*100:2.3f}% Validation F1"))
+            self.progress_need_to_remove.append(lambda r: self.progres_file.seek(progres_pos, 0))
+            self.epoch_callbacks.extend(self.progress_need_to_remove)
 
-        return progres_bar
+            return progres_bar
+        else:
+            return None
 
     def remove_progress_bar(self):
         for x in self.progress_need_to_remove:
@@ -248,6 +251,11 @@ class ModelFunctions():
             for module in name.split(".")[:-1]:
                 contained_by = old
                 old = old.__getattr__(module)
+                if isinstance(old, Nothing_Module):
+                    # If a module has been deleted, this resets it
+                    contained_by.__setattr__(module, old.old[0])
+                    del old
+                    old = contained_by.__getattr__(module)
 
             if contained_by == old:
                 print("Failed to find the actual path to the module")
@@ -255,12 +263,6 @@ class ModelFunctions():
             # # https://stackoverflow.com/a/7616959
             # obj_class = old.__class__
             # new = obj_class()
-
-            if isinstance(old, Nothing_Module):
-                # If a module has been deleted, this resets it
-                contained_by.__setattr__(name.split(".")[-2], old.old[0])
-                del old
-                old = contained_by.__getattr__(name.split(".")[-2])
 
             if "weight" in name.split(".")[-1]:
                 shape = weights.shape
@@ -289,7 +291,7 @@ class ModelFunctions():
 
     def additive_loss(self, **kwargs) -> torch.Tensor:
         # Any additional terms to be added to the loss
-        val = self.loss_additive_info[0](*(self.loss_additive_info[1]), **kwargs)
+        val = self.loss_additive_info[0](*(self.loss_additive_info[1]), **kwargs).to(self.cfg("Device"))
         return val
 
     def save_model_state_dict(self, logger: None | Callable, name: str | None = None, update_config: bool = True, logger_column: None | str = None):

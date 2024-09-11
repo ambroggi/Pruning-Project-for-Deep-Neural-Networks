@@ -13,6 +13,7 @@ def add_addm_v_layers(model: "BaseDetectionModel"):
         print(module)
         if isinstance(module, torch.nn.Linear) or isinstance(module, torch.nn.Conv1d):
             model.pruning_layers.append(PostMutablePruningLayer(module))
+            model.pruning_layers[-1].para.to(model.cfg("Device"))
             # model.pruning_layers[-1].para.data = torch.rand_like(model.pruning_layers[-1].para.data)
             model.register_parameter(f"v{count}", model.pruning_layers[-1].para)
             count += 1

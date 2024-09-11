@@ -32,9 +32,10 @@ class Theseus_Replacement(torch.nn.Module):
         self.output = None
 
         model.epoch_callbacks.append(lambda results: self.update_p(results["epoch"]))
+        self.main.to(model.cfg("Device"))
 
     def get_start_replacement(self, module: torch.nn.Module, args: torch.Tensor):
-        self.r = torch.bernoulli(self.p * torch.ones(len(args[0]))).unsqueeze(-1)
+        self.r = torch.bernoulli(self.p * torch.ones(len(args[0]), device=args[0].device)).unsqueeze(-1)
         self.output = self.main(args[0])
         if self.flatten is not None:
             self.output = self.flatten(self.output)
@@ -75,11 +76,15 @@ class Theseus_Replacement(torch.nn.Module):
                 name_path = name.split(".")
                 current_look = model
                 for i in name_path[:-1]:
-                    current_look = model.__getattr__(i)
+                    if isinstance(current_look, Nothing_Module):
+                        break
+                    current_look = current_look.__getattr__(i)
 
                 if module is first:
                     current_look.__setattr__(name_path[-1], self.main)
                 elif module is self.flatten:
+                    pass
+                elif isinstance(current_look, Nothing_Module):
                     pass
                 else:
                     current_look.__setattr__(name_path[-1], Nothing_Module(current_look.__getattr__(name_path[-1])))

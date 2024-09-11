@@ -47,6 +47,7 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
     cuda_mem = torch.cuda.memory_allocated()
     if "PruningSelection" in kwargs.keys() and kwargs["PruningSelection"] is not None:
         model.train(True)
+        model.to(model.cfg("Device"))
         kwargs = types_of_tests[kwargs["PruningSelection"]](**kwargs)
         kwargs.pop("PruningSelection")
         model = kwargs["model"]

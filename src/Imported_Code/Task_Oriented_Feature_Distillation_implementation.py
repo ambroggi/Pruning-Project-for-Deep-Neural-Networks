@@ -30,7 +30,9 @@ class task_oriented_feature_wrapper(torch.nn.Module):
         for module in wrapped_module.get_important_modules():
             self.module_hooks_for_outdim.update({module: forward_hook()})
             self.fw_hooks.append(module.register_forward_hook(self.module_hooks_for_outdim[module]))
-        class_count = len(wrapped_module(wrapped_module.dataloader.__iter__().__next__()[0])[0])
+        data = wrapped_module.dataloader.__iter__().__next__()[0]
+        data = data.to(wrapped_module.cfg("Device"))
+        class_count = len(wrapped_module(data)[0])
         length_of_last_block_input = len(self.module_hooks_for_outdim[module].inp[0])
 
         # Create the auxillary modules
@@ -82,8 +84,9 @@ class auxillary_module(torch.nn.Module):
             torch.nn.MaxPool1d(maxpool),
             torch.nn.Flatten(),
         )
-        self.intermidiate.append(torch.nn.Linear(self.intermidiate(expected_tensor_example).shape[-1], features_len))
-        self.final = torch.nn.Linear(features_len, number_of_classes)
+        self.intermidiate.to(expected_tensor_example.device)
+        self.intermidiate.append(torch.nn.Linear(self.intermidiate(expected_tensor_example).shape[-1], features_len, device=expected_tensor_example.device))
+        self.final = torch.nn.Linear(features_len, number_of_classes, device=expected_tensor_example.device)
 
     def forward(self, x: torch.Tensor):
         if self.expand:
@@ -126,7 +129,7 @@ def TOFD_name_main(optimizer: torch.optim.Optimizer, teacher: task_oriented_feat
                 for j in range(num_auxiliary_classifier):
                     link.append(nn.Linear(student_feature_size, teacher_feature_size, bias=False))
                 net.link = nn.ModuleList(link)
-                # net.cuda()  # CHANGE: Removed CUDA requirement
+                net.to(device=outputs[0].device)  # CHANGE: Changed from just CUDA to more dynamic device
                 #   we redefine optimizer here so it can optimize the net.link layers.
                 optimizer = optim.SGD(net.parameters(), lr=LR, weight_decay=5e-4, momentum=0.9)
                 init = True
@@ -148,8 +151,8 @@ def TOFD_name_main(optimizer: torch.optim.Optimizer, teacher: task_oriented_feat
             for index in range(len(student_feature)):
                 weight = list(net.link[index].parameters())[0]
                 weight_trans = weight.permute(1, 0)
-                ones = torch.eye(weight.size(0))  # CHANGE: removed ".cuda()"
-                ones2 = torch.eye(weight.size(1))  # CHANGE: removed ".cuda()"
+                ones = torch.eye(weight.size(0)).to(device=weight.device)  # CHANGE: removed ".cuda()" and replaced with ".to(device=weight.device)"
+                ones2 = torch.eye(weight.size(1)).to(device=weight.device)  # CHANGE: removed ".cuda()" and replaced with ".to(device=weight.device)"
                 loss += torch.dist(torch.mm(weight, weight_trans), ones, p=2) * args.beta
                 loss += torch.dist(torch.mm(weight_trans, weight), ones2, p=2) * args.beta
 

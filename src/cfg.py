@@ -29,16 +29,16 @@ class ConfigObject():
             "Notes": [0, "This is supposed to store a integer associated with specific notes for this config. 0 is no Notes", "int"],
             "LossFunction": ["CrossEntropy", "Loss function being used", "str"],
             "Optimizer": ["Adam", "Optimizer being used", "str"],
-            "LearningRate": [0.0001, "Learning rate for training", "float"],
+            "LearningRate": [0.000904255, "Learning rate for training", "float"],
             "NumberOfEpochs": [100, "Number of epochs used", "int"],
             "ModelStructure": ["MainLinear", "Model structure to use", "str"],
-            "Dropout": [0.003, "Dropout after each hidden layer", "float"],
-            "HiddenDim": [100, "Number of hidden dimensions", "int"],
-            "HiddenDimSize": [1000, "Number of filters in hidden dimension", "int"],
+            "Dropout": [0.000224328, "Dropout after each hidden layer", "float"],
+            "HiddenDim": [27, "Number of hidden dimensions", "int"],
+            "HiddenDimSize": [875, "Number of filters in hidden dimension", "int"],
             "DatasetName": ["ACI", "What dataset to use", "str"],
             "BatchSize": [3000, "How many samples used per batch", "int"],
             "TrainTest": [0.2, "Fraction of data used in the validation set. Also used for splitting Test from validation.", "float"],
-            "MaxSamples": [0, "Maximum number of samples in the data, 0 is no limit. Note that the data is random split", "int"],
+            "MaxSamples": [100, "Maximum number of samples in the data, 0 is no limit. Note that the data is random split", "int"],
             "Dataparallel": [-2, "To use distributed data parallel and if it failed. 0 is off, 1 is active, -1 is failed, -2 is not implemented", "int"],
             "NumberOfWorkers": [0, "Number of worker processes or dataparallel processes if Dataparallel is 1", "int"],
             "Device": ["cuda", "Use CPU or CUDA", "strdevice"],
@@ -198,19 +198,22 @@ class ConfigObject():
 
 
 def get_version() -> str:
-    repo = git.Repo(os.getcwd())
-    # print(f"Tags: {repo.tags}")
-    commit_count = len([1 for _ in repo.iter_commits()])
+    try:
+        repo = git.Repo(os.getcwd())
+        # print(f"Tags: {repo.tags}")
+        commit_count = len([1 for _ in repo.iter_commits()])
 
-    best_tag = (0, 0)
-    for tag in repo.tags:
-        commit_num = tag.path.split(sep=": ")[1]
-        if commit_num > best_tag[1] and commit_num < commit_count:
-            best_tag = (best_tag[0] + 1, commit_num)
-            # TODO: Make sure this works, I want it so that the version is Vx.y - z,
-            # where x is a tagged commit, and y is the number of commits after that, and z is the actual number
+        best_tag = (0, 0)
+        for tag in repo.tags:
+            commit_num = tag.path.split(sep=": ")[1]
+            if commit_num > best_tag[1] and commit_num < commit_count:
+                best_tag = (best_tag[0] + 1, commit_num)
+                # TODO: Make sure this works, I want it so that the version is Vx.y - z,
+                # where x is a tagged commit, and y is the number of commits after that, and z is the actual number
 
-    return f"v{best_tag[0]}.{commit_count-best_tag[1]} - {commit_count}"
+        return f"v{best_tag[0]}.{commit_count-best_tag[1]} - {commit_count}"
+    except git.InvalidGitRepositoryError:
+        "0.0 - 0"
 
 
 def make_versiontag(message: str):

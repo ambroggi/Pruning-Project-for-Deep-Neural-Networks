@@ -4,9 +4,9 @@ import torch
 class PreMutablePruningLayer():
     def __init__(self, module: torch.nn.Module):
         if isinstance(module, torch.nn.Linear):
-            self.para = torch.nn.Parameter(torch.ones(module.in_features))
+            self.para = torch.nn.Parameter(torch.ones(module.in_features, device=module.weight.device))
         elif isinstance(module, torch.nn.Conv1d):
-            self.para = torch.nn.Parameter(torch.ones(module.in_channels))
+            self.para = torch.nn.Parameter(torch.ones(module.in_channels, device=module.weight.device))
         else:
             print(f"Soft Pruning for Module type {module._get_name()} not implemented yet")
         self.module = module
@@ -33,9 +33,9 @@ class PreMutablePruningLayer():
 class PostMutablePruningLayer():
     def __init__(self, module: torch.nn.Module):
         if isinstance(module, torch.nn.Linear):
-            self.para = torch.nn.Parameter(torch.ones(module.out_features))
+            self.para = torch.nn.Parameter(torch.ones(module.out_features, device=module.weight.device))
         elif isinstance(module, torch.nn.Conv1d):
-            self.para = torch.nn.Parameter(torch.ones(module.out_channels))
+            self.para = torch.nn.Parameter(torch.ones(module.out_channels, device=module.weight.device))
         else:
             print(f"Soft Pruning for Module type {module._get_name()} not implemented yet")
         self.module = module

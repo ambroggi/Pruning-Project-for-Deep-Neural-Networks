@@ -139,7 +139,8 @@ def thinet_test(config: cfg.ConfigObject, data: torch.utils.data.DataLoader, mod
         layers = [layernum for layernum, layerpercent in enumerate(config("WeightPrunePercent")) if layerpercent < 1]
 
     # Create sample of dataset, Fancy load_kwargs is just there to load the collate_fn
-    training_data = iter(torch.utils.data.DataLoader(data.dataset, 100000, **(data.base.load_kwargs if hasattr(data, "base") else {}))).__next__()[0]
+    training_data: torch.Tensor = iter(torch.utils.data.DataLoader(data.dataset, 100000, **(data.base.load_kwargs if hasattr(data, "base") else {}))).__next__()[0]
+    training_data = training_data.to(model.cfg("Device"))
 
     for i in layers:
         Imported_Code.run_thinet_on_layer(model, i, training_data=training_data, config=config)
@@ -163,6 +164,7 @@ def bert_of_theseus_test(model: modelstruct.BaseDetectionModel, data, config: cf
 
     # Create sample of dataset, Fancy load_kwargs is just there to load the collate_fn
     training_data = iter(torch.utils.data.DataLoader(data.dataset, 100, **(data.base.load_kwargs if hasattr(data, "base") else {}))).__next__()[0]
+    training_data = training_data.to(model.cfg("Device"))
 
     model(training_data)
 
@@ -170,6 +172,7 @@ def bert_of_theseus_test(model: modelstruct.BaseDetectionModel, data, config: cf
     rm2.remove()
 
     replace_object = Imported_Code.Theseus_Replacement(lst, start.inp.shape[1:], end.out.shape[1:], model=model)
+    replace_object.to(config("Device"))
 
     config("PruningSelection", "BERT_theseus_training")
     model.fit(10)
@@ -234,6 +237,7 @@ def TOFD_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObj
     # print(*[f"{x}:{y.shape}\n" for x, y in model.state_dict().items()])
     # print(*[f"{x}:{y.shape}\n" for x, y in new_net_state_dict.items()])
     new_net.load_model_state_dict_with_structure(new_net_state_dict)
+    new_net.to(model.cfg("Device"))
 
     # Model set up
     train, validation = getdata.get_train_test(config, dataloader=data)
@@ -260,7 +264,7 @@ def Random_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject,
     for count, module in enumerate(model.get_important_modules()):
         pruning_layer = (extramodules.PostMutablePruningLayer(module))
         n = len(pruning_layer.para)
-        random_permutation = torch.randperm(n)
+        random_permutation = torch.randperm(n, device=model.cfg("Device"))
         random_filter: torch.Tensor = random_permutation.less((config("WeightPrunePercent")[count]*n)//1)
         pruning_layer.para.data = random_filter.type_as(pruning_layer.para.data)
         pruning_layer.remove(update_weights=True)

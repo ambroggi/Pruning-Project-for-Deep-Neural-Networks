@@ -57,8 +57,8 @@ def collect_module_is(model: "BaseDetectionModel", paramNumbers: list, batch: to
 
 def run_thinet_on_layer(model: "BaseDetectionModel", layerIndex: int, training_data, config):
     module_results: list[forward_hook] = collect_module_is(model, [layerIndex, layerIndex+1], training_data)
-    x = torch.stack(run_one_channel_module(module_results[0].modu, module_results[0].inp.detach())).detach().T
-    y = module_results[1].out_no_bias.detach()
+    x = torch.stack(run_one_channel_module(module_results[0].modu, module_results[0].inp.detach())).detach().cpu().T
+    y = module_results[1].out_no_bias.detach().cpu()
 
     if (y.ndim > 2):
         y = torch.sum(y, dim=-1)
@@ -76,8 +76,10 @@ def run_thinet_on_layer(model: "BaseDetectionModel", layerIndex: int, training_d
     # That means it is C_in*C_out where C_in is the number of channels being kept (len(indexes))
     # and C_out is the number of channels the layer used to have
 
-    keep_tensor = torch.zeros_like(x[0], dtype=torch.bool)
+    keep_tensor = torch.zeros_like(x[0], dtype=torch.bool, device=model.cfg("Device"))
     keep_tensor[indexes] = True
+
+    weight_mod = torch.Tensor(weight_mod).to(model.cfg("Device"))
 
     if module_results[1].modu.weight.data.ndim == 3:
         # This is for CNN layers
