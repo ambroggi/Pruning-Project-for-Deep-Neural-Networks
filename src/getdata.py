@@ -111,12 +111,20 @@ class ACIIOT2023(BaseDataset):
     def __init__(self, target_format: str = "CrossEntropy", num_classes: int = -1):
         super().__init__()
 
-        if not os.path.exists(os.path.join(datasets_folder_path, "ACI-IoT-2023-formatted.parquet")):
+        if not os.path.exists(os.path.join(datasets_folder_path, "ACI-IoT-2023-formatted-undersampled.parquet")):
             if not os.path.exists(os.path.join(datasets_folder_path, "ACI-IoT-2023-Payload.csv")):
                 print("Dataset does not exist please download it from https://www.kaggle.com/datasets/emilynack/aci-iot-network-traffic-dataset-2023/data?select=ACI-IoT-2023-Payload.csv")
             print("Formatting ACI dataset, this will take some time. eta 25 minutes.")
             self.original_vals = pd.read_csv(os.path.join(datasets_folder_path, "ACI-IoT-2023-Payload.csv"))  # .sample(100000)
             # self.original_vals = pd.read_csv("datasets/ACI-IoT-Example.csv", index_col=0)
+
+            # Looked at (https://www.geeksforgeeks.org/stratified-sampling-in-pandas/) for how to randomly sample from stratified samples
+            # Notably I think they were using an older version that .sample() did not work on groups
+            # self.original_vals = self.original_vals.groupby("label").sample(n=int(100*min([x for x in self.original_vals.value_counts("label")])), replace=True)
+            # It looks like the geeks for geeks article is more of the way to go though, because I need to select a varying number of samples
+            max_samples = 100 * min(self.original_vals.value_counts("label"))
+            self.original_vals = self.original_vals.groupby("label", group_keys=False).apply(lambda group: group.sample(n=max_samples if max_samples <= len(group) else len(group)))
+            self.original_vals.reset_index(inplace=True)
 
             # Drop the time column
             self.original_vals.drop(["stime"], inplace=True, axis=1)
@@ -139,9 +147,9 @@ class ACIIOT2023(BaseDataset):
 
             # Picked parquet because of this article: https://towardsdatascience.com/the-best-format-to-save-pandas-data-414dca023e0d
             # It has best storage size
-            self.original_vals.to_parquet(os.path.join(datasets_folder_path, "ACI-IoT-2023-formatted.parquet"))
+            self.original_vals.to_parquet(os.path.join(datasets_folder_path, "ACI-IoT-2023-formatted-undersampled.parquet"))
         else:
-            self.original_vals = pd.read_parquet(os.path.join(datasets_folder_path, "ACI-IoT-2023-formatted.parquet"))
+            self.original_vals = pd.read_parquet(os.path.join(datasets_folder_path, "ACI-IoT-2023-formatted-undersampled.parquet"))
 
         if not os.path.exists(os.path.join(datasets_folder_path, "ACI-IoT-counts.csv")):
             self.original_vals["label"].value_counts().to_csv(os.path.join(datasets_folder_path, "ACI-IoT-counts.csv"))
