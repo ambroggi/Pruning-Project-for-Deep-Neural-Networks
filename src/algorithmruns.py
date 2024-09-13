@@ -158,16 +158,15 @@ def bert_of_theseus_test(model: modelstruct.BaseDetectionModel, data, config: cf
     # Ok so this whole outside bit is just to figure out what layers we want to replace
 
     # This splits the model into the predecessors
-    module_group_size = 3
-    module_group_starts = [x for x in model.get_important_modules()[::module_group_size]]
-    module_group_ends = [x for x in model.get_important_modules()[module_group_size-1::module_group_size]]
+    module_group_size = int(1/(sum(*config("WeightPrunePercent"))/len(config("WeightPrunePercent"))))
+    module_group = [x for x in model.get_important_modules()[::module_group_size]]
 
     hook_object_tuples = []  # This stores hooks for getting the expected successor inputs/outputs
     hook_removers: list[torch.utils.hooks.RemovableHandle] = []  # This stores the unhooking objects for the above
 
     # List of all modules that are not containers (containers being purely structural and not actually functional)
     lst_of_modules: list[torch.nn.Module] = [m for m in model.modules() if not isinstance(m, modelstruct.container_modules)]
-    for start, end in zip(module_group_starts, module_group_ends):
+    for start, end in zip(module_group, module_group[1:]):
         # This is for each predecessor, orginized by the starting and ending modules
 
         # Get a list of all the modules that are encompassed by the predecessor
