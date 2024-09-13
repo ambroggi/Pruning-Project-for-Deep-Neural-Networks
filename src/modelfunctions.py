@@ -95,8 +95,11 @@ class ModelFunctions():
 
             # Run the validation dataset if it exists
             if self.validation_dataloader is not None:
+                mode = self.training
+                self.train(False)
                 # Validation data has the same name as normal data so it gets to be renamed
                 val_epoch_results = {f"val_{x[0]}": x[1] for x in self.run_single_epoch(self.validation_dataloader).items()}
+                self.train(mode)
             else:
                 # If no validation data exists, just mark it as zeros
                 val_epoch_results = {f"val_{x}": 0.0 for x in epoch_results.keys()}

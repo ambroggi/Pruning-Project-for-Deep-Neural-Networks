@@ -74,7 +74,7 @@ class LinearLayer(torch.nn.Module):
         torch.nn.Module.__init__(self)
         self.fc = torch.nn.Linear(in_dim, out_dim)
         self.act = torch.nn.LeakyReLU()
-        self.drop = torch.nn.Dropout1d()
+        self.drop = torch.nn.Dropout1d(dropout)
 
     def forward(self, tensor):
         return self.drop(self.act(self.fc(tensor)))
