@@ -158,7 +158,7 @@ def bert_of_theseus_test(model: modelstruct.BaseDetectionModel, data, config: cf
     # Ok so this whole outside bit is just to figure out what layers we want to replace
 
     # This splits the model into the predecessors
-    module_group_size = int(1/(sum(*config("WeightPrunePercent"))/len(config("WeightPrunePercent"))))
+    module_group_size = int(1/(sum(config("WeightPrunePercent"))/len(config("WeightPrunePercent"))))
     module_group = [x for x in model.get_important_modules()[::module_group_size]]
 
     hook_object_tuples = []  # This stores hooks for getting the expected successor inputs/outputs
