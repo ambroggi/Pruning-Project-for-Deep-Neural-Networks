@@ -61,7 +61,7 @@ class forward_hook():
         # print(f"input: {inp}")
 
 
-def remove_layers(model: torch.nn.Module, parameter_to_reduce: int, keepint_tensor, length_of_single_channel=1) -> dict[str, torch.Tensor]:
+def remove_layers(model: "BaseDetectionModel", parameter_to_reduce: int, keepint_tensor, length_of_single_channel=1) -> dict[str, torch.Tensor]:
     """
     Reduces a layer (selected by its index (parameter_to_reduce)) using keepint_tensor, a tensor of bools.
     This is used for ThiNet
@@ -70,23 +70,26 @@ def remove_layers(model: torch.nn.Module, parameter_to_reduce: int, keepint_tens
     """
 
     state_dict = {}
-    idx = -1
-    for names, params in model.named_parameters():
-        if "weight" in names:
-            idx += 1
-            if idx == parameter_to_reduce:
-                state_dict = state_dict | {names: params.data[keepint_tensor[:: length_of_single_channel]]}
-            if idx == parameter_to_reduce + 1:
+    reduced_module, next_module = ((name, module) for name, module in model.named_modules() if module in model.get_important_modules()[parameter_to_reduce: parameter_to_reduce+2])
+    for name, param in reduced_module[1].named_parameters():
+        name = reduced_module[0] + "." + name
+        state_dict.update({name: param.data[keepint_tensor[:: length_of_single_channel]]})
+    for name, param in next_module[1].named_parameters():
+        name = next_module[0] + "." + name
+        if "weight" in name:
+            if len(keepint_tensor) != len(param.data[0]):
+                # This is for convolutional channels, when flattened each channel crosses many fully connected
+                # So I try to flatten the keeping tensor while making sure that all items from the correct channels are kept
+                multiplier = len(param.data[0])//len(keepint_tensor)
+                t2 = torch.zeros(len(param.data[0]), dtype=torch.bool)
+                for i in range(len(keepint_tensor)):
+                    t2[i*multiplier:(i+1)*multiplier] = keepint_tensor[i]
+                state_dict = state_dict | {name: param.data[:, t2]}
 
-                if len(keepint_tensor) != len(params.data[0]):
-                    multiplier = len(params.data[0])//len(keepint_tensor)
-                    t2 = torch.zeros(len(params.data[0]), dtype=torch.bool)
-                    for i in range(len(keepint_tensor)):
-                        t2[i*multiplier:(i+1)*multiplier] = keepint_tensor[i]
-                    state_dict = state_dict | {names: params.data[:, t2]}
-
-                else:
-                    state_dict = state_dict | {names: params.data[:, keepint_tensor]}
+            else:
+                state_dict = state_dict | {name: param.data[:, keepint_tensor]}
+        else:
+            state_dict.update({name: param.data})
 
     # This is actually replacing the model layers
     for name, values in state_dict.items():
