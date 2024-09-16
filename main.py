@@ -7,7 +7,7 @@ if __name__ == "__main__":
         kwargs = src.standard_run(save_epoch_waypoints=True, config=config)
         kwargs["model"].save_model_state_dict(logger=kwargs["logger"])
 
-        for weight_prune_percent in [[((((x/((num_variation+1)**0.5) if x < 1 else 1)*100)//1)/100) if isinstance(x, int) else x for x in kwargs["config"]("WeightPrunePercent", getString=True)] for num_variation in range(5)]:
+        for weight_prune_percent in [[round(x/((num_variation+1)**0.5) if x < 1 else 1, ndigits=2) if isinstance(x, (float)) else x for x in kwargs["config"]("WeightPrunePercent", getString=True)] for num_variation in range(5)]:
             kwargs["config"]("WeightPrunePercent", weight_prune_percent)
 
             # src.standard_run(PruningSelection="RandomStructured", **kwargs)
@@ -28,5 +28,5 @@ if __name__ == "__main__":
         kwargs.pop("NumberOfEpochs")
         kwargs.pop("logger")
 
-        for weight_prune_percent in [[((((x/((num_variation+1)**0.5) if x < 1 else 1)*100)//1)/100) if isinstance(x, int) else x for x in kwargs["config"]("WeightPrunePercent", getString=True)] for num_variation in range(5)]:
+        for weight_prune_percent in [[round(x/((num_variation+1)**0.5) if x < 1 else 1, ndigits=2) if isinstance(x, (float)) else x for x in kwargs["config"]("WeightPrunePercent", getString=True)] for num_variation in range(5)]:
             test = src.standard_run(PruningSelection=selected, **kwargs)
