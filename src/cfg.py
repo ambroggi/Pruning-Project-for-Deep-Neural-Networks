@@ -52,6 +52,7 @@ class ConfigObject():
             "AlphaForTOFD": [0.05, "Feature distance multiplier, this controls the importance of student-teacher feature similarity in the distillation", "float"],
             "BetaForTOFD": [0.03, "This is the multiplier for orthagonal loss, the higher the number, the more weight orthagonal loss will have", "float"],
             "tForTOFD": [3.0, "'temperature for logit distillation' - description from original code", "float"],
+            "LassoForDAIS": [True, "Wether to use Lasso or not for DIAS, note that the paper discribes the lasso loss but appears to not use it", "int"],
             "LayerIteration": ["10, 10, *, 30", "iteritive_full_theseus amount each layer is reduced by in each iteration", "strl"],
             "SaveLocation": [None, "What filename the statedict was saved as, if it was saved at all.", "strn"],
             "FromSaveLocation": [None, "What filename the statedict was loaded as, if it was loaded at all.", "strn"],
@@ -117,8 +118,10 @@ class ConfigObject():
                     paramVal = [float(x) if (x != "*") else x for x in paramVal]
 
             if paramName in ["PruningSelection"]:  # This is supposed to be a running tally, so we need to add it on.
-                if not self.get_param(paramName) == "":
+                if not self.get_param(paramName) == "" and not paramVal == "Reset":
                     paramVal = self.get_param(paramName) + "|" + paramVal
+                elif paramVal == "Reset":
+                    paramVal = ""
 
             if paramName in self.readOnly:  # Some items should not be able to be modified.
                 print(f"Attempted to change config {paramName}, which is Read-Only")

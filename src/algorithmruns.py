@@ -217,7 +217,7 @@ def DAIS_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObj
     alphas = []
     for layer, module in enumerate(model.get_important_modules()):
         if layer in layers:
-            alphas.append(Imported_Code.add_alpha(module, config("WeightPrunePercent")[layer], config("NumberOfEpochs")))
+            alphas.append(Imported_Code.add_alpha(module, config("WeightPrunePercent")[layer], config("NumberOfEpochs"), lasso=config("LassoForDAIS")))
 
     model.epoch_callbacks.extend([a.callback_fn for a in alphas])
 
