@@ -117,8 +117,8 @@ def recordModelInfo(model: modelstruct.BaseDetectionModel, logger: filemanagemen
     logger("GarbageCollectionSizeTotal", garbage_sum)
 
 
-def standardLoad(index: None | int = None) -> dict[str, any]:
-    config, index = filemanagement.load_cfg() if index is None else filemanagement.load_cfg(row_number=index)
+def standardLoad(index: None | int = None, existing_config: cfg.ConfigObject | None = None) -> dict[str, any]:
+    config, index = filemanagement.load_cfg(config=existing_config) if index is None else filemanagement.load_cfg(row_number=index, config=existing_config)
     if config("SaveLocation") is not None:
         modelStateDict = torch.load("savedModels/"+config("SaveLocation"), map_location=config("Device"))
         config("FromSaveLocation", config("SaveLocation"))

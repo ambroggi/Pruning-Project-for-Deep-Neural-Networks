@@ -80,9 +80,25 @@ class ExperimentLineManager():
             self(name, val)
 
 
-def load_cfg(pth: str | os.PathLike = "results/record.csv", row_number=-1) -> ConfigObject:
-    config = ConfigObject()
+def load_cfg(pth: str | os.PathLike = "results/record.csv", row_number=-1, config: ConfigObject | None = None, structure_only=True) -> ConfigObject:
+    config = ConfigObject() if config is None else config
 
+    single_row, row_number = history_row(pth, row_number)
+
+    for entry_name in single_row.keys():
+        if structure_only:
+            # Only loads the structure
+            if entry_name in config.structuralOnly:
+                config(entry_name, single_row[entry_name])
+        else:
+            # Loads everything that is not nailed down
+            if entry_name in config.parameters.keys() and entry_name not in config.readOnly:
+                config(entry_name, single_row[entry_name])
+
+    return config, row_number
+
+
+def history_row(pth: str | os.PathLike = "results/record.csv", row_number=-1) -> tuple[pd.Series, int]:
     with open(pth, "r") as f:
         fcntl.flock(f.fileno(), fcntl.LOCK_EX)
 
@@ -99,11 +115,7 @@ def load_cfg(pth: str | os.PathLike = "results/record.csv", row_number=-1) -> Co
 
     single_row = hist.iloc[row_number]
 
-    for entry_name in single_row.keys():
-        if entry_name in config.parameters.keys() and entry_name not in config.readOnly:
-            config(entry_name, single_row[entry_name])
-
-    return config, row_number
+    return single_row, row_number
 
 
 class FileChangedError(Exception):

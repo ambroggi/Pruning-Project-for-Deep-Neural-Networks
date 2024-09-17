@@ -308,5 +308,13 @@ types_of_tests = {
     "BERT_theseus": bert_of_theseus_test,
     "DAIS": DAIS_test,
     "TOFD": TOFD_test,
-    "RandomStructured": Random_test
+    "RandomStructured": Random_test,
+    "1": addm_test,
+    "2": thinet_test_old,
+    "3": thinet_test,
+    "4": swapping_run,
+    "5": bert_of_theseus_test,
+    "6": DAIS_test,
+    "7": TOFD_test,
+    "8": Random_test
 }
