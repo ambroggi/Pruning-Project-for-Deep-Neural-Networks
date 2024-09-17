@@ -157,6 +157,8 @@ def validateConfigInModel(model: BaseDetectionModel):
         model.cfg(x, config_val)
 
 
+container_modules = (torch.nn.Sequential, LinearLayer)
+
 if __name__ == "__main__":
     v = SwappingDetectionModel()
     v.fit()

@@ -23,6 +23,7 @@ class ConfigObject():
                           }
 
         self.readOnly = ["Version"]
+        self.structuralOnly = ["ModelStructure", "HiddenDim", "HiddenDimSize", "DatasetName", "NumClasses", "NumFeatures", "SaveLocation", "FromSaveLocation"]
 
         self.parameters: dict[str, list[any, str, str]] = {
             "Version": [get_version(), "Version Number", "str"],
@@ -44,15 +45,16 @@ class ConfigObject():
             "Device": ["cuda", "Use CPU or CUDA", "strdevice"],
             "AlphaForADMM": [0.001, "Alpha value for ADMM model", "float"],
             "RhoForADMM": [0.001, "Rho value for ADMM model", "float"],
-            "LayerPruneTargets": ["30, 30, 30, 30", "Number of nodes per layer starting with the first layer. NOTE: Will cause an error with ADMM if it is a larger number than the number of filters in that layer", "strl"],
-            "WeightPrunePercent": ["0.99, 0.99, 1, 1", "Percent of weights to prune down to for each layer", "strl"],
+            "LayerPruneTargets": ["30, 30, *, 30", "Number of nodes per layer starting with the first layer. NOTE: Will cause an error with ADMM if it is a larger number than the number of filters in that layer", "strl"],
+            "WeightPrunePercent": ["0.99, 0.99, *, 1", "Percent of weights to prune down to for each layer", "strl"],
             "PruningSelection": ["", "What pruning was applied", "str"],
             "BERTTheseusStartingLearningRate": [0.5, "What Probibility value the Bert Theseus method starts with", "float"],
             "BERTTheseusLearningRateModifier": [0.5, "What k value (equation 6) the Bert Theseus method modifies the probibility by (devided by epoch count)", "float"],
             "AlphaForTOFD": [0.05, "Feature distance multiplier, this controls the importance of student-teacher feature similarity in the distillation", "float"],
             "BetaForTOFD": [0.03, "This is the multiplier for orthagonal loss, the higher the number, the more weight orthagonal loss will have", "float"],
             "tForTOFD": [3.0, "'temperature for logit distillation' - description from original code", "float"],
-            "LayerIteration": ["10, 10, 30, 30", "iteritive_full_theseus amount each layer is reduced by in each iteration", "strl"],
+            "LassoForDAIS": [False, "Wether to use Lasso or not for DIAS, note that the paper discribes the lasso loss but appears to not use it", "int"],
+            "LayerIteration": ["10, 10, *, 30", "iteritive_full_theseus amount each layer is reduced by in each iteration", "strl"],
             "SaveLocation": [None, "What filename the statedict was saved as, if it was saved at all.", "strn"],
             "FromSaveLocation": [None, "What filename the statedict was loaded as, if it was loaded at all.", "strn"],
             "NumClasses": [-1, "How many classes the model is distiguishing between, -1 is to calculate default", "int"],
@@ -117,8 +119,10 @@ class ConfigObject():
                     paramVal = [float(x) if (x != "*") else x for x in paramVal]
 
             if paramName in ["PruningSelection"]:  # This is supposed to be a running tally, so we need to add it on.
-                if not self.get_param(paramName) == "":
+                if not self.get_param(paramName) == "" and not paramVal == "Reset":
                     paramVal = self.get_param(paramName) + "|" + paramVal
+                elif paramVal == "Reset":
+                    paramVal = ""
 
             if paramName in self.readOnly:  # Some items should not be able to be modified.
                 print(f"Attempted to change config {paramName}, which is Read-Only")
@@ -127,6 +131,8 @@ class ConfigObject():
             # Set the value
             self.parameters[paramName][0] = paramVal
         else:
+            if type(paramVal) is float and int(paramVal) == paramVal:
+                return self.set_param(paramName=paramName, paramVal=int(paramVal))
             raise TypeError(f"Attempted to set Config value ({paramName}) of inappropriate type, type={type(paramVal)}")
 
     def get_param(self, paramName: str, getString: bool = False) -> str | float | int | object:

@@ -3,6 +3,9 @@
 import torch
 
 import math
+
+import torch.utils
+import torch.utils.hooks
 from . import Imported_Code
 from . import cfg
 from . import modelstruct
@@ -152,32 +155,53 @@ def thinet_test(config: cfg.ConfigObject, data: torch.utils.data.DataLoader, mod
 
 
 def bert_of_theseus_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObject, **kwargs):
-    start = model.get_important_modules()[0]
-    end = model.get_important_modules()[-1]
-    lst: list[torch.nn.Module] = [m for m in model.modules()]
-    lst = lst[lst.index(start): lst.index(end)]
-    # lst = [model.conv1, model.pool1, model.conv2, model.flatten, model.fc1]
+    # Ok so this whole outside bit is just to figure out what layers we want to replace
 
-    start, end = Imported_Code.forward_hook(), Imported_Code.forward_hook()
-    rm1 = lst[0].register_forward_hook(start)
-    rm2 = lst[-1].register_forward_hook(end)
+    # This splits the model into the predecessors
+    module_group_size = int(1/(sum(config("WeightPrunePercent"))/len(config("WeightPrunePercent"))))
+    module_group = [x for x in model.get_important_modules()[::module_group_size]]
+
+    hook_object_tuples = []  # This stores hooks for getting the expected successor inputs/outputs
+    hook_removers: list[torch.utils.hooks.RemovableHandle] = []  # This stores the unhooking objects for the above
+
+    # List of all modules that are not containers (containers being purely structural and not actually functional)
+    lst_of_modules: list[torch.nn.Module] = [m for m in model.modules() if not isinstance(m, modelstruct.container_modules)]
+    for start, end in zip(module_group, module_group[1:]):
+        # This is for each predecessor, orginized by the starting and ending modules
+
+        # Get a list of all the modules that are encompassed by the predecessor
+        lst = lst_of_modules[lst_of_modules.index(start): lst_of_modules.index(end)]
+
+        # Create objects to hold the expected inputs and outputs of the module
+        hook_object_tuples.append((Imported_Code.forward_hook(), Imported_Code.forward_hook(), lst))
+
+        # Attach them to the module and then collect the removal objects
+        hook_removers.append(lst[0].register_forward_hook(hook_object_tuples[-1][0]))
+        hook_removers.append(lst[-1].register_forward_hook(hook_object_tuples[-1][1]))
 
     # Create sample of dataset, Fancy load_kwargs is just there to load the collate_fn
     training_data = iter(torch.utils.data.DataLoader(data.dataset, 100, **(data.base.load_kwargs if hasattr(data, "base") else {}))).__next__()[0]
     training_data = training_data.to(model.cfg("Device"))
 
+    # Ruh through the small bit of training data to collect module sizes
     model(training_data)
 
-    rm1.remove()
-    rm2.remove()
+    # Remove those collection hooks from the model
+    [x.remove() for x in hook_removers]
+    del hook_removers
 
-    replace_object = Imported_Code.Theseus_Replacement(lst, start.inp.shape[1:], end.out.shape[1:], model=model)
-    replace_object.to(config("Device"))
+    # Create the objects that hold the successor modules in the right shape and on the right device
+    replace_objects = []
+    for start, end, lst in hook_object_tuples:
+        replace_objects.append(Imported_Code.Theseus_Replacement(lst, start.inp.shape[1:], end.out.shape[1:], model=model))
+        replace_objects[-1].to(config("Device"))
 
+    # Train with the successors/predecessors
     config("PruningSelection", "BERT_theseus_training")
-    model.fit(10)
+    model.fit(epochs=model.cfg("NumberOfEpochs"))
 
-    replace_object.condense_in_model(model)
+    # Replace all predecessors with successors, calling it 'condense' because it is removing the clunky hooks
+    [x.condense_in_model(model) for x in replace_objects]
 
     config("PruningSelection", "BERT_theseus")
     logger = filemanagement.ExperimentLineManager(cfg=config)
@@ -193,7 +217,7 @@ def DAIS_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObj
     alphas = []
     for layer, module in enumerate(model.get_important_modules()):
         if layer in layers:
-            alphas.append(Imported_Code.add_alpha(module, config("WeightPrunePercent")[layer], config("NumberOfEpochs")))
+            alphas.append(Imported_Code.add_alpha(module, config("WeightPrunePercent")[layer], config("NumberOfEpochs"), lasso=config("LassoForDAIS")))
 
     model.epoch_callbacks.extend([a.callback_fn for a in alphas])
 
@@ -284,5 +308,13 @@ types_of_tests = {
     "BERT_theseus": bert_of_theseus_test,
     "DAIS": DAIS_test,
     "TOFD": TOFD_test,
-    "RandomStructured": Random_test
+    "RandomStructured": Random_test,
+    "1": addm_test,
+    "2": thinet_test_old,
+    "3": thinet_test,
+    "4": swapping_run,
+    "5": bert_of_theseus_test,
+    "6": DAIS_test,
+    "7": TOFD_test,
+    "8": Random_test
 }

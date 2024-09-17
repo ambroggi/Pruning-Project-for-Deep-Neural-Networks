@@ -1,6 +1,7 @@
 # This is just some code to specifically run ThiNet, I did not want it in the ThiNet_From_Code file because it is not from the original code
 # This just handles most of the adaptation between the systems.
 import torch
+from numpy.linalg import LinAlgError
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from src.modelstruct import BaseDetectionModel
@@ -70,34 +71,40 @@ def run_thinet_on_layer(model: "BaseDetectionModel", layerIndex: int, training_d
         remove_layers(model, layerIndex, keepint_tensor=torch.ones_like(x[0], dtype=torch.bool))
         return
 
-    indexes, weight_mod = value_sum(x, y, config("WeightPrunePercent")[layerIndex])
-
-    # Weight_mod is in the shape of the newly created weights for module_results
-    # That means it is C_in*C_out where C_in is the number of channels being kept (len(indexes))
-    # and C_out is the number of channels the layer used to have
-
-    keep_tensor = torch.zeros_like(x[0], dtype=torch.bool, device=model.cfg("Device"))
-    keep_tensor[indexes] = True
-
-    weight_mod = torch.Tensor(weight_mod).to(model.cfg("Device"))
-
-    if module_results[1].modu.weight.data.ndim == 3:
-        # This is for CNN layers
-        module_results[1].modu.weight.data[:, keep_tensor, :] *= weight_mod.T[:, :, None]
-    elif module_results[1].modu.weight.data.ndim == 2:
-        # This is for fully connected layers
-        if len(keep_tensor) != len(module_results[1].modu.weight.data[0]):
-            # This is just for a transition layer from CNN to FC
-            multiplier = len(module_results[1].modu.weight.data[0])//len(keep_tensor)
-            t2 = torch.zeros(len(module_results[1].modu.weight.data[0]), dtype=torch.bool)
-            w2 = torch.zeros((multiplier*len(weight_mod), len(weight_mod[0])), dtype=torch.float)
-            for i in range(len(keep_tensor)):
-                t2[i*multiplier:(i+1)*multiplier] = keep_tensor[i]
-            for i in range(len(weight_mod)):
-                w2[i*multiplier:(i+1)*multiplier] += weight_mod[i]
-
-            module_results[1].modu.weight.data[:, t2] *= w2.T
+    try:
+        indexes, weight_mod = value_sum(x, y, config("WeightPrunePercent")[layerIndex])
+    except LinAlgError as e:
+        if not ("Singular matrix" in e.args[0]):
+            raise e
         else:
-            module_results[1].modu.weight.data[:, keep_tensor] *= weight_mod.T
+            print("Thinet got a Singular matrix, the reason for this is currently unknown")
+    else:
+        # Weight_mod is in the shape of the newly created weights for module_results
+        # That means it is C_in*C_out where C_in is the number of channels being kept (len(indexes))
+        # and C_out is the number of channels the layer used to have
 
-    remove_layers(model, layerIndex, keepint_tensor=keep_tensor)
+        keep_tensor = torch.zeros_like(x[0], dtype=torch.bool, device=model.cfg("Device"))
+        keep_tensor[indexes] = True
+
+        weight_mod = torch.Tensor(weight_mod).to(model.cfg("Device"))
+
+        if module_results[1].modu.weight.data.ndim == 3:
+            # This is for CNN layers
+            module_results[1].modu.weight.data[:, keep_tensor, :] *= weight_mod.T[:, :, None]
+        elif module_results[1].modu.weight.data.ndim == 2:
+            # This is for fully connected layers
+            if len(keep_tensor) != len(module_results[1].modu.weight.data[0]):
+                # This is just for a transition layer from CNN to FC
+                multiplier = len(module_results[1].modu.weight.data[0])//len(keep_tensor)
+                t2 = torch.zeros(len(module_results[1].modu.weight.data[0]), dtype=torch.bool)
+                w2 = torch.zeros((multiplier*len(weight_mod), len(weight_mod[0])), dtype=torch.float)
+                for i in range(len(keep_tensor)):
+                    t2[i*multiplier:(i+1)*multiplier] = keep_tensor[i]
+                for i in range(len(weight_mod)):
+                    w2[i*multiplier:(i+1)*multiplier] += weight_mod[i]
+
+                module_results[1].modu.weight.data[:, t2] *= w2.T
+            else:
+                module_results[1].modu.weight.data[:, keep_tensor] *= weight_mod.T
+
+        remove_layers(model, layerIndex, keepint_tensor=keep_tensor)

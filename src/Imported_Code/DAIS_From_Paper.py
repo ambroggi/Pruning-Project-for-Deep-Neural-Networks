@@ -10,7 +10,7 @@ from ..modelstruct import BaseDetectionModel
 
 class add_alpha(PostMutablePruningLayer):
 
-    def __init__(self, module: torch.nn.Module, target_percent: float, max_epochs: int):
+    def __init__(self, module: torch.nn.Module, target_percent: float, max_epochs: int, lasso=True):
         super().__init__(module)
         self.para.data *= torch.rand_like(self.para.data)
         self.T_value = 1
@@ -18,6 +18,7 @@ class add_alpha(PostMutablePruningLayer):
         self.epoch = 0
         self.pl = torch.prod(torch.tensor([x for x in module.weight.shape]))  # In equation 9 (or at least I think that is how it is calculated?)
         self.target_percent = target_percent
+        self.lasso = lasso
 
     def __call__(self, module: torch.nn.Module, args: list[torch.Tensor], output: torch.Tensor) -> torch.Tensor:
         # I_relaxed is described in equation 7
@@ -44,7 +45,10 @@ class add_alpha(PostMutablePruningLayer):
     def lasso_reg(self) -> torch.Tensor:
         # Note this is equation 8 of the paper except for the largest sum,
         # which needs to be applied on the results of this object
-        return torch.sum(torch.norm((self.HT()), p=1))
+        if self.lasso:
+            return torch.sum(torch.norm((self.HT()), p=1))
+        else:
+            return torch.tensor(0)
 
     def HT(self) -> torch.Tensor:
         return torch.sigmoid(self.para/self.T_value)
@@ -139,7 +143,7 @@ def DAIS_fit(model: BaseDetectionModel, alpha_hooks: list[add_alpha], epochs: in
         model.zero_grad()
         e_results = e_results | {f"alph_{x[0]}": x[1] for x in epoch_results.items()}
 
-        # Actually train the weights. DARTS Algorithm 1, step 1, update alpha
+        # Actually train the weights. DARTS Algorithm 1, step 2, update weights
         model.load_state_dict(non_speculative_weights, strict=False)  # First reset w* back to w
         model.loss_additive_info = torch.zeros, (1, )
         model.optimizer = primary_optimizer
