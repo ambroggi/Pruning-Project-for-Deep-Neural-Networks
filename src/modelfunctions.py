@@ -75,7 +75,7 @@ class ModelFunctions():
             self.loss_fn = self.cfg("LossFunction")()
 
         # If no epochs, assume no training
-        if epochs == 0:
+        if epochs == 0 or (epochs != 1 and not self.training):
             self.train(False)
             with torch.no_grad():
                 resultsmessage = self.fit(epochs=1, dataloader=dataloader, keep_callbacks=keep_callbacks)  # Run model to collect data still.

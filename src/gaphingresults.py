@@ -7,7 +7,7 @@ import plotly.graph_objects
 
 readability = {
     "parameters": "Total number of parameters",
-    "val_f1_score": "F1 score in validation",
+    "val_f1_score_macro": "F1 score in validation",
     "actual_parameters": "Number of non-zero parameters",
     "TimeForRun": "Time for normal fit after pruning",
     "TimeForPrune": "Time for pruning the model"
@@ -15,8 +15,8 @@ readability = {
 
 
 scatterpairs = [
-    ("parameters", "val_f1_score"),
-    ("actual_parameters", "val_f1_score"),
+    ("parameters", "val_f1_score_macro"),
+    ("actual_parameters", "val_f1_score_macro"),
     ("actual_parameters", "TimeForRun"),
     ("actual_parameters", "TimeForPrune")
 ]
@@ -59,8 +59,8 @@ def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.Dat
     # df = df[df["Version"] >= df["Version"].max()]
     df = df[df["LengthOfTrainingData"] > 100000]
 
-    pt = df.pivot_table(values=["val_f1_score", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc="mean")
-    pt_scaled = df_scaled.pivot_table(values=["val_f1_score", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc="mean")
+    pt = df.pivot_table(values=["val_f1_score_macro", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc="mean")
+    pt_scaled = df_scaled.pivot_table(values=["val_f1_score_macro", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc="mean")
     print(df.head())
     print(pt)
     return df, pt, pt_scaled
@@ -100,6 +100,6 @@ def graph_pt(pt: pd.DataFrame, pair: int = 0):
 
 
 if __name__ == "__main__":
-    df, pt, pt_scaled = read_results()
+    df, pt, pt_scaled = read_results("results/Bigcomputer(v0.89)preview.csv")
     for x in range(len(scatterpairs)):
         graph_pt(pt_scaled, x)

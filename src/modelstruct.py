@@ -156,6 +156,15 @@ def validateConfigInModel(model: BaseDetectionModel):
         config_val = [float(min(max(target, 0), 1)) for target in config_val]
         model.cfg(x, config_val)
 
+    setlayerprunetargets_to_weightprunepercent(model)
+
+
+def setlayerprunetargets_to_weightprunepercent(model: BaseDetectionModel):
+    # This kind of invalidates that prior "LayerPruneTargets"
+    percentages = model.cfg("WeightPrunePercent")
+    layer_prune_targets = [int(m*p) for m, p in zip(model.get_important_modules_channelsize(), percentages)]
+    model.cfg("LayerPruneTargets", layer_prune_targets)
+
 
 container_modules = (torch.nn.Sequential, LinearLayer)
 

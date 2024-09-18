@@ -29,7 +29,6 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
         config = config.clone()
     data = getdata.get_dataloader(config) if "data" not in kwargs else kwargs["data"]
     model = modelstruct.getModel(config) if "model" not in kwargs else kwargs["model"]
-    logger = filemanagement.ExperimentLineManager(cfg=config) if "logger" not in kwargs else kwargs["logger"]
 
     # Model set up
     if "modelStateDict" in kwargs.keys():
@@ -40,7 +39,7 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
     model.cfg = config
 
     # Save all parts
-    kwargs = kwargs | {"model": model, "logger": logger, "data": data, "config": config}
+    kwargs = kwargs | {"model": model, "data": data, "config": config}
 
     t = time.time()
     mem = psutil.virtual_memory()[3]/1000000
@@ -57,6 +56,8 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
 
         # Making sure this is the same as well
         model.cfg = config
+    else:
+        logger = filemanagement.ExperimentLineManager(cfg=config) if "logger" not in kwargs else kwargs["logger"]
 
     epochs: int = config("NumberOfEpochs") if "NumberOfEpochs" not in kwargs else kwargs["NumberOfEpochs"]
 
