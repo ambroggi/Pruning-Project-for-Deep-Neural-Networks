@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -c 1  # Number of Cores per Task
+#SBATCH -c 3  # Number of Cores per Task
 #SBATCH --mem=8192  # Requested Memory
 #SBATCH -p gpu  # Partition
 #SBATCH -G 1  # Number of GPUs
@@ -7,9 +7,9 @@
 #SBATCH -o slurm-%j.out  # %j = job ID
 #SBATCH --mail-type=BEGIN,FAIL,END
 #SBATCH -D /home/abroggi_umassd_edu/Pruning-Project-for-Deep-Neural-Networks
-#SBATCH --array=1-8%3  # Run 1 through 8 at a max of 3 at a time
+#SBATCH --array=0-7%3  # Run 1 through 8 at a max of 3 at a time
 
 
 module load miniconda/22.11.1-1
 conda activate ModelPrune
-python ./main.py --PruningSelection $SLURM_ARRAY_TASK_ID
+python ./main.py --PruningSelection $SLURM_ARRAY_TASK_ID --NumberOfWorkers 3
