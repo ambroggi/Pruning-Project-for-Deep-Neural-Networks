@@ -54,7 +54,7 @@ class ConfigObject():
             "BetaForTOFD": [0.03, "This is the multiplier for orthagonal loss, the higher the number, the more weight orthagonal loss will have", "float"],
             "tForTOFD": [3.0, "'temperature for logit distillation' - description from original code", "float"],
             "LassoForDAIS": [False, "Wether to use Lasso or not for DIAS, note that the paper discribes the lasso loss but appears to not use it", "int"],
-            "LayerIteration": ["10, 10, *, 30", "iteritive_full_theseus amount each layer is reduced by in each iteration", "strl"],
+            "LayerIteration": ["10, 30, *, 30", "iteritive_full_theseus amount each layer is reduced by in each iteration", "strl"],
             "SaveLocation": [None, "What filename the statedict was saved as, if it was saved at all.", "strn"],
             "FromSaveLocation": [None, "What filename the statedict was loaded as, if it was loaded at all.", "strn"],
             "NumClasses": [-1, "How many classes the model is distiguishing between, -1 is to calculate default", "int"],

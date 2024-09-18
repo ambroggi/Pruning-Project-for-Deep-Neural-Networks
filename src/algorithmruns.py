@@ -245,6 +245,9 @@ def TOFD_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObj
 
     optimizer = config("Optimizer")(wrap.parameters(), lr=config("LearningRate"))
     train1, train2 = getdata.get_train_test(config, dataloader=data)
+
+    wrap.fit(train1, optimizer, config("NumberOfEpochs"))
+
     args = Imported_Code.ConfigCompatabilityWrapper(config=config, translations="TOFD")
     new_net = modelstruct.getModel(config)
 
@@ -310,10 +313,10 @@ types_of_tests = {
     "TOFD": TOFD_test,
     "RandomStructured": Random_test,
     "1": addm_test,
-    "2": thinet_test,
+    "2": TOFD_test,
     "3": swapping_run,
     "4": bert_of_theseus_test,
     "5": DAIS_test,
-    "6": TOFD_test,
+    "6": thinet_test,
     "7": Random_test
 }

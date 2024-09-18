@@ -20,6 +20,7 @@ from .helperFunctions import forward_hook
 # from TaskOrientedFeatureDistillation.utils import get_orth_loss
 
 
+# This is just a wrapper to add the auxillery modules that the code wants
 class task_oriented_feature_wrapper(torch.nn.Module):
     def __init__(self, wrapped_module: 'BaseDetectionModel'):
         super().__init__()
@@ -64,7 +65,29 @@ class task_oriented_feature_wrapper(torch.nn.Module):
         for x in self.fw_hooks:
             x.remove()
 
+    def fit(self, dataloader, optimizer, epochs):
+        # This is just fitting the auxillary modules, NOTE: I am not sure if they should be trained on the teacher network or not?
+        if self.wrapped_module.loss_fn is None:
+            self.wrapped_module.loss_fn = self.wrapped_module.cfg("LossFunction")()
+        for e in range(epochs):
+            for batch in dataloader:
+                optimizer.zero_grad()
+                self.zero_grad()
+                X, y = batch
+                X: torch.Tensor = X.to(self.wrapped_module.cfg("Device"))
+                y: torch.Tensor = y.to(self.wrapped_module.cfg("Device"))
+                y_predict, _ = self(X)
 
+                loss: torch.Tensor = torch.tensor(0, dtype=torch.float32)
+                for y_ in y_predict:
+                    loss += self.wrapped_module.loss_fn(y_, y)
+
+                loss.backward()
+                optimizer.step()
+            print(f"TOFD teacher auxillery modules training epoch({e}/{epochs}) complete")
+
+
+# This is the auxillary modules attempted to be made in the format given by the paper, several convolutional layers and a fully connected layer
 class auxillary_module(torch.nn.Module):
     def __init__(self, wrapped_module: torch.nn.Module, expected_tensor_example: torch.Tensor, number_of_classes: int, features_len: int):
         super().__init__()
