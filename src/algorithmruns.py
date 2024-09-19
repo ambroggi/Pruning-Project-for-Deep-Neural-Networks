@@ -288,13 +288,22 @@ def TOFD_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObj
 
 
 def Random_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, **kwargs):
+    pruning_list = []
     for count, module in enumerate(model.get_important_modules()):
-        pruning_layer = (extramodules.PostMutablePruningLayer(module))
+        pruning_layer = (extramodules.PostMutablePruningLayer(module, register_parameter=False))
         n = len(pruning_layer.para)
         random_permutation = torch.randperm(n, device=model.cfg("Device"))
         random_filter: torch.Tensor = random_permutation.less((config("WeightPrunePercent")[count]*n)//1)
         pruning_layer.para.data = random_filter.type_as(pruning_layer.para.data)
+        pruning_list.append(pruning_layer)
+
+    # Retrain after removing layers
+    model.fit(config("NumberOfEpochs"))
+
+    for pruning_layer in pruning_list:
         pruning_layer.remove(update_weights=True)
+
+    model.train(False)
 
     config("PruningSelection", "RandomStructured")
 

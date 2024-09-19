@@ -2,7 +2,7 @@ import torch
 
 
 class PreMutablePruningLayer():
-    def __init__(self, module: torch.nn.Module):
+    def __init__(self, module: torch.nn.Module, register_parameter=True):
         if isinstance(module, torch.nn.Linear):
             self.para = torch.nn.Parameter(torch.ones(module.in_features, device=module.weight.device))
         elif isinstance(module, torch.nn.Conv1d):
@@ -10,7 +10,12 @@ class PreMutablePruningLayer():
         else:
             print(f"Soft Pruning for Module type {module._get_name()} not implemented yet")
         self.module = module
-        module.register_parameter(f"v_{module._get_name()}", self.para)
+
+        if register_parameter:
+            self.paramiter = True
+            module.register_parameter(f"v_{module._get_name()}", self.para)
+        else:
+            self.paramiter = False
         self.remove_hook = module.register_forward_pre_hook(self)
 
     def __call__(self, module: torch.nn.Module, args: tuple[torch.Tensor]) -> torch.Tensor:
@@ -26,12 +31,14 @@ class PreMutablePruningLayer():
         self.remove_hook.remove()
         if update_weights:
             self.module.__getattr__("weight").data *= self.para.data
-        self.module.__setattr__(f"v_{self.module._get_name()}", None)
+
+        if self.paramiter:
+            self.module.__setattr__(f"v_{self.module._get_name()}", None)
         del self.para
 
 
 class PostMutablePruningLayer():
-    def __init__(self, module: torch.nn.Module):
+    def __init__(self, module: torch.nn.Module, register_parameter=True):
         if isinstance(module, torch.nn.Linear):
             self.para = torch.nn.Parameter(torch.ones(module.out_features, device=module.weight.device))
         elif isinstance(module, torch.nn.Conv1d):
@@ -39,7 +46,12 @@ class PostMutablePruningLayer():
         else:
             print(f"Soft Pruning for Module type {module._get_name()} not implemented yet")
         self.module = module
-        module.register_parameter(f"v_{module._get_name()}", self.para)
+
+        if register_parameter:
+            self.paramiter = True
+            module.register_parameter(f"v_{module._get_name()}", self.para)
+        else:
+            self.paramiter = False
         self.remove_hook = module.register_forward_hook(self)
 
     def __call__(self, module: torch.nn.Module, args: list[torch.Tensor], output: torch.Tensor) -> torch.Tensor:
@@ -56,7 +68,9 @@ class PostMutablePruningLayer():
         if update_weights:
             w: torch.nn.Parameter = self.module.__getattr__("weight")
             self.module.__getattr__("weight").permute(*torch.arange(w.ndim - 1, -1, -1)).data *= self.para.data
-        self.module.__setattr__(f"v_{self.module._get_name()}", None)
+
+        if self.paramiter:
+            self.module.__setattr__(f"v_{self.module._get_name()}", None)
         del self.para
 
 

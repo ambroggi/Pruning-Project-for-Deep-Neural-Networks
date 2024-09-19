@@ -108,7 +108,7 @@ def history_row(pth: str | os.PathLike = "results/record.csv", row_number=-1) ->
         # File unlocking
         fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
-    hist.fillna(value="None", inplace=True)
+    hist = hist.fillna(value="None")
 
     if row_number < 0:
         row_number += hist.last_valid_index() + 1
