@@ -162,7 +162,7 @@ def DAIS_fit(model: BaseDetectionModel, alpha_hooks: list[add_alpha], epochs: in
 
         e_results["epoch"] = e
 
-        scheduler.step(e) if scheduler is not None else None
+        scheduler.step() if scheduler is not None else None
 
         for call in model.epoch_callbacks:
             call(e_results)

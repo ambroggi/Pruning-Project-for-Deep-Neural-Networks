@@ -113,7 +113,7 @@ class ModelFunctions():
             # Set current epoch number
             epoch_results["epoch"] = e
 
-            scheduler.step(e) if scheduler is not None else None
+            scheduler.step() if (scheduler is not None) and self.training else None
 
             # Run all of the callbacks
             for call in self.epoch_callbacks:
@@ -257,6 +257,7 @@ class ModelFunctions():
         Loads the model from a state dict that is a paired down version of the model.
         """
         assert isinstance(self, torch.nn.Module)
+        self.optimizer = None
 
         for name, weights in state_dict.items():
             if "total" in name:
