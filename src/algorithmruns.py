@@ -278,7 +278,7 @@ def TOFD_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObj
 
     wrap.remove()
 
-    config("PruningSelection", "TOFD_INCOMPLETE")  # Incomplete because the auxillary modules are not exactly as described
+    config("PruningSelection", "TOFD")
 
     logger = filemanagement.ExperimentLineManager(cfg=config)
 

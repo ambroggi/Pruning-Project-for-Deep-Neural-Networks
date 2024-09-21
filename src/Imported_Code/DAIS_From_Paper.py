@@ -64,7 +64,7 @@ class add_alpha(PostMutablePruningLayer):
         super().remove()
 
 
-def regulizer_loss(lst: list[add_alpha]):
+def regulizer_loss(lst: list[add_alpha], scale: int = 1):
     # Equation 8
     lasso = torch.sum(torch.stack([x.lasso_reg() for x in lst]))
 
@@ -75,14 +75,14 @@ def regulizer_loss(lst: list[add_alpha]):
     # Equation 10, or it should be, F is not well defined as far as I can tell.
     if E_flops/F > 1:
         flops = torch.log(E_flops)
-    elif E_flops/F < 0.9999:
+    elif E_flops/F < 0.95:
         flops = -torch.log(E_flops)
     else:
         flops = torch.tensor(0)
 
     # We are not using residual blocks so we don't have a place for equation 11
 
-    return lasso + flops
+    return (lasso + flops) * scale
 
 
 def DAIS_fit(model: BaseDetectionModel, alpha_hooks: list[add_alpha], epochs: int = 0, dataloader: DataLoader | None = None, keep_callbacks=False):
@@ -127,16 +127,19 @@ def DAIS_fit(model: BaseDetectionModel, alpha_hooks: list[add_alpha], epochs: in
 
     progres_bar = model.get_progress_bar(epochs)
 
+    # Get the scheduler
+    scheduler = torch.optim.lr_scheduler.StepLR(model.optimizer, 30) if model.cfg("SchedulerLR") == 1 else None
+
     for e in progres_bar if progres_bar is not None else range(epochs):
         # Find speculative weights (This is training the model weights). DARTS Algorithm 1, step 1, estimate W*
-        model.loss_additive_info = torch.zeros, (1, )
+        model.loss_additive_info = torch.tensor, (0, )
         model.optimizer = primary_optimizer
         non_speculative_weights = {x: y for x, y in model.state_dict().items() if "v" not in x}  # Because of addm all of the alpha weights are called "v_"
         epoch_results = model.run_single_epoch(weight_dl)
         e_results = {f"spec_{x[0]}": x[1] for x in epoch_results.items()}
 
         # Find new alpha values. DARTS Algorithm 1, step 1, update alpha
-        model.loss_additive_info = regulizer_loss, (alpha_hooks, )
+        model.loss_additive_info = regulizer_loss, (alpha_hooks, model.cfg("DAISRegularizerScale"))
         model.optimizer = secondary_optimizer
         model.zero_grad()
         epoch_results = model.run_single_epoch(alpha_dl)
@@ -145,7 +148,7 @@ def DAIS_fit(model: BaseDetectionModel, alpha_hooks: list[add_alpha], epochs: in
 
         # Actually train the weights. DARTS Algorithm 1, step 2, update weights
         model.load_state_dict(non_speculative_weights, strict=False)  # First reset w* back to w
-        model.loss_additive_info = torch.zeros, (1, )
+        model.loss_additive_info = torch.tensor, (0, )
         model.optimizer = primary_optimizer
         epoch_results = model.run_single_epoch(weight_dl)
         e_results = e_results | epoch_results
@@ -158,6 +161,8 @@ def DAIS_fit(model: BaseDetectionModel, alpha_hooks: list[add_alpha], epochs: in
         e_results = e_results | val_epoch_results
 
         e_results["epoch"] = e
+
+        scheduler.step(e) if scheduler is not None else None
 
         for call in model.epoch_callbacks:
             call(e_results)

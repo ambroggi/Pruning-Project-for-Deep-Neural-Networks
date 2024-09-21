@@ -102,6 +102,9 @@ def recordModelInfo(model: modelstruct.BaseDetectionModel, logger: filemanagemen
     logger("macs", model.get_FLOPS())
     logger("parameters", model.get_parameter_count())
     logger("NumberOfZeros", model.get_zero_weights())
+    filter_in_out = model.get_zero_filters()
+    logger("Zeroed_filter_inputs", filter_in_out[0])
+    logger("Zeroed_filter_outputs", filter_in_out[1])
     logger("ModelWeightStructure", model.get_model_structure(count_zeros=True))
     logger("ModelWeightStructurePruneZero", model.get_model_structure())
 

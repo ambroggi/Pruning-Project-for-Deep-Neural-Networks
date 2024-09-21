@@ -58,6 +58,7 @@ def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.Dat
     # Get only the current version (Done this late just so the scaling is not indexing into a Null)
     # df = df[df["Version"] >= df["Version"].max()]
     df = df[df["LengthOfTrainingData"] > 100000]
+    df = df[df["Notes"] == 0]
 
     pt = df.pivot_table(values=["val_f1_score_macro", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc="mean")
     pt_scaled = df_scaled.pivot_table(values=["val_f1_score_macro", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc="mean")
@@ -100,6 +101,6 @@ def graph_pt(pt: pd.DataFrame, pair: int = 0):
 
 
 if __name__ == "__main__":
-    df, pt, pt_scaled = read_results("results/Bigcomputer(v0.92).csv")
+    df, pt, pt_scaled = read_results("results/Bigcomputer(v0.93).csv")
     for x in range(len(scatterpairs)):
         graph_pt(pt_scaled, x)

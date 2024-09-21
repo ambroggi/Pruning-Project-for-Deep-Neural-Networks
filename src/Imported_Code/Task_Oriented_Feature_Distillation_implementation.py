@@ -78,7 +78,7 @@ class task_oriented_feature_wrapper(torch.nn.Module):
                 y: torch.Tensor = y.to(self.wrapped_module.cfg("Device"))
                 y_predict, _ = self(X)
 
-                loss: torch.Tensor = torch.tensor(0, dtype=torch.float32)
+                loss: torch.Tensor = torch.tensor(0, dtype=torch.float32, device=self.wrapped_module.cfg("Device"))
                 for y_ in y_predict:
                     loss += self.wrapped_module.loss_fn(y_, y)
 

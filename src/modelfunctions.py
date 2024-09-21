@@ -20,7 +20,7 @@ class ModelFunctions():
         self.validation_dataloader: None | DataLoader = None
         self.optimizer: torch.optim.Optimizer | None = None
         self.loss_fn: torch.nn.Module | None = None
-        self.loss_additive_info: tuple[Callable, tuple] = torch.zeros, (1, )
+        self.loss_additive_info: tuple[Callable, tuple] = torch.tensor, (0, )
         self.frozen: dict[str, torch.Tensor] = {}
         self.pruning_layers: list[PreMutablePruningLayer | PostMutablePruningLayer] = []
 
@@ -89,6 +89,9 @@ class ModelFunctions():
 
         progres_bar = self.get_progress_bar(epochs)
 
+        # Get the scheduler
+        scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, 30) if self.cfg("SchedulerLR") == 1 else None
+
         for e in progres_bar if progres_bar is not None else range(epochs):
             # Run the epoch
             epoch_results = self.run_single_epoch(dl)
@@ -110,6 +113,8 @@ class ModelFunctions():
             # Set current epoch number
             epoch_results["epoch"] = e
 
+            scheduler.step(e) if scheduler is not None else None
+
             # Run all of the callbacks
             for call in self.epoch_callbacks:
                 call(epoch_results)
@@ -129,7 +134,7 @@ class ModelFunctions():
         assert isinstance(self, torch.nn.Module)
         self: torch.nn.Module | ModelFunctions  # More typehint
 
-        results = {"total_loss": 0, "f1_score_weight": 0.0, "f1_score_macro": 0.0}
+        results = {"total_loss": 0, "f1_score_weight": 0.0, "f1_score_macro": 0.0, "additive_loss": 0.0}
         results_of_predictions = {"True": [], "Predicted": []}
 
         for batch in dataloader:
@@ -143,7 +148,9 @@ class ModelFunctions():
             # print(y_predict)
             # print(y)
 
-            loss: torch.Tensor = self.loss_fn(y_predict, y) + self.additive_loss()
+            loss: torch.Tensor = self.loss_fn(y_predict, y)  # This is the normal loss function as defined by the config
+            additive_loss: torch.Tensor = self.additive_loss()  # This is for algorithms that want to add extra loss measures
+            loss += additive_loss
 
             if self.training:
                 loss.backward()
@@ -151,6 +158,7 @@ class ModelFunctions():
                 # TODO: Scheduler steps
 
             results["total_loss"] += loss.detach().item()
+            results["additive_loss"] += additive_loss.detach().item()
 
             results_of_predictions["True"].extend(y.detach().cpu())
             results_of_predictions["Predicted"].extend(y_predict.argmax(dim=1).detach().cpu())
@@ -213,6 +221,18 @@ class ModelFunctions():
                 count += (param.data == 0).sum().item()
 
         return count
+
+    def get_zero_filters(self) -> tuple[int, int]:
+        assert isinstance(self, torch.nn.Module)
+        count_input = 0
+        count_output = 0
+
+        for name, param in self.named_parameters():
+            if "weight" in name:
+                count_input += (param.data.sum(dim=0) == 0).sum().item()
+                count_output += (param.data.sum(dim=1) == 0).sum().item()
+
+        return count_input, count_output
 
     def get_model_structure(self, count_zeros: bool = False) -> str:
         """
