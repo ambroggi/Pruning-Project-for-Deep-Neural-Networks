@@ -1,4 +1,5 @@
 import os
+from functools import partial
 import torch
 import torch.utils.data
 import pandas as pd
@@ -108,10 +109,15 @@ class RandomDummyDataset(BaseDataset):
 
 
 class ACIIOT2023(BaseDataset):
-    def __init__(self, target_format: str = "CrossEntropy", num_classes: int = -1):
+    def __init__(self, target_format: str = "CrossEntropy", num_classes: int = -1, grouped: bool = False):
         super().__init__()
 
-        if not os.path.exists(os.path.join(datasets_folder_path, "ACI-IoT-2023-formatted-undersampled.parquet")):
+        if grouped:
+            group_str = "-grouped"
+        else:
+            group_str = ""
+
+        if not os.path.exists(os.path.join(datasets_folder_path, f"ACI-IoT-2023{group_str}-formatted-undersampled.parquet")):
             if not os.path.exists(os.path.join(datasets_folder_path, "ACI-IoT-2023-Payload.csv")):
                 print("Dataset does not exist please download it from https://www.kaggle.com/datasets/emilynack/aci-iot-network-traffic-dataset-2023/data?select=ACI-IoT-2023-Payload.csv")
             print("Formatting ACI dataset, this will take some time. eta 25 minutes.")
@@ -122,7 +128,11 @@ class ACIIOT2023(BaseDataset):
             # Notably I think they were using an older version that .sample() did not work on groups
             # self.original_vals = self.original_vals.groupby("label").sample(n=int(100*min([x for x in self.original_vals.value_counts("label")])), replace=True)
             # It looks like the geeks for geeks article is more of the way to go though, because I need to select a varying number of samples
-            max_samples = 100 * min(self.original_vals.value_counts("label"))
+            if grouped:
+                self.original_vals["label"] = self.original_vals["label"].apply(self.grouplabels)
+                max_samples = 10 * min(self.original_vals.value_counts("label"))
+            else:
+                max_samples = 100 * min(self.original_vals.value_counts("label"))
             self.original_vals = self.original_vals.groupby("label", group_keys=False).apply(lambda group: group.sample(n=max_samples if max_samples <= len(group) else len(group)))
             self.original_vals.reset_index(inplace=True)
 
@@ -147,12 +157,12 @@ class ACIIOT2023(BaseDataset):
 
             # Picked parquet because of this article: https://towardsdatascience.com/the-best-format-to-save-pandas-data-414dca023e0d
             # It has best storage size
-            self.original_vals.to_parquet(os.path.join(datasets_folder_path, "ACI-IoT-2023-formatted-undersampled.parquet"))
+            self.original_vals.to_parquet(os.path.join(datasets_folder_path, f"ACI-IoT-2023{group_str}-formatted-undersampled.parquet"))
         else:
-            self.original_vals = pd.read_parquet(os.path.join(datasets_folder_path, "ACI-IoT-2023-formatted-undersampled.parquet"))
+            self.original_vals = pd.read_parquet(os.path.join(datasets_folder_path, f"ACI-IoT-2023{group_str}-formatted-undersampled.parquet"))
 
-        if not os.path.exists(os.path.join(datasets_folder_path, "ACI-IoT-counts.csv")):
-            self.original_vals["label"].value_counts().to_csv(os.path.join(datasets_folder_path, "ACI-IoT-counts.csv"))
+        if not os.path.exists(os.path.join(datasets_folder_path, f"ACI-IoT{group_str}-counts.csv")):
+            self.original_vals["label"].value_counts().to_csv(os.path.join(datasets_folder_path, f"ACI-IoT{group_str}-counts.csv"))
 
         # Get the classes
         self.classes = {label: num for num, label in enumerate(self.original_vals["label"].unique())}
@@ -209,6 +219,15 @@ class ACIIOT2023(BaseDataset):
         series = pd.Series(np_x, index=[f"Byte_{x}" for x in range(1500)], dtype='uint8')
         return series
 
+    @staticmethod
+    def grouplabels(old_label):
+        if "Flood" in old_label:
+            return "Flood"
+        if "Scan" in old_label:
+            return "Scan"
+        else:
+            return old_label
+
 
 def collate_fn_(items: tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor] | list[tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]]) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
     if isinstance(items, tuple):
@@ -230,7 +249,7 @@ def get_dataloader(config: ConfigObject | None = None, dataset: None | BaseDatas
 
 
 def get_dataset(config: ConfigObject) -> BaseDataset:
-    datasets: dict[str, torch.utils.data.Dataset] = {"Vulnerability": VulnerabilityDataset, "RandomDummy": RandomDummyDataset, "ACI": ACIIOT2023}
+    datasets: dict[str, torch.utils.data.Dataset] = {"Vulnerability": VulnerabilityDataset, "RandomDummy": RandomDummyDataset, "ACI": ACIIOT2023, "ACI_grouped": partial(ACIIOT2023, grouped=True)}
     data: BaseDataset = datasets[config("DatasetName")](target_format=config("LossFunction", getString=True))
     config("NumClasses", data.number_of_classes)
     config("NumFeatures", data.number_of_features)

@@ -175,3 +175,4 @@ datasets/ACI-IoT-2023-formatted.parquet
 datasets/ACI-IoT-2023-formatted.csv
 datasets/ACI-IoT-2023-formatted-old.parquet
 datasets/ACI-IoT-2023-formatted-undersampled.parquet
+*.parquet

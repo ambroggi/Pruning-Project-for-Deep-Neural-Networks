@@ -24,9 +24,11 @@ if __name__ == "__main__":
         config("PruningSelection", "Reset")
 
         if selected == "None" or selected == "0":
+            print("Starting normalrun")
             kwargs = src.standard_run(save_epoch_waypoints=True, config=config)
             kwargs["model"].save_model_state_dict(logger=kwargs["logger"])
         else:
+            print(f"Starting run of {src.algorithmruns.types_of_tests[selected].__name__}")
             load = src.standardLoad(existing_config=config, index=0)
             for weight_prune_percent in [[round(x*((num_variation + 1)/8) if x < 1 else 1, ndigits=2) if isinstance(x, (float)) else x for x in load["config"]("WeightPrunePercent", getString=True)] for num_variation in range(7, -1, -1)]:
                 load["config"]("WeightPrunePercent", weight_prune_percent)

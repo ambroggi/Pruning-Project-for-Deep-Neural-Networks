@@ -8,6 +8,7 @@ import plotly.graph_objects
 readability = {
     "parameters": "Total number of parameters",
     "val_f1_score_macro": "F1 score in validation",
+    "val_f1_score_weight": "F1 score (weighted by occurences)",
     "actual_parameters": "Number of non-zero parameters",
     "TimeForRun": "Time for normal fit after pruning",
     "TimeForPrune": "Time for pruning the model"
@@ -17,8 +18,10 @@ readability = {
 scatterpairs = [
     ("parameters", "val_f1_score_macro"),
     ("actual_parameters", "val_f1_score_macro"),
+    ("actual_parameters", "val_f1_score_weight"),
     ("actual_parameters", "TimeForRun"),
-    ("actual_parameters", "TimeForPrune")
+    ("actual_parameters", "TimeForPrune"),
+    ("val_f1_score_weight", "val_f1_score_macro")
 ]
 
 
@@ -46,7 +49,7 @@ def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.Dat
 
     # Create scaled version of dataframe based on the pretrained values
     df_scaled = df.copy()
-    numerical = ["val_f1_score_macro", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune"]
+    numerical = ["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune"]
     for x in numerical:
         df_scaled[x] = df[x].values/df_pre[x].values
         df_scaled[x].fillna(-1)
@@ -57,11 +60,13 @@ def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.Dat
 
     # Get only the current version (Done this late just so the scaling is not indexing into a Null)
     # df = df[df["Version"] >= df["Version"].max()]
-    df = df[df["LengthOfTrainingData"] > 100000]
+    df = df[df["LengthOfTrainingData"] > 1000]
     df = df[df["Notes"] == 0]
+    df_scaled = df_scaled[df_scaled["LengthOfTrainingData"] > 1000]
+    df_scaled = df_scaled[df_scaled["Notes"] == 0]
 
-    pt = df.pivot_table(values=["val_f1_score_macro", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc="mean")
-    pt_scaled = df_scaled.pivot_table(values=["val_f1_score_macro", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc="mean")
+    pt = df.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc="mean")
+    pt_scaled = df_scaled.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc="mean")
     print(df.head())
     print(pt)
     return df, pt, pt_scaled

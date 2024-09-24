@@ -1,0 +1,6 @@
+label,count
+Benign,11830
+Flood,11830
+Dictionary Attack,4645
+Slowloris,2974
+Scan,1183
