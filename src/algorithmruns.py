@@ -6,6 +6,7 @@ import math
 
 import torch.utils
 import torch.utils.hooks
+from tqdm import tqdm
 from . import Imported_Code
 from . import cfg
 from . import modelstruct
@@ -32,6 +33,8 @@ def swapping_run(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel
 
     config("PruningSelection", "iteritive_full_theseus_training")
 
+    tq = tqdm(total=sum(currents)-sum(targets), initial=0)
+
     # This is so inefficent, it loops until the layer sizes are at least as small as the targets
     while True in [a > b for a, b in zip(currents, targets)]:
         for i in layers:
@@ -42,6 +45,7 @@ def swapping_run(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel
                 state_dict = model.state_dict_of_layer_i(i+1)
 
                 # check the planned reduction and save it
+                reduction = currents[i] - max(targets[i], currents[i] - config("LayerIteration")[i])
                 currents[i] = max(targets[i], currents[i] - config("LayerIteration")[i])
 
                 # Get the actual Module from the model, I made a function to get it from the state dictionary key
@@ -71,6 +75,11 @@ def swapping_run(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel
 
                 # fit the new model
                 model.fit(epochs=model.cfg("NumberOfEpochs"))
+
+                # update progressbar
+                tq.update(reduction)
+
+    tq.close()
 
     config("PruningSelection", "iteritive_full_theseus")
     logger = filemanagement.ExperimentLineManager(cfg=config)
@@ -274,7 +283,9 @@ def TOFD_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObj
 
     new_wrap = Imported_Code.task_oriented_feature_wrapper(new_net)
 
-    Imported_Code.TOFD_name_main(optimizer=optimizer, teacher=wrap, net=new_wrap, trainloader=train1, testloader=train2, device=config("Device"), args=args, epochs=config("NumberOfEpochs"), LR=config("LearningRate"), criterion=config("LossFunction")())
+    new_net.optimizer = new_net.cfg("Optimizer")(new_wrap.parameters(), lr=config("LearningRate"))
+
+    Imported_Code.TOFD_name_main(optimizer=new_net.optimizer, teacher=wrap, net=new_wrap, trainloader=train1, testloader=train2, device=config("Device"), args=args, epochs=config("NumberOfEpochs"), LR=config("LearningRate"), criterion=config("LossFunction")())
 
     wrap.remove()
 

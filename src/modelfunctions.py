@@ -23,6 +23,7 @@ class ModelFunctions():
         self.loss_additive_info: tuple[Callable, tuple] = torch.tensor, (0, )
         self.frozen: dict[str, torch.Tensor] = {}
         self.pruning_layers: list[PreMutablePruningLayer | PostMutablePruningLayer] = []
+        self.make_progressbar = True
 
         # Overriden Values (should be overriden by multi-inheritence)
         self.cfg: cfg.ConfigObject = cfg.ConfigObject()
@@ -36,7 +37,7 @@ class ModelFunctions():
         self.validation_dataloader = dataloader
 
     def get_progress_bar(self, epochs):
-        if os.path.exists("results/progressbar.txt"):
+        if os.path.exists("results/progressbar.txt") and self.make_progressbar:
             self.progres_file = open("results/progressbar.txt", mode="r+")  # This might be useful so I am putting it here: https://stackoverflow.com/a/72412819
             self.progres_file.seek(0, 2)
             progres_pos = self.progres_file.tell()
@@ -202,11 +203,11 @@ class ModelFunctions():
         return torch.tensor([0])
 
     def get_FLOPS(self) -> int:
-        macs, params = profile(self, inputs=(self.dataloader.dataset.__getitem__(0)[0].unsqueeze(dim=0).to(self.cfg("Device")), ))
+        macs, params = profile(self, inputs=(self.dataloader.dataset.__getitem__(0)[0].unsqueeze(dim=0).to(self.cfg("Device")), ), verbose=False)
         return int(macs)
 
     def get_parameter_count(self) -> int:
-        macs, params = profile(self, inputs=(self.dataloader.dataset.__getitem__(0)[0].unsqueeze(dim=0).to(self.cfg("Device")), ))
+        macs, params = profile(self, inputs=(self.dataloader.dataset.__getitem__(0)[0].unsqueeze(dim=0).to(self.cfg("Device")), ), verbose=False)
         return int(params)
 
     def get_zero_weights(self) -> int:
