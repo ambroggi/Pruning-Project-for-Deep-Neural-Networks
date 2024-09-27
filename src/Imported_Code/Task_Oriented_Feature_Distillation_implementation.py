@@ -187,7 +187,7 @@ def TOFD_name_main(optimizer: torch.optim.Optimizer, teacher: task_oriented_feat
         _, predicted = torch.max(outputs[0].data, 1)
         correct += float(predicted.eq(labels.data).cpu().sum())
 
-        if i % 20 == 0:
+        if epoch % 20 == 0:  # CHANGE: changed from "i" to epoch
             print('[epoch:%d, iter:%d] Loss: %.03f | Acc: %.2f%% '
                   % (epoch + 1, (i + 1 + epoch * length), sum_loss / (i + 1),
                      100 * correct / total))
