@@ -47,8 +47,8 @@ class task_oriented_feature_wrapper(torch.nn.Module):
     def forward(self, x):
         last_output = self.wrapped_module(x)
 
-        features = []
-        outputs = []
+        features = [None]
+        outputs = [None]
 
         for i, module in enumerate([a for a in self.wrapped_module.modules() if a in self.module_hooks_for_outdim]):
             out, feat = self.aux[i](self.module_hooks_for_outdim[module].out)
@@ -56,8 +56,9 @@ class task_oriented_feature_wrapper(torch.nn.Module):
             outputs.append(out)
 
         # Last aux is supposed to be the actual filter? For some reason?
-        features[-1] = self.module_hooks_for_outdim[module].inp
-        outputs[-1] = last_output
+        # Nope, I now think that it was supposed to be the first is the actual filter
+        features[0] = self.module_hooks_for_outdim[module].inp
+        outputs[0] = last_output
 
         return outputs, features
 

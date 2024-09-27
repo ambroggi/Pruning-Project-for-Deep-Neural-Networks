@@ -283,11 +283,16 @@ def TOFD_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObj
 
     new_wrap = Imported_Code.task_oriented_feature_wrapper(new_net)
 
-    new_net.optimizer = new_net.cfg("Optimizer")(new_wrap.parameters(), lr=config("LearningRate"))
+    optimizer = new_net.cfg("Optimizer")(new_wrap.parameters(), lr=config("LearningRate"))
 
-    Imported_Code.TOFD_name_main(optimizer=new_net.optimizer, teacher=wrap, net=new_wrap, trainloader=train1, testloader=train2, device=config("Device"), args=args, epochs=config("NumberOfEpochs"), LR=config("LearningRate"), criterion=config("LossFunction")())
+    new_wrap = Imported_Code.TOFD_name_main(optimizer=optimizer, teacher=wrap, net=new_wrap, trainloader=train1, testloader=train2, device=config("Device"), args=args, epochs=config("NumberOfEpochs"), LR=config("LearningRate"), criterion=config("LossFunction")())
 
     wrap.remove()
+    new_wrap.remove()
+
+    new_net = new_wrap.wrapped_module
+    new_net.set_training_data(model.dataloader)
+    new_net.set_validation_data(model.validation_dataloader)
 
     config("PruningSelection", "TOFD")
 
