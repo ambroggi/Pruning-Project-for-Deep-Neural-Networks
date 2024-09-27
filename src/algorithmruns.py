@@ -56,6 +56,8 @@ def swapping_run(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel
                     Imported_Code.set_layer_by_state(model, path_for_layer[i], torch.nn.Linear(old_layer.in_features, currents[i]))
                 elif isinstance(old_layer, torch.nn.Conv1d):
                     Imported_Code.set_layer_by_state(model, path_for_layer[i], torch.nn.Conv1d(old_layer.in_channels, currents[i], old_layer.kernel_size))
+                else:
+                    raise ValueError()
 
                 for name in state_dict:
                     if isinstance(state_dict[name], torch.Tensor):
@@ -266,8 +268,8 @@ def TOFD_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObj
     for module_num, module in enumerate(model.get_important_modules()):
         state_dict = new_net.state_dict_of_layer_i(module_num)
         percentage = config("WeightPrunePercent")[module_num]
-        new_net_state_dict.update({x: y[:math.ceil(len(y)*percentage), :math.ceil(len(y[0])*prior_percentage)] for x, y in state_dict.items() if ("weight" in x)})
-        new_net_state_dict.update({x: y[:math.ceil(len(y)*percentage)] for x, y in state_dict.items() if ("bias" in x)})
+        new_net_state_dict.update({x: torch.rand_like(y[:math.ceil(len(y)*percentage), :math.ceil(len(y[0])*prior_percentage)]) for x, y in state_dict.items() if ("weight" in x)})
+        new_net_state_dict.update({x: torch.rand_like(y[:math.ceil(len(y)*percentage)]) for x, y in state_dict.items() if ("bias" in x)})
         prior_percentage = percentage
 
     # print(*[f"{x}:{y.shape}\n" for x, y in model.state_dict().items()])
@@ -328,6 +330,62 @@ def Random_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject,
     return kwargs | {"model": model, "config": config, "logger": logger}
 
 
+def Recreation_run(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, layers: list[int] | None = None, **kwargs):
+    # This just makes a new model with the specified size
+    if layers is None:
+        layers = [layernum for layernum, layerpercent in enumerate(config("WeightPrunePercent")) if layerpercent < 1]
+
+    targets = []
+    currents = []
+    path_for_layer = []
+
+    for i in layers:
+        # This is for finding the target dimentions
+        state_dict = model.state_dict_of_layer_i(i)  # get the state dict of current layer
+        weights_path = [x for x in state_dict.keys() if "weight" in x][0]  # find what the weights are called (it is in the form "x.weight")
+        path_for_layer.append(weights_path)  # save the path to weights so we dont need to calculate it again
+        targets.append(math.ceil(len(state_dict[weights_path])*config("WeightPrunePercent")[i]))  # find how small it should be pruned to
+        currents.append(len(state_dict[weights_path]))  # save the shape it currently is
+
+    config("PruningSelection", "iteritive_full_theseus_training")
+
+    # This is so inefficent, it loops until the layer sizes are at least as small as the targets
+    for i in layers:
+        if currents[i] > targets[i]:
+            # Reduce layer i
+
+            # Get the actual Module from the model, I made a function to get it from the state dictionary key
+            old_layer = Imported_Code.get_layer_by_state(model, path_for_layer[i])
+
+            # These need to be unique because I don't know of any generic cloning for the layers
+            if isinstance(old_layer, torch.nn.Linear):
+                Imported_Code.set_layer_by_state(model, path_for_layer[i], torch.nn.Linear(old_layer.in_features, targets[i]))
+            elif isinstance(old_layer, torch.nn.Conv1d):
+                Imported_Code.set_layer_by_state(model, path_for_layer[i], torch.nn.Conv1d(old_layer.in_channels, targets[i], old_layer.kernel_size))
+            else:
+                raise ValueError()
+
+            # Reduce layer i+1 input
+            state_dict = model.state_dict_of_layer_i(i+1)
+            weights_path = [x for x in state_dict.keys() if "weight" in x][0]
+
+            # Get the actual Module from the model, I made a function to get it from the state dictionary key
+            old_layer = Imported_Code.get_layer_by_state(model, weights_path)
+
+            # These need to be unique because I don't know of any generic cloning for the layers
+            if isinstance(old_layer, torch.nn.Linear):
+                Imported_Code.set_layer_by_state(model, weights_path, torch.nn.Linear(targets[i], old_layer.out_features))
+            elif isinstance(old_layer, torch.nn.Conv1d):
+                Imported_Code.set_layer_by_state(model, weights_path, torch.nn.Conv1d(targets[i], old_layer.out_channels, old_layer.kernel_size))
+            else:
+                raise ValueError()
+
+    config("PruningSelection", "iteritive_full_theseus")
+    logger = filemanagement.ExperimentLineManager(cfg=config)
+
+    return kwargs | {"model": model, "logger": logger, "config": config}
+
+
 types_of_tests = {
     "ADDM_Joint": addm_test,
     "thinet_recreation": thinet_test_old,
@@ -337,11 +395,13 @@ types_of_tests = {
     "DAIS": DAIS_test,
     "TOFD": TOFD_test,
     "RandomStructured": Random_test,
+    "Reduced_Normal_Run": Recreation_run,
     "1": addm_test,
     "2": TOFD_test,
     "3": swapping_run,
     "4": bert_of_theseus_test,
     "5": DAIS_test,
     "6": thinet_test,
-    "7": Random_test
+    "7": Random_test,
+    "8": Recreation_run
 }

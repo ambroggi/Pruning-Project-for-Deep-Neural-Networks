@@ -11,3 +11,4 @@ python main.py --PruningSelection "4" --MaxSamples 1000
 python main.py --PruningSelection "5" --MaxSamples 1000
 python main.py --PruningSelection "6" --MaxSamples 1000
 python main.py --PruningSelection "7" --MaxSamples 1000
+python main.py --PruningSelection "8" --MaxSamples 1000
