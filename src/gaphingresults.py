@@ -106,6 +106,7 @@ def graph_pt(pt: pd.DataFrame, pair: int = 0):
 
 
 if __name__ == "__main__":
-    df, pt, pt_scaled = read_results("results/Bigcomputer(v0.93).csv")
+    # df, pt, pt_scaled = read_results("results/Smallcomputer(v0.96).csv")
+    df, pt, pt_scaled = read_results("results/Bigcomputer(v0.95).csv")
     for x in range(len(scatterpairs)):
         graph_pt(pt_scaled, x)
