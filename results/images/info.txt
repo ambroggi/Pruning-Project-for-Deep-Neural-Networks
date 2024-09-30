@@ -1,0 +1,2 @@
+This is just where all the graphs will be stored if they are set to store in a file.
+(this file is just here so that the folder shows up in the git file)

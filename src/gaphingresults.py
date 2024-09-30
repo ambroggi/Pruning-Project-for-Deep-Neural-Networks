@@ -41,6 +41,7 @@ def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.Dat
 
     # Replace NANs with Normal Run
     df["PruningSelection"] = df["PruningSelection"].fillna("Normal_Run")
+    df["PruningSelection"] = df["PruningSelection"].apply(lambda x: str.replace(str.replace(str.replace(x, "BERT_theseus_training|", ""), "iteritive_full_theseus_training|", ""), "DAIS_training|", ""))
 
     # Calculate the actual parameters out of the normal parameters
     df["actual_parameters"] = df["parameters"] - df["NumberOfZeros"]
@@ -80,7 +81,7 @@ def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.Dat
     return df, pt, pt_scaled
 
 
-def graph_pt(pt: pd.DataFrame, pair: tuple[str, str] = ("actual_parameters", "val_f1_score_macro")):
+def graph_pt(pt: pd.DataFrame, pair: tuple[str, str] = ("actual_parameters", "val_f1_score_macro"), file: None | os.PathLike = None):
     plot = plotly.graph_objects.Figure()
     x_name, y_name = pair
     pt_err = pt["<lambda>"].T
@@ -96,8 +97,8 @@ def graph_pt(pt: pd.DataFrame, pair: tuple[str, str] = ("actual_parameters", "va
             # print(pt[pruning_selection])
             plot.add_trace(plotly.graph_objects.Scatter(x=pt[pruning_selection].T[x_name], y=pt[pruning_selection].T[y_name],
                                                         name=pruning_selection, marker={"size": size}, text=pt[pruning_selection].keys(),
-                                                        error_x=dict(type="data", array=list(pt_err[pruning_selection].T[x_name]), visible=True),
-                                                        error_y=dict(type="data", array=list(pt_err[pruning_selection].T[y_name]), visible=True)))  # ref: https://plotly.com/python/error-bars/
+                                                        error_x=dict(type="data", array=list(pt_err[pruning_selection].T[x_name]), visible=True, color="rgba(0, 0, 0, 0.1)"),
+                                                        error_y=dict(type="data", array=list(pt_err[pruning_selection].T[y_name]), visible=True, color="rgba(0, 0, 0, 0.1)")))  # ref: https://plotly.com/python/error-bars/
 
     plot.update({
         "layout": {"title": {
@@ -114,7 +115,12 @@ def graph_pt(pt: pd.DataFrame, pair: tuple[str, str] = ("actual_parameters", "va
         plot.update({"layout": {"yaxis": {"type": "log"}}})
     # "yaxis": {"range": [-0.1, 1.1]}},
     plot.update_layout(title_text=f"{readability.get(y_name, y_name)} vs {readability.get(x_name, x_name)}", title_xanchor="right")
-    plot.show()
+
+    if file is not None:
+        plot.update({"layout": {"title": {"xanchor": "right", "x": 0.75}}})
+        plot.write_image(file, width=900, height=500)
+    else:
+        plot.show()
 
 
 if __name__ == "__main__":
@@ -122,9 +128,9 @@ if __name__ == "__main__":
     df, pt, pt_scaled = read_results("results/Bigcomputer(v0.99).csv")
     # df, pt, pt_scaled = read_results("results/record.csv")
     for x in scatterpairs_scaled:
-        graph_pt(pt_scaled, x)
-        graph_pt(pt_scaled_small, x)
+        graph_pt(pt_scaled, x, file=f"results/images/Big-scaled-{x[0]}-{x[1]}.png")
+        graph_pt(pt_scaled_small, x, file=f"results/images/Small-scaled-{x[0]}-{x[1]}.png")
         # graph_pt(pt, x)
     for x in scatterpairs_true:
-        graph_pt(pt, x)
-        graph_pt(pt_small, x)
+        graph_pt(pt, x, file=f"results/images/Big-{x[0]}-{x[1]}.png")
+        graph_pt(pt_small, x, file=f"results/images/Small-{x[0]}-{x[1]}.png")
