@@ -344,7 +344,7 @@ def Recreation_run(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObje
         state_dict = model.state_dict_of_layer_i(i)  # get the state dict of current layer
         weights_path = [x for x in state_dict.keys() if "weight" in x][0]  # find what the weights are called (it is in the form "x.weight")
         path_for_layer.append(weights_path)  # save the path to weights so we dont need to calculate it again
-        targets.append(math.ceil(len(state_dict[weights_path])*config("WeightPrunePercent")[i]))  # find how small it should be pruned to
+        targets.append(math.ceil(len(state_dict[weights_path])*(1-(1-config("WeightPrunePercent")[i])/2)))  # find how small it should be pruned to
         currents.append(len(state_dict[weights_path]))  # save the shape it currently is
 
     config("PruningSelection", "iteritive_full_theseus_training")
@@ -380,7 +380,7 @@ def Recreation_run(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObje
             else:
                 raise ValueError()
 
-    config("PruningSelection", "iteritive_full_theseus")
+    config("PruningSelection", "Recreation_Run")
     logger = filemanagement.ExperimentLineManager(cfg=config)
 
     return kwargs | {"model": model, "logger": logger, "config": config}

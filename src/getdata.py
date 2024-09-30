@@ -109,13 +109,19 @@ class RandomDummyDataset(BaseDataset):
 
 
 class ACIIOT2023(BaseDataset):
-    def __init__(self, target_format: str = "CrossEntropy", num_classes: int = -1, grouped: bool = False):
+    def __init__(self, target_format: str = "CrossEntropy", num_classes: int = -1, grouped: bool = False, diffrence_multiplier: int | None = None):
         super().__init__()
 
         if grouped:
-            group_str = "-grouped"
+            if diffrence_multiplier is None:
+                group_str = "-grouped"
+                diffrence_multiplier = 10
+            else:
+                group_str = f"-grouped{diffrence_multiplier}"
         else:
             group_str = ""
+            if diffrence_multiplier is None:
+                diffrence_multiplier = 100
 
         if not os.path.exists(os.path.join(datasets_folder_path, f"ACI-IoT-2023{group_str}-formatted-undersampled.parquet")):
             if not os.path.exists(os.path.join(datasets_folder_path, "ACI-IoT-2023-Payload.csv")):
@@ -130,9 +136,9 @@ class ACIIOT2023(BaseDataset):
             # It looks like the geeks for geeks article is more of the way to go though, because I need to select a varying number of samples
             if grouped:
                 self.original_vals["label"] = self.original_vals["label"].apply(self.grouplabels)
-                max_samples = 10 * min(self.original_vals.value_counts("label"))
+                max_samples = diffrence_multiplier * min(self.original_vals.value_counts("label"))
             else:
-                max_samples = 100 * min(self.original_vals.value_counts("label"))
+                max_samples = diffrence_multiplier * min(self.original_vals.value_counts("label"))
             self.original_vals = self.original_vals.groupby("label", group_keys=False).apply(lambda group: group.sample(n=max_samples if max_samples <= len(group) else len(group)))
             self.original_vals.reset_index(inplace=True)
 
@@ -249,7 +255,7 @@ def get_dataloader(config: ConfigObject | None = None, dataset: None | BaseDatas
 
 
 def get_dataset(config: ConfigObject) -> BaseDataset:
-    datasets: dict[str, torch.utils.data.Dataset] = {"Vulnerability": VulnerabilityDataset, "RandomDummy": RandomDummyDataset, "ACI": ACIIOT2023, "ACI_grouped": partial(ACIIOT2023, grouped=True)}
+    datasets: dict[str, torch.utils.data.Dataset] = {"Vulnerability": VulnerabilityDataset, "RandomDummy": RandomDummyDataset, "ACI": ACIIOT2023, "ACI_grouped": partial(ACIIOT2023, grouped=True), "ACI_grouped_fullbalance": partial(ACIIOT2023, grouped=True, diffrence_multiplier=1)}
     data: BaseDataset = datasets[config("DatasetName")](target_format=config("LossFunction", getString=True))
     config("NumClasses", data.number_of_classes)
     config("NumFeatures", data.number_of_features)
