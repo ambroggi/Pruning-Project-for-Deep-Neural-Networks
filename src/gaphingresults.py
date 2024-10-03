@@ -16,6 +16,19 @@ readability = {
 }
 
 
+colors = {
+    "ADDM_Joint": "red",
+    "BERT_theseus": "orange",
+    "DAIS": "gold",
+    "Normal_Run": "black",
+    "RandomStructured": "limegreen",
+    "Recreation_Run": "gray",
+    "TOFD": "cyan",
+    "iteritive_full_theseus": "blue",
+    "thinet": "purple"
+}
+
+
 scatterpairs_scaled = [
     ("actual_parameters", "val_f1_score_macro"),
     ("actual_parameters", "val_f1_score_weight"),
@@ -93,10 +106,10 @@ def graph_pt(pt: pd.DataFrame, pair: tuple[str, str] = ("actual_parameters", "va
     for pruning_selection, weight_prune_group in pt.keys():
         if pruning_selection not in seen_keys:
             seen_keys.add(pruning_selection)
-            size = sizes[weight_prune_group] * 0 + 20
+            size = sizes[weight_prune_group] * 0 + 10
             # print(pt[pruning_selection])
             plot.add_trace(plotly.graph_objects.Scatter(x=pt[pruning_selection].T[x_name], y=pt[pruning_selection].T[y_name],
-                                                        name=pruning_selection, marker={"size": size}, text=pt[pruning_selection].keys(),
+                                                        name=pruning_selection, marker={"size": size, "color": colors.get(pruning_selection, "Gray")}, text=pt[pruning_selection].keys(),
                                                         error_x=dict(type="data", array=list(pt_err[pruning_selection].T[x_name]), visible=True, color="rgba(0, 0, 0, 0.1)"),
                                                         error_y=dict(type="data", array=list(pt_err[pruning_selection].T[y_name]), visible=True, color="rgba(0, 0, 0, 0.1)")))  # ref: https://plotly.com/python/error-bars/
 
@@ -117,8 +130,8 @@ def graph_pt(pt: pd.DataFrame, pair: tuple[str, str] = ("actual_parameters", "va
     plot.update_layout(title_text=f"{readability.get(y_name, y_name)} vs {readability.get(x_name, x_name)}", title_xanchor="right")
 
     if file is not None:
-        plot.update({"layout": {"title": {"xanchor": "right", "x": 0.75}}})
-        plot.write_image(file, width=900, height=500)
+        plot.update({"layout": {"title": {"xanchor": "right", "x": 0.9}}})
+        plot.write_image(file, width=700, height=500, scale=2)
     else:
         plot.show()
 

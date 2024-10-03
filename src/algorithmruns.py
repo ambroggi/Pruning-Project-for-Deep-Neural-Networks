@@ -347,8 +347,6 @@ def Recreation_run(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObje
         targets.append(math.ceil(len(state_dict[weights_path])*(1-(1-config("WeightPrunePercent")[i])/2)))  # find how small it should be pruned to
         currents.append(len(state_dict[weights_path]))  # save the shape it currently is
 
-    config("PruningSelection", "iteritive_full_theseus_training")
-
     # This is so inefficent, it loops until the layer sizes are at least as small as the targets
     for i in layers:
         if currents[i] > targets[i]:
