@@ -60,6 +60,16 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
         logger = filemanagement.ExperimentLineManager(cfg=config) if "logger" not in kwargs else kwargs["logger"]
 
     epochs: int = config("NumberOfEpochs") if "NumberOfEpochs" not in kwargs else kwargs["NumberOfEpochs"]
+
+    if model.training and epochs > 0:
+        # Make a series of 5 (or fewer) evenly spaced points along the epochs for waypoints
+        epoch_waypoints = (list(range(epochs)[-2::-epochs//5]) if epochs > 2 else [])[::-1]
+        # This is complicated. It is adding only the mean loss to the log, but only for each epoch waypoint, and it is adding it as a new row.
+        model.epoch_callbacks.append(lambda results: ([logger(f"Epoch waypoint {epoch_waypoints.index(results['epoch'])} {name_of_value}", value) for name_of_value, value in results.items() if name_of_value in ["mean_loss"]] if (results["epoch"] in epoch_waypoints) else None))
+        if save_epoch_waypoints:
+            # This is saving the model, but only during epoch waypoints.
+            model.epoch_callbacks.append(lambda results: model.save_model_state_dict(logger, update_config=False, logger_column=f"-Waypoint_{epoch_waypoints.index(results['epoch'])}-") if results['epoch'] in epoch_waypoints else None)
+
     model.fit(epochs)
 
     # Sometimes want to run for a while without logging (retraining runs)
@@ -74,15 +84,6 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
 
         # This is just adding things to the log
         model.epoch_callbacks.append(lambda results: ([logger(name_of_value, value, can_overwrite=True) for name_of_value, value in results.items()]))
-
-        # Make a series of 5 (or fewer) evenly spaced points along the epochs for waypoints
-        epoch_waypoints = (list(range(epochs)[-2::-epochs//5]) if epochs > 2 else [])[::-1]
-        # This is complicated. It is adding only the mean loss to the log, but only for each epoch waypoint, and it is adding it as a new row.
-        model.epoch_callbacks.append(lambda results: ([logger(f"Epoch waypoint {epoch_waypoints.index(results['epoch'])} {name_of_value}", value) for name_of_value, value in results.items() if name_of_value in ["mean_loss"]] if (results["epoch"] in epoch_waypoints) else None))
-
-        if save_epoch_waypoints:
-            # This is saving the model, but only during epoch waypoints.
-            model.epoch_callbacks.append(lambda results: model.save_model_state_dict(logger, update_config=False, logger_column=f"-Waypoint_{epoch_waypoints.index(results['epoch'])}-") if results['epoch'] in epoch_waypoints else None)
 
     t = time.time()
     print(model.fit())
