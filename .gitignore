@@ -167,6 +167,7 @@ results/progressbar.txt
 results/progressbar.txt
 results/extra.csv
 /results/images/*
+/results/raytraining/*
 !info.txt
 datasets/ACI-IoT-2023-Payload.csv
 datasets/ACI-IoT-Example.csv

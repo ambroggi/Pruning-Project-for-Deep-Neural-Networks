@@ -27,7 +27,8 @@ def searchspaceconfig(config: cfg.ConfigObject):
         "Dropout": tune.loguniform(1e-4, 1e-1),
         "HiddenDim": tune.randint(0, 100),
         "HiddenDimSize": tune.randint(10, 1000),
-        "MaxSamples": 0
+        "MaxSamples": 0,
+        "NumberOfEpochs": 100
     }
     return config.to_dict() | modifications
 
@@ -43,8 +44,8 @@ def raytrain(config: cfg.ConfigObject | bool | None = None, **kwargs) -> dict[st
     conf = searchspaceconfig(config) | {"DatafolderPath": os.path.join(os.getcwd(), "datasets")}
 
     scheduler = ASHAScheduler(
-        metric="total_loss",
-        mode="min",
+        metric="val_f1_score_macro",
+        mode="max",
         max_t=config("NumberOfEpochs"),
         grace_period=1,
         reduction_factor=2,
@@ -52,14 +53,19 @@ def raytrain(config: cfg.ConfigObject | bool | None = None, **kwargs) -> dict[st
 
     result = tune.run(
         singleraytrain,
-        resources_per_trial={"cpu": 2, "gpu": 0.1 if "data" not in kwargs else kwargs["gpus"]},
+        resources_per_trial={"cpu": 2, "gpu": 0.36 if "data" not in kwargs else kwargs["gpus"]},
         config=conf,
-        num_samples=9,
+        num_samples=25,
         scheduler=scheduler,
-    )
+        max_concurrent_trials=5,
+        storage_path=os.path.abspath("results/raytraining"),
+        log_to_file="logRaytrace.txt",
+        max_failures=3,
+        time_budget_s=82800)
 
     best = result.get_best_trial("total_loss", "min", "last")
     print(best)
+    print(best.config)
 
 
 def singleraytrain(conf_dict, **kwargs):
