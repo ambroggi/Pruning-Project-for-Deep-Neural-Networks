@@ -27,6 +27,10 @@ class BaseDetectionModel(torch.nn.Module, modelfunctions.ModelFunctions):
 
         return sizes
 
+    def load_from_config(self):
+        if self.cfg("FromSaveLocation") is not None and len(self.cfg("FromSaveLocation")) != 0:
+            self.load_model_state_dict_with_structure(torch.load("savedModels/"+self.cfg("FromSaveLocation"), map_location=self.cfg("Device")))
+
 
 class SimpleCNNModel(BaseDetectionModel):
     def __init__(self, num_classes=100, num_features=100):
@@ -115,6 +119,9 @@ def getModel(name_or_config: str | object, **kwargs) -> BaseDetectionModel:
             kwargs.update({"num_features": name_or_config("NumFeatures")})
         return_model = models[name_or_config("ModelStructure")](**kwargs)
         return_model.cfg = name_or_config
+
+        if name_or_config("FromSaveLocation") is not None:
+            return_model.load_from_config()
 
     for a, b in zip(return_model.get_important_modules(), [x for x in return_model.modules() if isinstance(x, (torch.nn.Linear, torch.nn.Conv1d))]):
         assert a is b

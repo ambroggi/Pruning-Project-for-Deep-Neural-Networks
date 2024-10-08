@@ -124,8 +124,12 @@ def recordModelInfo(model: modelstruct.BaseDetectionModel, logger: filemanagemen
 
 
 def standardLoad(index: None | int = None, existing_config: cfg.ConfigObject | None = None) -> dict[str, any]:
+    if existing_config is not None and existing_config("FromSaveLocation") is not None:
+        print("Specific file loaded, standardLoad has been skipped")
+        return {"config": existing_config}
     config, index = filemanagement.load_cfg(config=existing_config) if index is None else filemanagement.load_cfg(row_number=index, config=existing_config)
-    if config("SaveLocation") is not None:
+
+    if config("SaveLocation") is not None:  # prior row actually has a model to load.
         modelStateDict = torch.load("savedModels/"+config("SaveLocation"), map_location=config("Device"))
         config("FromSaveLocation", config("SaveLocation"))
         config("SaveLocation", "None")

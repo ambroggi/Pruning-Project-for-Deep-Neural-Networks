@@ -67,6 +67,9 @@ class ExperimentLineManager():
             if (measure_name in hist and not pd.isnull(hist.at[self.row_id, measure_name])) and not kwargs.get("can_overwrite", False):
                 hist.at[self.row_id, "Notes"] = hist.at[self.row_id, "Notes"] | 4  # Bit 4 of notes is that an overwrite has occured
 
+            if isinstance(val, list):
+                val = str(val)
+
             hist.at[self.row_id, measure_name] = val
             hist.to_csv(self.pth)
 

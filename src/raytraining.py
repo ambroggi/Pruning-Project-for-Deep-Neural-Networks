@@ -23,7 +23,7 @@ from ray.tune.schedulers import ASHAScheduler
 def searchspaceconfig(config: cfg.ConfigObject):
     modifications = {
         "LearningRate": tune.loguniform(1e-4, 1e-1),
-        "BatchSize": tune.choice(10**x for x in range(8)),
+        "BatchSize": tune.choice(10**x for x in range(1, 8)),
         "Dropout": tune.loguniform(1e-4, 1e-1),
         "HiddenDim": tune.randint(0, 100),
         "HiddenDimSize": tune.randint(10, 1000),
@@ -47,7 +47,7 @@ def raytrain(config: cfg.ConfigObject | bool | None = None, **kwargs) -> dict[st
         metric="val_f1_score_macro",
         mode="max",
         max_t=config("NumberOfEpochs"),
-        grace_period=1,
+        grace_period=3,
         reduction_factor=2,
     )
 
@@ -64,6 +64,10 @@ def raytrain(config: cfg.ConfigObject | bool | None = None, **kwargs) -> dict[st
         time_budget_s=82800)
 
     best = result.get_best_trial("total_loss", "min", "last")
+    print(best)
+    print(best.config)
+
+    best = result.get_best_trial("val_f1_score_macro", "max", "last")
     print(best)
     print(best.config)
 

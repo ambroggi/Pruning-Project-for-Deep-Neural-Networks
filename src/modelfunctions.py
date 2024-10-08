@@ -135,7 +135,7 @@ class ModelFunctions():
         assert isinstance(self, torch.nn.Module)
         self: torch.nn.Module | ModelFunctions  # More typehint
 
-        results = {"total_loss": 0, "f1_score_weight": 0.0, "f1_score_macro": 0.0, "additive_loss": 0.0}
+        results = {"total_loss": 0, "f1_score_weight": 0.0, "f1_score_macro": 0.0, "additive_loss": 0.0, "f1_scores_all": []}
         results_of_predictions = {"True": [], "Predicted": []}
 
         for batch in dataloader:
@@ -161,7 +161,7 @@ class ModelFunctions():
             results["total_loss"] += loss.detach().item()
             results["additive_loss"] += additive_loss.detach().item()
 
-            results_of_predictions["True"].extend(y.detach().cpu())
+            results_of_predictions["True"].extend(y.detach().cpu() if y.ndim == 1 else y.argmax(dim=1).detach().cpu())
             results_of_predictions["Predicted"].extend(y_predict.argmax(dim=1).detach().cpu())
 
             # Reset frozen weights
@@ -169,6 +169,7 @@ class ModelFunctions():
 
         results["f1_score_weight"] = f1_score(results_of_predictions["True"], results_of_predictions["Predicted"], average="weighted")
         results["f1_score_macro"] = f1_score(results_of_predictions["True"], results_of_predictions["Predicted"], average="macro")
+        results["f1_scores_all"] = f1_score(results_of_predictions["True"], results_of_predictions["Predicted"], average=None).tolist()
         # [results_of_predictions["True"] != results_of_predictions["True"][0]]
         # results["max_class_removed_f1_score"] = f1_score(results_of_predictions["True"], results_of_predictions["Predicted"], average="weighted")
         results["mean_loss"] = results["total_loss"] / len(results_of_predictions["True"])
