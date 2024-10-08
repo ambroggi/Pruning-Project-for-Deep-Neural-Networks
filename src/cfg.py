@@ -27,8 +27,14 @@ class ConfigObject():
 
         self.parameters: dict[str, list[any, str, str]] = {
             "Version": [get_version(), "Version Number", "str"],
-            "Notes": [0, "This is supposed to store a integer associated with specific notes for this config. 0 is no Notes", "int"],
             "LossFunction": ["CrossEntropy", "Loss function being used", "str"],
+            "Notes": [0, "This is supposed to store a integer associated with specific notes for this config."
+                      "\n0 is no Notes,"
+                      "\n1 is manually noted inacuracy (for filtering bad runs after they ran),"
+                      "\n2 is that the logger was not given the config object (so it cannot actually say what the config is),"
+                      "\n4 is that an unexpected overwrite has occured (in the record log, the sanity checker failed),"
+                      "\n8 is undefined at the momemt,"
+                      "\n16 is that a model was loaded directly without the assoicated record line (so the config in the logger is not accurate)", "int"],
             "Optimizer": ["Adam", "Optimizer being used", "str"],
             "LearningRate": [0.000904255, "Learning rate for training", "float"],
             "SchedulerLR": [1, "Wether to use a scheduler for the learning rate or not, 1=use scheduler, 0=Don't use scheduler", "int"],
@@ -47,7 +53,7 @@ class ConfigObject():
             "AlphaForADMM": [0.001, "Alpha value for ADMM model", "float"],
             "RhoForADMM": [0.001, "Rho value for ADMM model", "float"],
             "LayerPruneTargets": ["30, 30, *, 30", "Number of nodes per layer starting with the first layer. NOTE: Will cause an error with ADMM if it is a larger number than the number of filters in that layer", "strl"],
-            "WeightPrunePercent": ["0.99, 0.99, *, 1", "Percent of weights to prune down to for each layer", "strl"],
+            "WeightPrunePercent": ["0.99, 0.5, *, 1", "Percent of weights to prune down to for each layer", "strl"],
             "PruningSelection": ["", "What pruning was applied", "str"],
             "BERTTheseusStartingLearningRate": [0.5, "What Probibility value the Bert Theseus method starts with", "float"],
             "BERTTheseusLearningRateModifier": [0.5, "What k value (equation 6) the Bert Theseus method modifies the probibility by (devided by epoch count)", "float"],

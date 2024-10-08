@@ -30,6 +30,7 @@ class BaseDetectionModel(torch.nn.Module, modelfunctions.ModelFunctions):
     def load_from_config(self):
         if self.cfg("FromSaveLocation") is not None and len(self.cfg("FromSaveLocation")) != 0:
             self.load_model_state_dict_with_structure(torch.load("savedModels/"+self.cfg("FromSaveLocation"), map_location=self.cfg("Device")))
+            self.cfg("Notes", self.cfg("Notes") | 16)
 
 
 class SimpleCNNModel(BaseDetectionModel):
