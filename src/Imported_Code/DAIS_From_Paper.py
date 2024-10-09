@@ -60,7 +60,7 @@ class add_alpha(PostMutablePruningLayer):
         return self.anneal(results["epoch"] + 1)
 
     def remove(self):
-        self.para = self.HT().greater(0.5)
+        self.para = self.HT()
         super().remove()
 
 
