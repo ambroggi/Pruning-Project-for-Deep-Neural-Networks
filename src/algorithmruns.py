@@ -1,18 +1,14 @@
 # This file is supposed to be all of the different algorithms that can be run
 
-import torch
-
 import math
 
+import torch
 import torch.utils
 import torch.utils.hooks
 from tqdm import tqdm
-from . import Imported_Code
-from . import cfg
-from . import modelstruct
-from . import getdata
-from . import filemanagement
-from . import extramodules
+
+from . import (Imported_Code, cfg, extramodules, filemanagement, getdata,
+               modelstruct)
 
 
 def swapping_run(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel, data, layers: list[int] | None = None, **kwargs):

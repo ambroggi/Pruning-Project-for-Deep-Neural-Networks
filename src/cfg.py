@@ -1,10 +1,11 @@
 import argparse
-import sys
-import git
 import os
-import torch.optim
-import torch
+import sys
+
+import git
 import numpy
+import torch
+import torch.optim
 
 
 class ConfigObject():
@@ -27,7 +28,6 @@ class ConfigObject():
 
         self.parameters: dict[str, list[any, str, str]] = {
             "Version": [get_version(), "Version Number", "str"],
-            "LossFunction": ["CrossEntropy", "Loss function being used", "str"],
             "Notes": [0, "This is supposed to store a integer associated with specific notes for this config."
                       "\n0 is no Notes,"
                       "\n1 is manually noted inacuracy (for filtering bad runs after they ran),"
@@ -35,6 +35,7 @@ class ConfigObject():
                       "\n4 is that an unexpected overwrite has occured (in the record log, the sanity checker failed),"
                       "\n8 is undefined at the momemt,"
                       "\n16 is that a model was loaded directly without the assoicated record line (so the config in the logger is not accurate)", "int"],
+            "LossFunction": ["CrossEntropy", "Loss function being used", "str"],
             "Optimizer": ["Adam", "Optimizer being used", "str"],
             "LearningRate": [0.000904255, "Learning rate for training", "float"],
             "SchedulerLR": [1, "Wether to use a scheduler for the learning rate or not, 1=use scheduler, 0=Don't use scheduler", "int"],

@@ -1,14 +1,17 @@
-import time
-import torch
-from torch.utils.data import DataLoader
-from numpy import ndarray
-from thop import profile
-from sklearn.metrics import f1_score
-from . import cfg
-from .extramodules import Nothing_Module, PreMutablePruningLayer, PostMutablePruningLayer
-from typing import Callable
-import tqdm
 import os
+import time
+from typing import Callable
+
+import torch
+import tqdm
+from numpy import ndarray
+from sklearn.metrics import f1_score
+from thop import profile
+from torch.utils.data import DataLoader
+
+from . import cfg
+from .extramodules import (Nothing_Module, PostMutablePruningLayer,
+                           PreMutablePruningLayer)
 
 
 class ModelFunctions():
@@ -49,13 +52,21 @@ class ModelFunctions():
             self.epoch_callbacks.extend(self.progress_need_to_remove)
 
             return progres_bar
+        elif self.make_progressbar:
+            self.progress_need_to_remove = []
+            progres_bar = tqdm.tqdm(range(epochs), desc=f"Fit |{self.cfg('PruningSelection')}| PID:{os.getpid()}", total=epochs)
+            self.progress_need_to_remove.append(lambda results: progres_bar.set_postfix_str(f"{results['f1_score_macro']*100:2.3f}% Train F1, {results['val_f1_score_macro']*100:2.3f}% Validation F1"))
+            self.epoch_callbacks.extend(self.progress_need_to_remove)
+            return progres_bar
         else:
             return None
 
     def remove_progress_bar(self):
         for x in self.progress_need_to_remove:
             self.epoch_callbacks.remove(x)
-        self.progres_file.close()
+        if len(self.progress_need_to_remove) > 1:
+            self.progres_file.close()
+        self.progress_need_to_remove = []
 
     def fit(self, epochs: int = 0, dataloader: DataLoader | None = None, keep_callbacks: bool = False) -> str:
         assert isinstance(self, torch.nn.Module)

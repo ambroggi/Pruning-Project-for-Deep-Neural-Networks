@@ -1,10 +1,10 @@
-import pandas as pd
-import numpy as np
 import os
+
+import numpy as np
+import pandas as pd
 import plotly
 import plotly.express
 import plotly.graph_objects
-
 
 readability = {
     "parameters": "Total number of parameters",
@@ -139,11 +139,21 @@ def graph_pt(pt: pd.DataFrame, pair: tuple[str, str] = ("actual_parameters", "va
 if __name__ == "__main__":
     df_small, pt_small, pt_scaled_small = read_results("results/Smallcomputer(v0.96).csv")
     df, pt, pt_scaled = read_results("results/Bigcomputer(v0.99).csv")
-    # df, pt, pt_scaled = read_results("results/record.csv")
-    for x in scatterpairs_scaled:
-        graph_pt(pt_scaled, x, file=f"results/images/Big-scaled-{x[0]}-{x[1]}.png")
-        graph_pt(pt_scaled_small, x, file=f"results/images/Small-scaled-{x[0]}-{x[1]}.png")
-        # graph_pt(pt, x)
-    for x in scatterpairs_true:
-        graph_pt(pt, x, file=f"results/images/Big-{x[0]}-{x[1]}.png")
-        graph_pt(pt_small, x, file=f"results/images/Small-{x[0]}-{x[1]}.png")
+
+    combined = pd.concat([pt_small["mean"][["actual_parameters", "val_f1_score_macro"]], pt["mean"][["actual_parameters", "val_f1_score_macro"]]], axis=1, keys=["small", "big"])
+    combined.sort_index(ascending=False, inplace=True)
+    really_annoying_pandas_thing_because_they_changed_to_no_upcasting = combined.loc[:, (["small", "big"], "actual_parameters")].map(lambda x: (str(int(float(x)//1000))+"k"))
+    combined.loc[:, (["small", "big"], "actual_parameters")] = really_annoying_pandas_thing_because_they_changed_to_no_upcasting
+    combined.rename(index=lambda x: str.replace(x, "_", " ") if "[" not in x else x[1:5], inplace=True)
+    combined.rename(columns=readability, inplace=True)
+    combined.to_latex("results/images/table.txt", float_format="%.5f", longtable=True)
+
+    if not False:  # Just for fun, every time I disable this I am just going to add another "not" here
+        df, pt, pt_scaled = read_results("results/record.csv")
+        for x in scatterpairs_scaled:
+            graph_pt(pt_scaled, x, file=f"results/images/Big-scaled-{x[0]}-{x[1]}.png")
+            graph_pt(pt_scaled_small, x, file=f"results/images/Small-scaled-{x[0]}-{x[1]}.png")
+            # graph_pt(pt, x)
+        for x in scatterpairs_true:
+            graph_pt(pt, x, file=f"results/images/Big-{x[0]}-{x[1]}.png")
+            graph_pt(pt_small, x, file=f"results/images/Small-{x[0]}-{x[1]}.png")

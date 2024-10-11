@@ -1,12 +1,13 @@
 import os
 from functools import partial
+
+import numpy as np
+import pandas as pd
 import torch
 import torch.utils.data
-import pandas as pd
-import numpy as np
 from sklearn.preprocessing import StandardScaler
-from .cfg import ConfigObject
 
+from .cfg import ConfigObject
 
 datasets_folder_path = "datasets"
 

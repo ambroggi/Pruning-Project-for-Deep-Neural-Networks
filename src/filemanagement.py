@@ -1,9 +1,11 @@
-import pandas as pd
-import os
-import fcntl
-import time
 import datetime
+import fcntl
+import os
 import platform
+import time
+
+import pandas as pd
+
 from .cfg import ConfigObject
 
 

@@ -1,15 +1,12 @@
 # import Imported_Code.admm_joint_pruning
-import torch
 import gc
 import time
+
 import psutil
+import torch
 
-from . import cfg
-from . import modelstruct
-from . import getdata
-from . import filemanagement
+from . import cfg, filemanagement, getdata, modelstruct
 from .algorithmruns import types_of_tests
-
 
 # This may be useful: https://stackoverflow.com/a/53593326
 
