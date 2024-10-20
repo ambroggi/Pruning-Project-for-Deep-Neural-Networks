@@ -1,22 +1,39 @@
 import torch
-from . import modelfunctions
 import torch.nn.utils.prune
+
+from . import modelfunctions
 
 
 class BaseDetectionModel(torch.nn.Module, modelfunctions.ModelFunctions):
+    """
+    The most basic model that also has model functions. This should be overridden.
+    """
+
     def __init__(self, num_classes=100, num_features=100):
+        """
+        Initialization, inhearits from both torch.nn.Module and from the model functions object which includes all of the functions we want to use.
+        """
         modelfunctions.ModelFunctions.__init__(self)
         super(BaseDetectionModel, self).__init__()
 
         self.fc1 = torch.nn.Linear(num_features, num_classes)
 
     def forward(self, tensor: torch.Tensor) -> torch.Tensor:
+        """
+        Forward function should pass the data through all of the modules before returning it as a tensor.
+        """
         return self.fc1(tensor)
 
     def get_important_modules(self) -> torch.nn.ModuleList:
+        """
+        This is an added function that returns all of the models that should be able to be affected by pruning. This does not count activation functions, Dropout, or Seqentual modules.
+        """
         return torch.nn.ModuleList([x for x in self.modules() if isinstance(x, (torch.nn.Linear, torch.nn.Conv1d))])
 
     def get_important_modules_channelsize(self) -> list[int]:
+        """
+        Returns a list of integers for how wide each module in get_important_modules() is. This is so that you can set the maximum amount of pruning.
+        """
         important = self.get_important_modules()
         sizes = []
         for x in important:
@@ -28,12 +45,17 @@ class BaseDetectionModel(torch.nn.Module, modelfunctions.ModelFunctions):
         return sizes
 
     def load_from_config(self):
+        """
+        Loads the model from the --FromSaveLocation config value assuming that it was written to. This overrides the current model and thus might cause innacuracies in the output log"""
         if self.cfg("FromSaveLocation") is not None and len(self.cfg("FromSaveLocation")) != 0:
             self.load_model_state_dict_with_structure(torch.load("savedModels/"+self.cfg("FromSaveLocation"), map_location=self.cfg("Device")))
             self.cfg("Notes", self.cfg("Notes") | 16)
 
 
 class SimpleCNNModel(BaseDetectionModel):
+    """
+    A model with a few (2) convolutional layers with maxpooling before two fully connected layers.
+    """
     def __init__(self, num_classes=100, num_features=100):
         modelfunctions.ModelFunctions.__init__(self)
         super(SimpleCNNModel, self).__init__()
@@ -59,6 +81,9 @@ class SimpleCNNModel(BaseDetectionModel):
 
 
 class SwappingDetectionModel(BaseDetectionModel):
+    """
+    Poorly named module that is just three linear layers. Nothing intresintg here as it ws just used for a few simple tests vefore selecting a final model.
+    """
     def __init__(self, num_classes=100, num_features=100):
         modelfunctions.ModelFunctions.__init__(self)
         super(BaseDetectionModel, self).__init__()
@@ -75,6 +100,10 @@ class SwappingDetectionModel(BaseDetectionModel):
 
 
 class LinearLayer(torch.nn.Module):
+    """
+    A single linear layer with dropout and an activation function for use in the Multilinear layered model
+    Otherwise it is an ordinary torch module
+    """
     def __init__(self, in_dim, out_dim, dropout):
         torch.nn.Module.__init__(self)
         self.fc = torch.nn.Linear(in_dim, out_dim)
@@ -86,14 +115,18 @@ class LinearLayer(torch.nn.Module):
 
 
 class MultiLinear(BaseDetectionModel):
+    """
+    Main model used in out tests, variable number of hidden layers with a variable depth.
+    """
     def __init__(self, num_classes=100, num_features=100):
         modelfunctions.ModelFunctions.__init__(self)
         super(BaseDetectionModel, self).__init__()
 
         hdim_size = self.cfg("HiddenDimSize")
         self.fc_lin = torch.nn.Linear(num_features, hdim_size)
-        self.seq = torch.nn.Sequential(*[LinearLayer(hdim_size, hdim_size, self.cfg("Dropout")) for _ in range(self.cfg("HiddenDim"))])
-        self.fc_lout = torch.nn.Linear(hdim_size, num_classes)
+        # Add hidden layers
+        self.seq = torch.nn.Sequential(*[LinearLayer(hdim_size+x, hdim_size+x+1, self.cfg("Dropout")) for x in range(self.cfg("HiddenDim"))])
+        self.fc_lout = torch.nn.Linear(hdim_size+self.cfg("HiddenDim"), num_classes)
 
     def forward(self, tensor) -> torch.Tensor:
         x = self.fc_lin(tensor)
@@ -102,6 +135,7 @@ class MultiLinear(BaseDetectionModel):
         return z
 
 
+# dictionary of all of the selectable models in the project so far.
 models = {
     "BasicTest": BaseDetectionModel,
     "SwappingTest": SwappingDetectionModel,
@@ -111,6 +145,9 @@ models = {
 
 
 def getModel(name_or_config: str | object, **kwargs) -> BaseDetectionModel:
+    """
+    Fetches the current model as according to the config (and loads the values if specified with FromSaveLocation) and checks that the config is valid for the model.
+    """
     if isinstance(name_or_config, str):
         return_model: BaseDetectionModel = models[name_or_config](**kwargs)
     else:
@@ -134,7 +171,7 @@ def getModel(name_or_config: str | object, **kwargs) -> BaseDetectionModel:
 
 def validateConfigInModel(model: BaseDetectionModel):
     """
-    Validates that the model.cfg config has reasonable values for LayerPruneTargets, LayerIteration, and WeightPrunePercent
+    Validates and sets that the model.cfg config has reasonable values for LayerPruneTargets, LayerIteration, and WeightPrunePercent
     """
     layer_count = len(model.get_important_modules())
     # Check that config variables have enough values:
@@ -153,11 +190,13 @@ def validateConfigInModel(model: BaseDetectionModel):
         model.cfg(x, config_val)
 
     for x in ["WeightPrunePercent"]:
+        # this sets the amount of the model that remains after pruning
         config_val = model.cfg(x)
         if len(config_val) != layer_count:
             if len(config_val) > layer_count:
                 config_val = config_val[:layer_count]
             else:
+                # If Nothing is said about the layers assume that none of them will be pruned
                 config_val.extend([1 for _ in range(layer_count - len(config_val))])
 
         # Make sure the percentages are bounded by 0 and 1
@@ -168,12 +207,16 @@ def validateConfigInModel(model: BaseDetectionModel):
 
 
 def setlayerprunetargets_to_weightprunepercent(model: BaseDetectionModel):
+    """
+    Set the ADDM layer prune targets to match the total pruning target.
+    """
     # This kind of invalidates that prior "LayerPruneTargets"
     percentages = model.cfg("WeightPrunePercent")
     layer_prune_targets = [int(m*p) for m, p in zip(model.get_important_modules_channelsize(), percentages)]
     model.cfg("LayerPruneTargets", layer_prune_targets)
 
 
+# These are modules that just be ignored because they are just conatainers for the actual useful modules.
 container_modules = (torch.nn.Sequential, LinearLayer)
 
 if __name__ == "__main__":

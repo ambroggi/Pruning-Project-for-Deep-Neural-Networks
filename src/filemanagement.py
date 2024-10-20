@@ -5,6 +5,7 @@ import platform
 import time
 
 import pandas as pd
+import torch
 
 from .cfg import ConfigObject
 
@@ -26,6 +27,8 @@ class ExperimentLineManager():
         df["ProcessID"] = [os.getpid()]
         df["StartTime"] = datetime.datetime.now()
         df["cpuModel"] = platform.processor()
+        df["gpuModel"] = torch.cuda.get_device_name() if self.cfg("Device") == "cuda" else "None"
+        df["gpuInfo"] = str(torch.cuda.get_device_properties()) if self.cfg("Device") == "cuda" else "None"
         # print(df["StartTime"])
 
         # Attach the history

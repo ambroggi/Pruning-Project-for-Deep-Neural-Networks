@@ -67,11 +67,14 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
             # This is saving the model, but only during epoch waypoints.
             model.epoch_callbacks.append(lambda results: model.save_model_state_dict(logger, update_config=False, logger_column=f"-Waypoint_{epoch_waypoints.index(results['epoch'])}-") if results['epoch'] in epoch_waypoints else None)
 
+    if logger is not None:
+        logger("TimeForPrune", time.time()-t)
+
     model.fit(epochs)
 
     # Sometimes want to run for a while without logging (retraining runs)
     if logger is not None:
-        logger("TimeForPrune", time.time()-t)
+        logger("TimeForPruneAndRetrain", time.time()-t)
         logger("Memory", psutil.virtual_memory()[3]/1000000-mem)
         logger("CudaMemory", torch.cuda.memory_allocated()-cuda_mem)
         logger("LengthOfTrainingData", len(train.dataset))

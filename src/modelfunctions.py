@@ -15,18 +15,21 @@ from .extramodules import (Nothing_Module, PostMutablePruningLayer,
 
 
 class ModelFunctions():
+    """
+    This is an abstract class, intended to be inhearited from to pass on all of the useful functions.
+    """
     def __init__(self):
         assert isinstance(self, torch.nn.Module)
         # Non-Overridden values (These actually store things)
-        self.epoch_callbacks: list[Callable[[dict], None]] = []
-        self.dataloader: None | DataLoader = None
-        self.validation_dataloader: None | DataLoader = None
-        self.optimizer: torch.optim.Optimizer | None = None
-        self.loss_fn: torch.nn.Module | None = None
-        self.loss_additive_info: tuple[Callable, tuple] = torch.tensor, (0, )
-        self.frozen: dict[str, torch.Tensor] = {}
-        self.pruning_layers: list[PreMutablePruningLayer | PostMutablePruningLayer] = []
-        self.make_progressbar = True
+        self.epoch_callbacks: list[Callable[[dict], None]] = []  # Called at the end of each epoch with a dictionary of results. Is reset when the last epoch ends
+        self.dataloader: None | DataLoader = None  # The labled data to load
+        self.validation_dataloader: None | DataLoader = None  # The data that is to be used to verify the model performance
+        self.optimizer: torch.optim.Optimizer | None = None  # Method of applying backpropigation
+        self.loss_fn: torch.nn.Module | None = None  # This is the specific loss function that the model is using
+        self.loss_additive_info: tuple[Callable, tuple] = torch.tensor, (0, )  # This is a space for any additional loss functions the model might have. Used with DAIS
+        self.frozen: dict[str, torch.Tensor] = {}  # This is supposed to be a state dictionary for the current modules that are done with pruning. but it does not work that well
+        self.pruning_layers: list[PreMutablePruningLayer | PostMutablePruningLayer] = []  # The currently being processed pruning layers
+        self.make_progressbar = True  # wether or not to use a progress bar to show progression
 
         # Overriden Values (should be overriden by multi-inheritence)
         self.cfg: cfg.ConfigObject = cfg.ConfigObject()
@@ -34,13 +37,24 @@ class ModelFunctions():
         # self.parameters = None  # <- Does not work as it overrides the actual function that should be there
 
     def set_training_data(self, dataloader: DataLoader | None = None) -> None:
+        """
+        A setter for the taining dataset
+        """
         self.dataloader = dataloader
 
     def set_validation_data(self, dataloader: DataLoader | None = None) -> None:
+        """
+        A setter for the validation dataset
+        """
         self.validation_dataloader = dataloader
 
-    def get_progress_bar(self, epochs):
+    def get_progress_bar(self, epochs) -> None | tqdm.tqdm:
+        """
+        This returns either a tqdm iterator that displays a prpgress bar in "results/progressbar.txt" if it exists or the console if it does not OR returns None if self.make_progressbar is false
+        Also, this sets up for the progressbar to be removed later.
+        """
         if os.path.exists("results/progressbar.txt") and self.make_progressbar:
+            # Write into the progressbar file, but this is a bit complicated because we want to keep overwriting the same line so that it shows progress correctly.
             self.progres_file = open("results/progressbar.txt", mode="r+")  # This might be useful so I am putting it here: https://stackoverflow.com/a/72412819
             self.progres_file.seek(0, 2)
             progres_pos = self.progres_file.tell()
@@ -53,15 +67,20 @@ class ModelFunctions():
 
             return progres_bar
         elif self.make_progressbar:
+            # if the file does not exist print to console. This is much easier because it is the default.
             self.progress_need_to_remove = []
             progres_bar = tqdm.tqdm(range(epochs), desc=f"Fit |{self.cfg('PruningSelection')}| PID:{os.getpid()}", total=epochs)
             self.progress_need_to_remove.append(lambda results: progres_bar.set_postfix_str(f"{results['f1_score_macro']*100:2.3f}% Train F1, {results['val_f1_score_macro']*100:2.3f}% Validation F1"))
             self.epoch_callbacks.extend(self.progress_need_to_remove)
             return progres_bar
         else:
+            # disabled progressbar
             return None
 
     def remove_progress_bar(self):
+        """
+        Removes the progressbar if it exists and cleans them out of the epoch hooks.
+        """
         for x in self.progress_need_to_remove:
             self.epoch_callbacks.remove(x)
         if len(self.progress_need_to_remove) > 1:
@@ -69,6 +88,11 @@ class ModelFunctions():
         self.progress_need_to_remove = []
 
     def fit(self, epochs: int = 0, dataloader: DataLoader | None = None, keep_callbacks: bool = False) -> str:
+        """
+        This is the main function of training for the model. It sets things up based on the config if they were not alrady generated or given in the args
+        Then it runs run_single_epoch per epoch interspaced with checks to the validation dataloader if it exist and running the callbacks.
+        Returns a string statingg the final results of the model and clears out the callbacks for future work (unless keep_callbacks is true).
+        """
         assert isinstance(self, torch.nn.Module)
         self: torch.nn.Module | ModelFunctions  # More typehint
 
@@ -95,6 +119,7 @@ class ModelFunctions():
 
         self = self.to(self.cfg("Device"))  # Move things to the active device
 
+        # Check that the frozen modules actually exist before applying them. (this is only really a problem when stacking pruning methods including BERT_Theseus)
         frozen_bad = [x for x in self.frozen.keys() if (x not in self.state_dict().keys()) or (self.frozen[x].shape != self.state_dict()[x].shape)]
         for incorrect_frozen in frozen_bad:
             self.frozen.pop(incorrect_frozen)
@@ -143,6 +168,9 @@ class ModelFunctions():
         return f'Ran model with {epoch_results["f1_score_macro"]*100:2.3f}% or {epoch_results["f1_score_weight"]*100:2.3f}% F1 on final epoch {e}'
 
     def run_single_epoch(self, dataloader: DataLoader) -> dict[str, float]:
+        """
+        Single step of the fit function this runs through the whole dataloader once per call. Returns a dictionary of all o the notable results
+        """
         assert isinstance(self, torch.nn.Module)
         self: torch.nn.Module | ModelFunctions  # More typehint
 
