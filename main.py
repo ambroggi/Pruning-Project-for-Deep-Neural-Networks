@@ -1,5 +1,6 @@
 if __name__ != '__mp_main__':
     import src
+    # src.torch.autograd.set_detect_anomaly(True)
 
 if __name__ == "__main__":
     config = src.cfg.ConfigObject.get_param_from_args()
@@ -19,6 +20,9 @@ if __name__ == "__main__":
             src.standard_run(PruningSelection="TOFD", **kwargs)
             src.standard_run(**(kwargs | {"logger": None, "NumberOfEpochs": 0}))
 
+            # After the first run, assume everything is working properly and no need to check all of the gradients (because it makes it much slower)
+            src.torch.autograd.set_detect_anomaly(False)
+
     else:
         selected = config("PruningSelection")
         config("PruningSelection", "Reset")
@@ -33,3 +37,6 @@ if __name__ == "__main__":
             for weight_prune_percent in [[round(x*((num_variation + 1)/8) if x < 1 else 1, ndigits=2) if isinstance(x, (float)) else x for x in load["config"]("WeightPrunePercent", getString=True)] for num_variation in range(7, -1, -1)]:
                 load["config"]("WeightPrunePercent", weight_prune_percent)
                 test = src.standard_run(PruningSelection=selected, **load)
+
+                # After the first run, assume everything is working properly and no need to check all of the gradients (because it makes it much slower)
+                src.torch.autograd.set_detect_anomaly(False)

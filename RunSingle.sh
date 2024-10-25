@@ -9,6 +9,5 @@
 #SBATCH -D /home/abroggi_umassd_edu/Pruning-Project-for-Deep-Neural-Networks
 
 
-module load miniconda/22.11.1-1
-conda activate ModelPrune
+source .venv/bin/activate
 python ./main.py --PruningSelection "0" --NumberOfWorkers 3 --LearningRate 0.0009 --NumberOfEpochs 150 --MaxSamples 0

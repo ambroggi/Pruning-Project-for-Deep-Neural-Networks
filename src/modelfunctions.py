@@ -30,6 +30,7 @@ class ModelFunctions():
         self.frozen: dict[str, torch.Tensor] = {}  # This is supposed to be a state dictionary for the current modules that are done with pruning. but it does not work that well
         self.pruning_layers: list[PreMutablePruningLayer | PostMutablePruningLayer] = []  # The currently being processed pruning layers
         self.make_progressbar = True  # wether or not to use a progress bar to show progression
+        self.num_epochs_trained = 0  # Just to keep track of the number of epochs that were used to train the model
 
         # Overriden Values (should be overriden by multi-inheritence)
         self.cfg: cfg.ConfigObject = cfg.ConfigObject()
@@ -37,21 +38,30 @@ class ModelFunctions():
         # self.parameters = None  # <- Does not work as it overrides the actual function that should be there
 
     def set_training_data(self, dataloader: DataLoader | None = None) -> None:
-        """
-        A setter for the taining dataset
+        """A setter for the taining dataset
+
+        Args:
+            dataloader (DataLoader | None, optional): Pytorch dataloader to set as default training data. Defaults to None.
         """
         self.dataloader = dataloader
 
     def set_validation_data(self, dataloader: DataLoader | None = None) -> None:
-        """
-        A setter for the validation dataset
+        """A setter for the validation dataset
+
+        Args:
+            dataloader (DataLoader | None, optional): Python dataloader to set as the default validation data. Defaults to None.
         """
         self.validation_dataloader = dataloader
 
-    def get_progress_bar(self, epochs) -> None | tqdm.tqdm:
-        """
-        This returns either a tqdm iterator that displays a prpgress bar in "results/progressbar.txt" if it exists or the console if it does not OR returns None if self.make_progressbar is false
+    def get_progress_bar(self, epochs: int) -> None | tqdm.tqdm:
+        """This returns either a tqdm iterator that displays a prpgress bar in "results/progressbar.txt" if it exists or the console if it does not OR returns None if self.make_progressbar is false
         Also, this sets up for the progressbar to be removed later.
+
+        Args:
+            epochs (int): Number epochs to be expected for the progress bar.
+
+        Returns:
+            None | tqdm.tqdm: None if no progress bar was created, otherwise a tqdm object that can be iterated through.
         """
         if os.path.exists("results/progressbar.txt") and self.make_progressbar:
             # Write into the progressbar file, but this is a bit complicated because we want to keep overwriting the same line so that it shows progress correctly.
@@ -88,10 +98,22 @@ class ModelFunctions():
         self.progress_need_to_remove = []
 
     def fit(self, epochs: int = 0, dataloader: DataLoader | None = None, keep_callbacks: bool = False) -> str:
-        """
-        This is the main function of training for the model. It sets things up based on the config if they were not alrady generated or given in the args
+        """This is the main function of training for the model. It sets things up based on the config if they were not alrady generated or given in the args
         Then it runs run_single_epoch per epoch interspaced with checks to the validation dataloader if it exist and running the callbacks.
-        Returns a string statingg the final results of the model and clears out the callbacks for future work (unless keep_callbacks is true).
+        Returns a string stating the final results of the model and clears out the callbacks for future work (unless keep_callbacks is true).
+
+        Use callbacks to gather data from the model, as it does not return anything useful here.
+
+        Args:
+            epochs (int, optional): Number of times to run through the dataset if it is zero it runs once with no training. Defaults to 0.
+            dataloader (DataLoader | None, optional): The pytorch dataloader to use for each epoch. If None it attempts to load the default dataloader. Defaults to None.
+            keep_callbacks (bool, optional): Check to keep callbacks from one fit over to the next. Most of the time callbacks are not kept and need to be remade. Defaults to False.
+
+        Raises:
+            TypeError: Raises a type error if dataloader is None and there is no default dataloader to load.
+
+        Returns:
+            str: String such as "Ran model with 2.4% or 7.1% F1 on with number of epochs 100" Where the first percentage is the macro f1 score and the second is weighted f1 score.
         """
         assert isinstance(self, torch.nn.Module)
         self: torch.nn.Module | ModelFunctions  # More typehint
@@ -113,6 +135,7 @@ class ModelFunctions():
         # If no epochs, assume no training
         if epochs == 0 or (epochs != 1 and not self.training):
             self.train(False)
+            self.num_epochs_trained -= 1  # Just to account for the repeat
             with torch.no_grad():
                 resultsmessage = self.fit(epochs=1, dataloader=dataloader, keep_callbacks=keep_callbacks)  # Run model to collect data still.
             return resultsmessage
@@ -152,6 +175,8 @@ class ModelFunctions():
 
             scheduler.step() if (scheduler is not None) and self.training else None
 
+            self.num_epochs_trained += 1
+
             # Run all of the callbacks
             for call in self.epoch_callbacks:
                 call(epoch_results)
@@ -165,11 +190,22 @@ class ModelFunctions():
             self.epoch_callbacks = []
 
         # Just a quick message about the run
-        return f'Ran model with {epoch_results["f1_score_macro"]*100:2.3f}% or {epoch_results["f1_score_weight"]*100:2.3f}% F1 on final epoch {e}'
+        return f'Ran model with {epoch_results["f1_score_macro"]*100:2.3f}% or {epoch_results["f1_score_weight"]*100:2.3f}% F1 on with number of epochs {self.num_epochs_trained}'
 
     def run_single_epoch(self, dataloader: DataLoader) -> dict[str, float]:
-        """
-        Single step of the fit function this runs through the whole dataloader once per call. Returns a dictionary of all o the notable results
+        """Single step of the fit function this runs through the whole dataloader once per call. Returns a dictionary of all of the notable results
+
+        Args:
+            dataloader (DataLoader): Pytorch dataloader to run through the model
+
+        Returns:
+            dict[str, float]: dictionary of results from the model, should include:
+            - total_loss: sum total of the loss for this run
+            - f1_score_weight: The weighted F1 score for the run
+            - f1_score_macro: The macro F1 score for the run
+            - additive_loss: The total extra loss added by any additive loss functions to the model
+            - f1_scores_all: list of f1 scores for each class
+            - mean_loss: The total loss averaged over the number of items in the dataloader
         """
         assert isinstance(self, torch.nn.Module)
         self: torch.nn.Module | ModelFunctions  # More typehint
@@ -216,6 +252,14 @@ class ModelFunctions():
         return results
 
     def predict(self, inputs_: torch.Tensor | list[torch.Tensor] | ndarray) -> torch.Tensor | ndarray:
+        """Forgotten about function that predicts a list of output logits from a list of features. This is not used anywhere.
+
+        Args:
+            inputs_ (torch.Tensor | list[torch.Tensor] | ndarray): Input vector, tensor, or tensor list to be used to calculate classifications
+
+        Returns:
+            torch.Tensor | ndarray: output classifications from the model
+        """
         if not isinstance(inputs_, torch.Tensor):
             with torch.no_grad():
                 # This should handle lists of tensors and ndarrays, and then output as an ndarray
@@ -238,21 +282,42 @@ class ModelFunctions():
 
     # This should be hidden by Module Inheritence
     def __call__(self, value: torch.Tensor) -> torch.Tensor:
+        """This is a dummy function that should not be able to be called. It is just here for typechecking so that it is clear what should be output from the model.
+        In the actual case, this is overriden by torch.nn.Module's call function which is a wrapped version of forwards()
+
+        Args:
+            value (torch.Tensor): Tensor to apply model pipeline to.
+
+        Returns:
+            torch.Tensor: Output logits from the model.
+        """
         print("Model Functions should be behind Module in the inheritence for the model class.")
         assert False
         return torch.tensor([0])
 
-    def get_FLOPS(self) -> int:
+    def get_macs(self) -> int:
+        """Returns the macs which should be a calculation of how many matrix multiplication calls there were in the model.
+
+        Returns:
+            int: Number representing the number of matrix multiplication calls there were in the model
+        """
         macs, params = profile(self, inputs=(self.dataloader.dataset.__getitem__(0)[0].unsqueeze(dim=0).to(self.cfg("Device")), ), verbose=False)
         return int(macs)
 
     def get_parameter_count(self) -> int:
+        """ Returns the number of parameters in the model
+
+        Returns:
+            int: Number of parameters found in the model
+        """
         macs, params = profile(self, inputs=(self.dataloader.dataset.__getitem__(0)[0].unsqueeze(dim=0).to(self.cfg("Device")), ), verbose=False)
         return int(params)
 
     def get_zero_weights(self) -> int:
-        """
-        Counts the number of weights in the model that are equal to zero
+        """Counts the number of weights in the model that are equal to zero
+
+        Returns:
+            int: Number of zeroed out parameters in the model
         """
         assert isinstance(self, torch.nn.Module)
         count = 0
@@ -264,6 +329,13 @@ class ModelFunctions():
         return count
 
     def get_zero_filters(self) -> tuple[int, int]:
+        """Counts the number of filters that are zero in the model.
+        It counts both input and output where input is the number of filters from the prior layer that are ignored
+        And output is the number of filters that only output zero (or the sum of biases as just the weights are counted.)
+
+        Returns:
+            tuple[int, int]: The count input and count output total for filters.
+        """
         assert isinstance(self, torch.nn.Module)
         count_input = 0
         count_output = 0
@@ -276,8 +348,13 @@ class ModelFunctions():
         return count_input, count_output
 
     def get_model_structure(self, count_zeros: bool = False) -> str:
-        """
-        finds the structure of the weights, when flattned. If count_zeros is true, weights that are zero are included in this final count.
+        """Finds the structure of the weights, when flattned. If count_zeros is true, weights that are zero are included in this final count.
+
+        Args:
+            count_zeros (bool, optional): Wether or not to count pruned filters as well as regular filters. Defaults to False.
+
+        Returns:
+            str: Model structure in string format such as "10/20, 20/5" where there are 10 initial features that get expanded to 20 and then reduced to 5
         """
         assert isinstance(self, torch.nn.Module)
         counts = ""
@@ -294,11 +371,14 @@ class ModelFunctions():
         return counts[:-2]
 
     def load_model_state_dict_with_structure(self: torch.nn.Module, state_dict: dict[str, torch.Tensor]):
-        """
-        Loads the model from a state dict that is a paired down version of the model.
+        """Loads the model from a state dict that is a paired down version of the model.
+
+        Args:
+            state_dict (dict[str, torch.Tensor]): A state dictionary full of tensors that corrispond to the diffrent model layers.
         """
         assert isinstance(self, torch.nn.Module)
         self.optimizer = None
+        self.num_epochs_trained = 0
 
         for name, weights in state_dict.items():
             if "total" in name:
@@ -344,8 +424,13 @@ class ModelFunctions():
         self.load_state_dict(state_dict=state_dict, strict=False)
 
     def state_dict_of_layer_i(self: torch.nn.Module, layer_i: int) -> dict[str, torch.Tensor]:
-        """
-        Gets the state dict of the module at position i.
+        """Gets the state dict of the module at position i.
+
+        Args:
+            layer_i (int): Number layer from important modules (those that can be pruned). So 0 is the first prunable module and 1 is the second and so forth.
+
+        Returns:
+            dict[str, torch.Tensor]: The state dictionary of the module.
         """
 
         for name, module in self.named_modules():
@@ -355,11 +440,24 @@ class ModelFunctions():
         return state_dict
 
     def additive_loss(self, **kwargs) -> torch.Tensor:
+        """This applies whatever extra loss function you put in loss_additive_info. It is used for algorithms that add an additional loss metric.
+
+        Returns:
+            torch.Tensor: The extra loss as a torch tensor (assuming the loss_additive_info also returns a torch tensor)
+        """
         # Any additional terms to be added to the loss
         val = self.loss_additive_info[0](*(self.loss_additive_info[1]), **kwargs).to(self.cfg("Device"))
         return val
 
     def save_model_state_dict(self, logger: None | Callable, name: str | None = None, update_config: bool = True, logger_column: None | str = None):
+        """Save the model state dictionary as a .pt (PyTorch) file for later retrival.
+
+        Args:
+            logger (None | Callable): This is a function that takes "SaveLocation" or logger_column and the name of the save file as its two arguments. Mostly useful for loggging the save location.
+            name (str | None, optional): Name of the save file. Will generate a new name if this is none. Defaults to None.
+            update_config (bool, optional): Updates the config to say that the model is stored in "SaveLocation". This is useful for the main model version. Defaults to True.
+            logger_column (None | str, optional): Override for "SaveLocation" as first arguement for logger. Defaults to None.
+        """
         assert isinstance(self, torch.nn.Module)
         if logger_column is None:
             loggercolumn = "SaveLocation"

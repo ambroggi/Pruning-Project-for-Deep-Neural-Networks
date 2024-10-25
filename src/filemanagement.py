@@ -27,8 +27,8 @@ class ExperimentLineManager():
         df["ProcessID"] = [os.getpid()]
         df["StartTime"] = datetime.datetime.now()
         df["cpuModel"] = platform.processor()
-        df["gpuModel"] = torch.cuda.get_device_name() if self.cfg("Device") == "cuda" else "None"
-        df["gpuInfo"] = str(torch.cuda.get_device_properties()) if self.cfg("Device") == "cuda" else "None"
+        df["gpuModel"] = torch.cuda.get_device_name() if self.cfg("Device").type == "cuda" else "none"
+        df["gpuInfo"] = str(torch.cuda.get_device_properties(torch.cuda.current_device())) if self.cfg("Device").type == "cuda" else "none"
         # print(df["StartTime"])
 
         # Attach the history

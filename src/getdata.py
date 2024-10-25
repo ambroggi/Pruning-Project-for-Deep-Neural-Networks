@@ -15,6 +15,7 @@ datasets_folder_path = "datasets"
 class Targets(torch.Tensor):
     """
     Should be a 1 dimentisional vector where each value is a int corrisponding to a target class.
+    Like this: [1, 4, 2, 1, 1, 0]
     """
     pass
 
@@ -22,20 +23,32 @@ class Targets(torch.Tensor):
 class InputFeatures(torch.Tensor):
     """
     Should be a 2 dimentisional vector where each row is all of the features for a single item.
+    Like this: [
+        [0.3, 0.6, 0.1],
+        [0.9, 1, 0.2],
+        [0.9, 0.1, 0.4]
+    ]
     """
     pass
 
 
 class BaseDataset(torch.utils.data.Dataset):
+    """This is the base abstract dataset type that is for all datasets for this code base.
+    """
     def __init__(self):
-        self.base = self
+        self.base = self  # Find the original dataset even after splitting (this is purely to apply the scaler)
         self.scaler = StandardScaler()
         self.number_of_classes = 100
         self.number_of_features = 100
         self.load_kwargs = {"collate_fn": collate_fn_}
         self.scaler_status = 0
 
-    def scale(self, scaler: StandardScaler | None):
+    def scale(self, scaler: StandardScaler | None = None):
+        """Scale the dataset into a normalized form. This new dataset is saved as self.dat
+
+        Args:
+            scaler (StandardScaler | None): A scaler to apply to the data. If None it uses the default StandardScaler()
+        """
         if scaler is not None:
             self.scaler = scaler
 
@@ -44,6 +57,11 @@ class BaseDataset(torch.utils.data.Dataset):
         self.scaler_status = 1
 
     def scale_indicies(self, indicies: list[int]):
+        """Create a scaler from specific indicies of the data and save that scaler to self.scaler. Then applies that scaler.
+
+        Args:
+            indicies (list[int]): list of indicies to use for the fitting of the scaler.
+        """
         df = self.original_vals.iloc[indicies]
         self.scaler = StandardScaler()
         self.scaler.fit(df)
@@ -77,7 +95,14 @@ class VulnerabilityDataset(BaseDataset):
 
 
 class RandomDummyDataset(BaseDataset):
+    """This dataset is just full of random numbers to make sure everything is working properly"""
     def __init__(self, target_format: str = "CrossEntropy", num_classes: int = -1):
+        """Initialize the random dummy dataset.
+
+        Args:
+            target_format (str, optional): Type of output format for the targets to use. This changes depending on the loss function being used. Defaults to "CrossEntropy".
+            num_classes (int, optional): The number of classes to randomly generate. If <1 it picks 100. Defaults to -1.
+        """
         super().__init__()
         self.original_vals = pd.DataFrame({"label": [0 for _ in range(3000)]})
         self.number_of_classes = num_classes if num_classes > 0 else 100
@@ -88,9 +113,22 @@ class RandomDummyDataset(BaseDataset):
         pass
 
     def __len__(self) -> int:
+        """Gets the length of the dataset
+
+        Returns:
+            int: Number of items in the dataset
+        """
         return len(self.original_vals)
 
     def __getitem__(self, index: int) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
+        """Gets a single item from the dataset.
+
+        Args:
+            index (int): Value to get specifically from the dataset
+
+        Returns:
+            tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]: a tuple containing input features and a target value (target is either a tensor or a vector depening on how the dataloader was set up)
+        """
         torch.random.manual_seed(self.rand_seed)
         features = torch.randint(0, 256, [self.number_of_features], requires_grad=False, dtype=torch.float32)
         # features.apply_(lambda x: self.scale.transform(x))
@@ -100,6 +138,14 @@ class RandomDummyDataset(BaseDataset):
         return features, target
 
     def __getitems__(self, indexs: list[int]) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
+        """Gets a list of items from the dataset using a list of indicies
+
+        Args:
+            indexs (list[int]): List of integers  pointing at indicies from the dataset, must be avalible in the data so < len(self)
+
+        Returns:
+            tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]: Tuple containing a tensor of features and a tensor of targets
+        """
         torch.random.manual_seed(self.rand_seed)
         features = torch.randint(0, 256, [len(indexs), self.number_of_features], requires_grad=False, dtype=torch.float32)
         # features.apply_(lambda x: self.scale.transform(x))
@@ -110,7 +156,25 @@ class RandomDummyDataset(BaseDataset):
 
 
 class ACIIOT2023(BaseDataset):
+    """This dataset is the Army Cyber Institute - Internet Of Things 2023 data"""
+    
     def __init__(self, target_format: str = "CrossEntropy", num_classes: int = -1, grouped: bool = False, diffrence_multiplier: int | None = None):
+        """Initialize the ACI dataset, this includes checking if class grouping (combining related smaller classes into one) is working. a
+        As well as formatting the data if it has not already been saved in the formatted version, which includes:
+            - Undersampling if needed to balance the dataset
+            - Dropping the time column
+            - Splitting payloads and IP adresses up by byte
+            - Turining protocol into a one-hot vector
+            - And saving the formatted version as a parquet file
+        Then some final formatting steps are performed:
+            - Relabling targets as integers instead of strings
+            - Identifying target target format and matching it
+            - Scaling the data
+
+        Args:
+            target_format (str, optional): Type of output format for the targets to use. This changes depending on the loss function being used. Defaults to "CrossEntropy".
+            num_classes (int, optional): The number of classes to randomly generate. If <1 it picks 100. Defaults to -1.
+        """
         super().__init__()
 
         if grouped:

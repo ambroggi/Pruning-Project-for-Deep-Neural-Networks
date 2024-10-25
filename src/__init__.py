@@ -85,8 +85,9 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
         # This is just adding things to the log
         model.epoch_callbacks.append(lambda results: ([logger(name_of_value, value, can_overwrite=True) for name_of_value, value in results.items()]))
 
+    model.train(False)
     t = time.time()
-    print(model.fit())
+    print(model.fit(epochs))
 
     if logger is not None:
         logger("TimeForRun", time.time()-t)
@@ -101,7 +102,7 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
 
 
 def recordModelInfo(model: modelstruct.BaseDetectionModel, logger: filemanagement.ExperimentLineManager):
-    logger("macs", model.get_FLOPS())
+    logger("macs", model.get_macs())
     logger("parameters", model.get_parameter_count())
     logger("NumberOfZeros", model.get_zero_weights())
     filter_in_out = model.get_zero_filters()

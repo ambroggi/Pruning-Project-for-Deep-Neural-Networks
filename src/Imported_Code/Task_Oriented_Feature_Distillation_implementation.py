@@ -85,7 +85,7 @@ class task_oriented_feature_wrapper(torch.nn.Module):
 
                 loss.backward()
                 optimizer.step()
-            print(f"TOFD teacher auxillery modules training epoch({e}/{epochs}) complete")
+            print(f"TOFD teacher auxillery modules training epoch({e}/{epochs}), Last loss: {loss} complete")
 
 
 # This is the auxillary modules attempted to be made in the format given by the paper, several convolutional layers and a fully connected layer

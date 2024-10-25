@@ -271,6 +271,10 @@ def TOFD_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObj
     # print(*[f"{x}:{y.shape}\n" for x, y in model.state_dict().items()])
     # print(*[f"{x}:{y.shape}\n" for x, y in new_net_state_dict.items()])
     new_net.load_model_state_dict_with_structure(new_net_state_dict)
+    # RESET PARAMETERS FOR NEW SIZE. Found here: https://discuss.pytorch.org/t/reset-model-weights/19180/6
+    for layer in new_net.modules():
+        if hasattr(layer, 'reset_parameters'):
+            layer.reset_parameters()
     new_net.to(model.cfg("Device"))
 
     # Model set up

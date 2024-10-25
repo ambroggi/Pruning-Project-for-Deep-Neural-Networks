@@ -10,6 +10,5 @@
 #SBATCH --array=1-8%3  # Run 1 through 8 at a max of 3 at a time
 
 
-module load miniconda/22.11.1-1
-conda activate ModelPrune
+source .venv/bin/activate
 python ./main.py --PruningSelection $SLURM_ARRAY_TASK_ID --NumberOfWorkers 3
