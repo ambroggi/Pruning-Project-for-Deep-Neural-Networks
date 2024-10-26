@@ -102,28 +102,28 @@ def addm_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, d
     Imported_Code.prune_admm(wrapped_cfg, model, config("Device"), data, data, optimizer)
 
     # Applies the pruning to the base model, NOTE: MIGHT CAUSE ISSUES WITH "Imported_Code.remove_addm_v_layers"
+    Imported_Code.apply_filter(model, config("Device"), wrapped_cfg)
     # Imported_Code.apply_filter(model, config("Device"), wrapped_cfg)  # Commenting out because I think this is redundent
     mask = Imported_Code.apply_prune(model, config("Device"), wrapped_cfg)
+    for m in mask:
+        # I am just making it that the values that need not be updated are nan
+        mask[m].apply_(lambda x: x if x == 0 else torch.nan)
 
-    # Set all weights to their new values
-    with torch.no_grad():
-        # Only keeps the top magnitude weights as described in section "4.4. Network retraining"
-        for percent_to_prune, w in zip(config("WeightPrunePercent"), model.get_important_modules()):
-            w: torch.nn.Linear
-            indices = torch.topk(abs(w.weight.flatten()), int(len(w.weight.flatten())*(1-percent_to_prune)), largest=False).indices
-            w.weight.view(-1)[indices] = 0
+    # Calculates the weights that should be kept stable because they are pruned
+    # frozen = {name: torch.ones_like(m, requires_grad=False) for name, m in mask.items()}
+    # frozen = {name: weight*frozen[name] for name, weight in model.named_parameters() if name in frozen.keys()}
+    model.frozen = model.frozen | mask
 
-        # Removes the added v layers from the model
-        Imported_Code.remove_addm_v_layers(model)
+    print(f"Applying the filter twice (because it has not been removed yet): {model.fit()}")
+    print(model.fit(epochs=config("NumberOfEpochs")))
+
+    # Removes the added v layers from the model but ports their values over as a multiplier to the weights
+    Imported_Code.remove_addm_v_layers(model)
 
     # Remove F.log_softmax
     remover.remove()
 
-    # print(mask)
-    # Calculates the weights that should be kept stable because they are pruned
-    frozen = {name: torch.ones_like(m, requires_grad=False) for name, m in mask.items()}
-    frozen = {name: weight*frozen[name] for name, weight in model.named_parameters() if name in frozen.keys()}
-    model.frozen = model.frozen | frozen
+    model.eval()
 
     config("PruningSelection", "ADDM_Joint")
     logger = filemanagement.ExperimentLineManager(cfg=config)

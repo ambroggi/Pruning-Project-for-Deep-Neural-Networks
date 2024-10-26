@@ -240,7 +240,8 @@ class ModelFunctions():
             results_of_predictions["Predicted"].extend(y_predict.argmax(dim=1).detach().cpu())
 
             # Reset frozen weights
-            self.load_state_dict(self.frozen, strict=False)
+            self.load_state_dict({name: torch.where(torch.isnan(value), self.state_dict()[name], value) for name, value in self.frozen.items()}, strict=False)
+            assert False not in [False not in (torch.eq(value, self.state_dict()[name]) | torch.isnan(value)) for name, value in self.frozen.items()]
 
         results["f1_score_weight"] = f1_score(results_of_predictions["True"], results_of_predictions["Predicted"], average="weighted")
         results["f1_score_macro"] = f1_score(results_of_predictions["True"], results_of_predictions["Predicted"], average="macro")

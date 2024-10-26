@@ -16,7 +16,8 @@ class ConfigCompatabilityWrapper():
                 "alpha": "AlphaForADMM",
                 "rho": "RhoForADMM",
                 "k": "LayerPruneTargets",
-                "percent": "WeightPrunePercent"
+                "percent": "WeightPrunePercent",
+                "num_re_epochs": "NumberOfEpochs"
             }
         elif translations == "TOFD":
             self.translations = {

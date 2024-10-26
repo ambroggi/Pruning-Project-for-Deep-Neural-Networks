@@ -25,8 +25,9 @@ def remove_addm_v_layers(model: "BaseDetectionModel"):
     while len(model.pruning_layers) > 0:
         model.__setattr__(f"v{count}", None)
         pruning_layer = model.pruning_layers.pop(0)
-        # Only keeps the top magnitude weights as described in section "4.4. Network retraining"
-        top = torch.topk(pruning_layer.para.data, len(pruning_layer.para.data) - model.cfg("LayerPruneTargets")[count-1], largest=False).indices
-        pruning_layer.para.data.view(-1)[top] = 0
+        if True:  # Commented out since this is redundent applied with Imported_Code.apply_prune
+            # Only keeps the top magnitude weights as described in section "4.4. Network retraining"
+            top = torch.topk(pruning_layer.para.data, len(pruning_layer.para.data) - model.cfg("LayerPruneTargets")[count-1], largest=False).indices
+            pruning_layer.para.data.view(-1)[top] = 0
         pruning_layer.remove()
         count += 1
