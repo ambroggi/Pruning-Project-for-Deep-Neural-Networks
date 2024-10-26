@@ -380,6 +380,7 @@ class ModelFunctions():
         assert isinstance(self, torch.nn.Module)
         self.optimizer = None
         self.num_epochs_trained = 0
+        self.frozen = {}
 
         for name, weights in state_dict.items():
             if "total" in name:

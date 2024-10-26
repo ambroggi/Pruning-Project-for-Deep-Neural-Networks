@@ -106,8 +106,10 @@ def addm_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, d
     # Imported_Code.apply_filter(model, config("Device"), wrapped_cfg)  # Commenting out because I think this is redundent
     mask = Imported_Code.apply_prune(model, config("Device"), wrapped_cfg)
     for m in mask:
+        a = mask[m].cpu()
         # I am just making it that the values that need not be updated are nan
-        mask[m].apply_(lambda x: x if x == 0 else torch.nan)
+        a.apply_(lambda x: x if x == 0 else torch.nan)
+        mask[m] = a.to(config("Device"))
 
     # Calculates the weights that should be kept stable because they are pruned
     # frozen = {name: torch.ones_like(m, requires_grad=False) for name, m in mask.items()}
