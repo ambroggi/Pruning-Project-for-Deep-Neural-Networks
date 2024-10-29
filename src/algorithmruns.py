@@ -116,7 +116,7 @@ def addm_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, d
     # frozen = {name: weight*frozen[name] for name, weight in model.named_parameters() if name in frozen.keys()}
     model.frozen = model.frozen | mask
 
-    print(f"Applying the filter twice (because it has not been removed yet): {model.fit()}")
+    print(f"Before retraining: {model.fit()}")
     print(model.fit(epochs=config("NumberOfEpochs")))
 
     # Removes the added v layers from the model but ports their values over as a multiplier to the weights
@@ -289,6 +289,7 @@ def TOFD_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObj
 
     optimizer = new_net.cfg("Optimizer")(new_wrap.parameters(), lr=config("LearningRate"))
 
+    # This is the actual TOFD run, everything else is just setup (create aux modules/create student model)
     new_wrap = Imported_Code.TOFD_name_main(optimizer=optimizer, teacher=wrap, net=new_wrap, trainloader=train1, testloader=train2, device=config("Device"), args=args, epochs=config("NumberOfEpochs"), LR=config("LearningRate"), criterion=config("LossFunction")())
 
     wrap.remove()

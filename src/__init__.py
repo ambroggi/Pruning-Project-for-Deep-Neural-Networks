@@ -126,8 +126,15 @@ def recordModelInfo(model: modelstruct.BaseDetectionModel, logger: filemanagemen
 
 def standardLoad(index: None | int = None, existing_config: cfg.ConfigObject | None = None) -> dict[str, any]:
     if existing_config is not None and existing_config("FromSaveLocation") is not None:
-        print("Specific file loaded, standardLoad has been skipped")
-        return {"config": existing_config}
+        if existing_config("FromSaveLocation").split(" ")[0] == "csv":
+            # This is if you are loading from a csv row
+            index = int(existing_config("FromSaveLocation").split(" ")[1])
+            existing_config("FromSaveLocation", "None")
+        else:
+            print("Specific file loaded, standardLoad has been skipped")
+            existing_config("Notes", existing_config("Notes") | 16)
+            return {"config": existing_config}
+
     config, index = filemanagement.load_cfg(config=existing_config) if index is None else filemanagement.load_cfg(row_number=index, config=existing_config)
 
     if config("SaveLocation") is not None:  # prior row actually has a model to load.

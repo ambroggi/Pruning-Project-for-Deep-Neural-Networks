@@ -60,7 +60,7 @@ class add_alpha(PostMutablePruningLayer):
         return self.anneal(results["epoch"] + 1)
 
     def remove(self):
-        self.para = self.HT()
+        self.para = torch.sigmoid(self.para/1e-20)
         super().remove()
 
 

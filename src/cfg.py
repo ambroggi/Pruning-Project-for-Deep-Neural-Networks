@@ -51,10 +51,10 @@ class ConfigObject():
             "Dataparallel": [-2, "To use distributed data parallel and if it failed. 0 is off, 1 is active, -1 is failed, -2 is not implemented", "int"],
             "NumberOfWorkers": [0, "Number of worker processes or dataparallel processes if Dataparallel is 1", "int"],
             "Device": ["cuda", "Use CPU or CUDA", "strdevice"],
-            "AlphaForADMM": [0.1, "Alpha value for ADMM model", "float"],
-            "RhoForADMM": [0.1, "Rho value for ADMM model", "float"],
+            "AlphaForADMM": [5e-4, "Alpha value for ADMM model", "float"],
+            "RhoForADMM": [1.5e-3, "Rho value for ADMM model", "float"],
             "LayerPruneTargets": ["30, 30, *, 30", "Number of nodes per layer starting with the first layer. NOTE: Will cause an error with ADMM if it is a larger number than the number of filters in that layer", "strl"],
-            "WeightPrunePercent": ["0.99, 0.5, *, 1", "Percent of weights to prune down to for each layer", "strl"],
+            "WeightPrunePercent": ["0.99, 0.99, *, 1", "Percent of weights to prune down to for each layer", "strl"],
             "PruningSelection": ["", "What pruning was applied", "str"],
             "BERTTheseusStartingLearningRate": [0.5, "What Probibility value the Bert Theseus method starts with", "float"],
             "BERTTheseusLearningRateModifier": [0.5, "What k value (equation 6) the Bert Theseus method modifies the probibility by (devided by epoch count)", "float"],
@@ -65,7 +65,8 @@ class ConfigObject():
             "LassoForDAIS": [False, "Wether to use Lasso or not for DIAS, note that the paper discribes the lasso loss but appears to not use it", "int"],
             "LayerIteration": ["10, 30, *, 30", "iteritive_full_theseus amount each layer is reduced by in each iteration", "strl"],
             "SaveLocation": [None, "What filename the statedict was saved as, if it was saved at all.", "strn"],
-            "FromSaveLocation": [None, "What filename the statedict was loaded as, if it was loaded at all.", "strn"],
+            "FromSaveLocation": [None, "What filename the statedict was loaded as, if it was loaded at all. "
+                                 "Or you can load a specific row by putting an input in the form of 'csv x' where x can be any row number. ex 'csv 5'", "strn"],
             "NumClasses": [-1, "How many classes the model is distiguishing between, -1 is to calculate default", "int"],
             "NumFeatures": [-1, "How many features the model is using, -1 is to calculate default", "int"]
         }
