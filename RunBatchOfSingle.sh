@@ -4,7 +4,7 @@
 #SBATCH -p gpu  # Partition
 #SBATCH -G 1  # Number of GPUs
 #SBATCH -t 23:10:00  # Job time limit
-#SBATCH -o results/slurmoutput/slurm-%j.out  # %j = job ID
+#SBATCH -o results/slurmoutput/slurm-%j-%a.out  # %j = job ID, %a = array id
 #SBATCH --mail-type=BEGIN,FAIL,END
 #SBATCH -D /home/abroggi_umassd_edu/Pruning-Project-for-Deep-Neural-Networks
 #SBATCH --array=1-8%3  # Run 1 through 8 at a max of 3 at a time

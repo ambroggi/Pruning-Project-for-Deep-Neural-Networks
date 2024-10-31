@@ -174,12 +174,13 @@ wrapt==1.16.0
 numpy < 2 # Because of pytorch 2.2.2
 pandas
 torch == 2.2.2 # Pytorch has stopped support of mac https://github.com/pytorch/pytorch/issues/114602
-GitPython
+GitPython  # This is purely here to create the version numbers in the record file
 scikit-learn
 thop
 tqdm
 plotly
 pyarrow
+openpyxl
 
 # for ADMM:
 osqp

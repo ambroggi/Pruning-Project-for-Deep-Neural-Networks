@@ -31,3 +31,74 @@ def remove_addm_v_layers(model: "BaseDetectionModel"):
             pruning_layer.para.data.view(-1)[top] = 0
         pruning_layer.remove()
         count += 1
+
+
+if __name__ == "__main__":
+    # Test that the method of using v layers does not change the graident from the original version
+
+    # Testing input tensor
+    t = torch.Tensor([
+            [1, 2, 3, 4, 5, 6],
+            [2, 2, 3, 4, 5, 6],
+            [3, 2, 3, 4, 5, 6],
+            [4, 2, 3, 4, 5, 6],
+            [5, 2, 3, 4, 5, 6],
+            [6, 2, 3, 4, 5, 6]
+        ]
+    )
+
+    # Testing V values
+    v = torch.Tensor([0, 1, 0, 1, 0, 1])
+
+    # Check that the diagonlization works and what it does.
+    print(torch.diag(v).mm(t))
+
+    # Create a model with the added v layers
+    module = torch.nn.Linear(6, 6, bias=True)
+    module.register_parameter("v", torch.nn.Parameter(v))
+    loss_funct = torch.nn.MSELoss()
+
+    # Save the starting state
+    state = {x: y.clone() for x, y in module.state_dict().items()}
+
+    # Account for randomness
+    torch.random.manual_seed(1)
+    # Account for internal state of optimizer
+    opt = torch.optim.SGD(module.parameters(), lr=1, momentum=0)
+
+    # Apply method 1
+    opt = torch.optim.SGD(module.parameters(), lr=1, momentum=0)
+    out = torch.nn.functional.linear(t, torch.diag(v).mm(module.weight), module.bias)
+    loss = loss_funct(out, t)
+    loss.backward()
+    opt.step()
+    module.zero_grad()
+    print(module.state_dict())
+
+    # Reload module
+    module.load_state_dict(state)
+    # Account for randomness
+    torch.random.manual_seed(1)
+    # Account for internal state of optimizer
+    opt = torch.optim.SGD(module.parameters(), lr=1, momentum=0)
+
+    # Attempt method 2 (the method we use)
+    out = module(t)*v[None, :]
+    loss = loss_funct(out, t)
+    loss.backward()
+    opt.step()
+    module.zero_grad()
+    print(module.state_dict())  # This should be the same as the last print.
+
+    # Sanity check method 1 again (We originally had diffrences between the two methods but that was due to non-zeroed gradients)
+    module.load_state_dict(state)
+    torch.random.manual_seed(1)
+    opt = torch.optim.SGD(module.parameters(), lr=1, momentum=0)
+    # Method 1 again
+    opt = torch.optim.SGD(module.parameters(), lr=1, momentum=0)
+    out = torch.nn.functional.linear(t, torch.diag(v).mm(module.weight), module.bias)
+    loss = loss_funct(out, t)
+    loss.backward()
+    opt.step()
+    module.zero_grad()
+    print(module.state_dict())

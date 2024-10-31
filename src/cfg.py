@@ -19,7 +19,7 @@ class ConfigObject():
                           "Optimizer": {"Adam": torch.optim.Adam, "SGD": torch.optim.SGD, "RMS": torch.optim.RMSprop},
                           "LossFunction": {"MSE": torch.nn.MSELoss, "CrossEntropy": torch.nn.CrossEntropyLoss},
                           "ModelStructure": {"BasicTest": "BasicTest", "SwappingTest": "SwappingTest", "SimpleCNN": "SimpleCNN", "MainLinear": "MainLinear"},
-                          "DatasetName": {"RandomDummy": "RandomDummy", "Vulnerability": "Vulnerability", "ACI": "ACI", "ACI_grouped": "ACI_grouped", "ACI_grouped_fullbalance": "ACI_grouped_fullbalance"},
+                          "DatasetName": {"RandomDummy": "RandomDummy", "Vulnerability": "Vulnerability", "ACI": "ACI", "ACI_grouped": "ACI_grouped", "ACI_grouped_fullbalance": "ACI_grouped_fullbalance", "ACI_flows": "ACI_flows"},
                           "Device": {"cpu": torch.device("cpu"), "cuda": torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"), torch.device("cpu"): torch.device("cpu"), torch.device("cuda"): torch.device("cuda")}
                           }
 

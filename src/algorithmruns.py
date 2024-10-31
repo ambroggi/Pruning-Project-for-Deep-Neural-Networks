@@ -7,11 +7,11 @@ import torch.utils
 import torch.utils.hooks
 from tqdm import tqdm
 
-from . import (Imported_Code, cfg, extramodules, filemanagement, getdata,
+from . import (Imported_Code, cfg, extramodules, filemanagement,
                modelstruct)
 
 
-def swapping_run(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel, data, layers: list[int] | None = None, **kwargs):
+def swapping_run(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel, layers: list[int] | None = None, **kwargs):
     if layers is None:
         layers = [layernum for layernum, layerpercent in enumerate(config("WeightPrunePercent")) if layerpercent < 1]
 
@@ -53,6 +53,7 @@ def swapping_run(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel
                 elif isinstance(old_layer, torch.nn.Conv1d):
                     Imported_Code.set_layer_by_state(model, path_for_layer[i], torch.nn.Conv1d(old_layer.in_channels, currents[i], old_layer.kernel_size))
                 else:
+                    print(f"Theseus problem, an unknown type of layer just tried to be reduced {old_layer}")
                     raise ValueError()
 
                 for name in state_dict:
@@ -82,10 +83,10 @@ def swapping_run(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel
     config("PruningSelection", "iteritive_full_theseus")
     logger = filemanagement.ExperimentLineManager(cfg=config)
 
-    return kwargs | {"model": model, "logger": logger, "data": data, "config": config}
+    return kwargs | {"model": model, "logger": logger, "config": config}
 
 
-def addm_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, data, **kwargs):
+def addm_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, **kwargs):
     # Adds the compatability to the model that is needed
     Imported_Code.add_addm_v_layers(model)
 
@@ -99,7 +100,7 @@ def addm_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, d
     remover = model.register_forward_hook(lambda module, args, output: torch.nn.functional.log_softmax(output, dim=1))
 
     # Performs the pruning method
-    Imported_Code.prune_admm(wrapped_cfg, model, config("Device"), data, data, optimizer)
+    Imported_Code.prune_admm(wrapped_cfg, model, config("Device"), model.dataloader, model.validation_dataloader, optimizer)
 
     # Applies the pruning to the base model, NOTE: MIGHT CAUSE ISSUES WITH "Imported_Code.remove_addm_v_layers"
     Imported_Code.apply_filter(model, config("Device"), wrapped_cfg)
@@ -130,7 +131,7 @@ def addm_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, d
     config("PruningSelection", "ADDM_Joint")
     logger = filemanagement.ExperimentLineManager(cfg=config)
 
-    return kwargs | {"model": model, "logger": logger, "data": data, "config": config}
+    return kwargs | {"model": model, "logger": logger, "config": config}
 
 
 def thinet_test_old(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel, layers: list[int] | None = None, **kwargs):
@@ -146,12 +147,12 @@ def thinet_test_old(config: cfg.ConfigObject, model: modelstruct.BaseDetectionMo
     return kwargs | {"model": model, "logger": logger, "config": config, "layers": layers}
 
 
-def thinet_test(config: cfg.ConfigObject, data: torch.utils.data.DataLoader, model: modelstruct.BaseDetectionModel, layers: list[int] | None = None, **kwargs):
+def thinet_test(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel, layers: list[int] | None = None, **kwargs):
     if layers is None:
         layers = [layernum for layernum, layerpercent in enumerate(config("WeightPrunePercent")) if layerpercent < 1]
 
     # Create sample of dataset, Fancy load_kwargs is just there to load the collate_fn
-    training_data: torch.Tensor = iter(torch.utils.data.DataLoader(data.dataset, 100000, **(data.base.load_kwargs if hasattr(data, "base") else {}))).__next__()[0]
+    training_data: torch.Tensor = iter(torch.utils.data.DataLoader(model.dataloader.dataset, 100000, **(model.dataloader.base.load_kwargs if hasattr(model.dataloader, "base") else {}))).__next__()[0]
     training_data = training_data.to(model.cfg("Device"))
 
     for i in layers:
@@ -160,10 +161,10 @@ def thinet_test(config: cfg.ConfigObject, data: torch.utils.data.DataLoader, mod
     config("PruningSelection", "thinet")
     logger = filemanagement.ExperimentLineManager(cfg=config)
 
-    return kwargs | {"model": model, "logger": logger, "config": config, "data": data, "layers": layers}
+    return kwargs | {"model": model, "logger": logger, "config": config, "layers": layers}
 
 
-def bert_of_theseus_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObject, **kwargs):
+def bert_of_theseus_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, **kwargs):
     # Ok so this whole outside bit is just to figure out what layers we want to replace
 
     # This splits the model into the predecessors
@@ -189,7 +190,7 @@ def bert_of_theseus_test(model: modelstruct.BaseDetectionModel, data, config: cf
         hook_removers.append(lst[-1].register_forward_hook(hook_object_tuples[-1][1]))
 
     # Create sample of dataset, Fancy load_kwargs is just there to load the collate_fn
-    training_data = iter(torch.utils.data.DataLoader(data.dataset, 100, **(data.base.load_kwargs if hasattr(data, "base") else {}))).__next__()[0]
+    training_data = iter(torch.utils.data.DataLoader(model.dataloader.dataset, 100, **(model.dataloader.base.load_kwargs if hasattr(model.dataloader, "base") else {}))).__next__()[0]
     training_data = training_data.to(model.cfg("Device"))
 
     # Ruh through the small bit of training data to collect module sizes
@@ -215,10 +216,10 @@ def bert_of_theseus_test(model: modelstruct.BaseDetectionModel, data, config: cf
     config("PruningSelection", "BERT_theseus")
     logger = filemanagement.ExperimentLineManager(cfg=config)
 
-    return kwargs | {"model": model, "data": data, "config": config, "logger": logger}
+    return kwargs | {"model": model, "config": config, "logger": logger}
 
 
-def DAIS_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObject, layers: list[int] | None = None, **kwargs):
+def DAIS_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, layers: list[int] | None = None, **kwargs):
     # Find the layers to apply it to
     if layers is None:
         layers = [layernum for layernum, layerpercent in enumerate(config("WeightPrunePercent")) if layerpercent < 1]
@@ -246,16 +247,14 @@ def DAIS_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObj
 
     model.train(False)
 
-    return kwargs | {"model": model, "data": data, "config": config, "logger": logger}
+    return kwargs | {"model": model, "config": config, "logger": logger}
 
 
-def TOFD_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObject, layers: list[int] | None = None, **kwargs):
+def TOFD_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, layers: list[int] | None = None, **kwargs):
     wrap = Imported_Code.task_oriented_feature_wrapper(model)
 
     optimizer = config("Optimizer")(wrap.parameters(), lr=config("LearningRate"))
-    train1, train2 = getdata.get_train_test(config, dataloader=data)
-
-    wrap.fit(train1, optimizer, config("NumberOfEpochs"))
+    wrap.fit(model.dataloader, optimizer, config("NumberOfEpochs"))
 
     args = Imported_Code.ConfigCompatabilityWrapper(config=config, translations="TOFD")
     new_net = modelstruct.getModel(config)
@@ -280,9 +279,8 @@ def TOFD_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObj
     new_net.to(model.cfg("Device"))
 
     # Model set up
-    train, validation = getdata.get_train_test(config, dataloader=data)
-    new_net.set_training_data(train)
-    new_net.set_validation_data(validation)
+    new_net.set_training_data(model.dataloader)
+    new_net.set_validation_data(model.validation_dataloader)
     new_net.cfg = config
 
     new_wrap = Imported_Code.task_oriented_feature_wrapper(new_net)
@@ -290,14 +288,12 @@ def TOFD_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObj
     optimizer = new_net.cfg("Optimizer")(new_wrap.parameters(), lr=config("LearningRate"))
 
     # This is the actual TOFD run, everything else is just setup (create aux modules/create student model)
-    new_wrap = Imported_Code.TOFD_name_main(optimizer=optimizer, teacher=wrap, net=new_wrap, trainloader=train1, testloader=train2, device=config("Device"), args=args, epochs=config("NumberOfEpochs"), LR=config("LearningRate"), criterion=config("LossFunction")())
+    new_wrap = Imported_Code.TOFD_name_main(optimizer=optimizer, teacher=wrap, net=new_wrap, trainloader=model.dataloader, testloader=model.validation_dataloader, device=config("Device"), args=args, epochs=config("NumberOfEpochs"), LR=config("LearningRate"), criterion=config("LossFunction")())
 
     wrap.remove()
     new_wrap.remove()
 
     new_net = new_wrap.wrapped_module
-    new_net.set_training_data(model.dataloader)
-    new_net.set_validation_data(model.validation_dataloader)
 
     config("PruningSelection", "TOFD")
 
@@ -305,7 +301,7 @@ def TOFD_test(model: modelstruct.BaseDetectionModel, data, config: cfg.ConfigObj
 
     new_net.train(False)
 
-    return kwargs | {"model": new_net, "data": data, "config": config, "logger": logger}
+    return kwargs | {"model": new_net, "config": config, "logger": logger}
 
 
 def Random_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, **kwargs):

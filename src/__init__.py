@@ -86,6 +86,7 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
         model.epoch_callbacks.append(lambda results: ([logger(name_of_value, value, can_overwrite=True) for name_of_value, value in results.items()]))
 
     model.train(False)
+    model.eval()
     t = time.time()
     print(model.fit(epochs))
 

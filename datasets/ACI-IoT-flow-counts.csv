@@ -1,0 +1,12 @@
+Label,count
+Benign,79100
+Port Scan,79100
+ICMP Flood,79100
+Ping Sweep,71928
+DNS Flood,46935
+Vulnerability Scan,39537
+OS Scan,37524
+Slowloris,18643
+SYN Flood,13857
+Dictionary Attack,6380
+UDP Flood,791

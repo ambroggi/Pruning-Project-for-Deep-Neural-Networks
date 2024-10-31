@@ -157,7 +157,7 @@ class RandomDummyDataset(BaseDataset):
 
 class ACIIOT2023(BaseDataset):
     """This dataset is the Army Cyber Institute - Internet Of Things 2023 data"""
-    
+
     def __init__(self, target_format: str = "CrossEntropy", num_classes: int = -1, grouped: bool = False, diffrence_multiplier: int | None = None):
         """Initialize the ACI dataset, this includes checking if class grouping (combining related smaller classes into one) is working. a
         As well as formatting the data if it has not already been saved in the formatted version, which includes:
@@ -300,6 +300,141 @@ class ACIIOT2023(BaseDataset):
             return old_label
 
 
+class ACIPayloadless(BaseDataset):
+    """This dataset is the Army Cyber Institute - Internet Of Things 2023 data but does not have the payload data"""
+
+    def __init__(self, target_format: str = "CrossEntropy", num_classes: int = -1, grouped: bool = False, diffrence_multiplier: int | None = None):
+        """Initialize the ACI dataset, this includes checking if class grouping (combining related smaller classes into one) is working. a
+        As well as formatting the data if it has not already been saved in the formatted version, which includes:
+            - Undersampling if needed to balance the dataset
+            - Dropping the time column
+            - Splitting payloads and IP adresses up by byte
+            - Turining protocol into a one-hot vector
+            - And saving the formatted version as a parquet file
+        Then some final formatting steps are performed:
+            - Relabling targets as integers instead of strings
+            - Identifying target target format and matching it
+            - Scaling the data
+
+        Args:
+            target_format (str, optional): Type of output format for the targets to use. This changes depending on the loss function being used. Defaults to "CrossEntropy".
+            num_classes (int, optional): The number of classes to randomly generate. If <1 it picks 100. Defaults to -1.
+        """
+        super().__init__()
+
+        if grouped:
+            if diffrence_multiplier is None:
+                group_str = "-grouped"
+                diffrence_multiplier = 10
+            else:
+                group_str = f"-grouped{diffrence_multiplier}"
+        else:
+            group_str = ""
+            if diffrence_multiplier is None:
+                diffrence_multiplier = 100
+
+        if not os.path.exists(os.path.join(datasets_folder_path, f"ACI-IoT-2023-flow{group_str}-formatted-undersampled.parquet")):
+            if not os.path.exists(os.path.join(datasets_folder_path, "ACI-IoT-2023.xlsx")):
+                print("Dataset does not exist please download it from https://www.kaggle.com/datasets/emilynack/aci-iot-network-traffic-dataset-2023/data")
+            print("Formatting ACI dataset, this will take some time. eta 25 minutes.")
+            self.original_vals = pd.read_excel(os.path.join(datasets_folder_path, "ACI-IoT-2023.xlsx"), sheet_name="ACI-IoT-2023")  # .sample(100000)
+            # self.original_vals = pd.read_csv("datasets/ACI-IoT-Example.csv", index_col=0)
+
+            # Looked at (https://www.geeksforgeeks.org/stratified-sampling-in-pandas/) for how to randomly sample from stratified samples
+            # Notably I think they were using an older version that .sample() did not work on groups
+            # self.original_vals = self.original_vals.groupby("label").sample(n=int(100*min([x for x in self.original_vals.value_counts("label")])), replace=True)
+            # It looks like the geeks for geeks article is more of the way to go though, because I need to select a varying number of samples
+            if grouped:
+                self.original_vals["Label"] = self.original_vals["Label"].apply(self.grouplabels)
+                max_samples = diffrence_multiplier * min(self.original_vals.value_counts("Label"))
+            else:
+                max_samples = diffrence_multiplier * min(self.original_vals.value_counts("Label"))
+            self.original_vals = self.original_vals.groupby("Label", group_keys=False).apply(lambda group: group.sample(n=max_samples if max_samples <= len(group) else len(group)))
+            self.original_vals.reset_index(inplace=True)
+
+            # Drop the ID value, time, and connection type columns
+            self.original_vals.drop(["Flow ID", "Timestamp", "Connection Type"], inplace=True, axis=1)
+
+            # Set infinity "Flow Bytes/s" and "Flow Packets/s"
+            self.original_vals["Flow Bytes/s"] = self.original_vals["Flow Bytes/s"].map({np.inf: 0})
+            self.original_vals["Flow Packets/s"] = self.original_vals["Flow Packets/s"].map({np.inf: 0})
+
+            # got how to split the ip columns from: https://stackoverflow.com/a/39358924
+            self.original_vals[["src_ip_3", "src_ip_2", "src_ip_1", "src_ip_0"]] = self.original_vals["Src IP"].str.split(".", n=3, expand=True).astype(int)
+            self.original_vals[["dst_ip_3", "dst_ip_2", "dst_ip_1", "dst_ip_0"]] = self.original_vals["Dst IP"].str.split(".", n=3, expand=True).astype(int)
+            self.original_vals.drop(["Src IP", "Dst IP"], inplace=True, axis=1)
+
+            # revied from (https://www.deeplearningnerds.com/pandas-add-columns-to-a-dataframe-copy/) but I knew .get_dummies() was possible before
+            self.original_vals = pd.get_dummies(self.original_vals, columns=["Protocol"])
+
+            # Picked parquet because of this article: https://towardsdatascience.com/the-best-format-to-save-pandas-data-414dca023e0d
+            # It has best storage size
+            self.original_vals.to_parquet(os.path.join(datasets_folder_path, f"ACI-IoT-2023-flow{group_str}-formatted-undersampled.parquet"))
+        else:
+            self.original_vals = pd.read_parquet(os.path.join(datasets_folder_path, f"ACI-IoT-2023-flow{group_str}-formatted-undersampled.parquet"))
+
+        if not os.path.exists(os.path.join(datasets_folder_path, f"ACI-IoT-flow{group_str}-counts.csv")):
+            self.original_vals["Label"].value_counts().to_csv(os.path.join(datasets_folder_path, f"ACI-IoT-flow{group_str}-counts.csv"))
+
+        # Get the classes
+        self.classes = {label: num for num, label in enumerate(self.original_vals["Label"].unique())}
+        self.classes.update({num: label for label, num in self.classes.items()})
+        self.number_of_classes = len(self.classes)
+        self.original_vals["label"] = self.original_vals.pop("Label").map(self.classes)
+
+        self.format = target_format
+
+        # Scalers apparently work well with dataframes? https://stackoverflow.com/a/36475297
+        self.scaler.fit(self.original_vals)
+        self.dat = pd.DataFrame(self.scaler.transform(self.original_vals), columns=self.original_vals.columns)
+        self.dat["label"] = self.original_vals["label"]
+
+        self.number_of_features = len(self.original_vals.columns) - 1
+
+        pass
+
+    def __len__(self) -> int:
+        return len(self.original_vals)
+
+    def __getitem__(self, index: int) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
+        if self.scaler_status == 0:
+            print("Warning, no scaler set! please set the scaler!")
+            self.scaler_status = -1
+        item = self.dat.iloc[index]
+        tar = item.pop("label")
+        features = torch.Tensor(item.astype(float).to_numpy())
+        target = torch.Tensor(tar)
+        target = target.long()
+        target.requires_grad = False
+        if self.format in ["MSE"]:
+            target = torch.nn.functional.one_hot(target, num_classes=self.number_of_classes).to(torch.float)
+        return features, target
+
+    def __getitems__(self, indexs: list[int]) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
+        if self.scaler_status == 0:
+            print("Warning, no scaler set! please set the scaler!")
+            self.scaler_status = -1
+        items = self.dat.iloc[indexs]
+        tar = items.pop("label")
+        features = torch.Tensor(items.astype(float).to_numpy())
+        # features.apply_(lambda x: self.scale.transform(x))
+        targets = torch.Tensor(tar.astype(int).to_numpy())
+        targets = targets.long()
+        targets.requires_grad = False
+        if self.format in ["MSE"]:
+            targets = torch.nn.functional.one_hot(targets, num_classes=self.number_of_classes).to(torch.float)
+        return features, targets
+
+    @staticmethod
+    def grouplabels(old_label):
+        if "Flood" in old_label:
+            return "Flood"
+        if "Scan" in old_label:
+            return "Scan"
+        else:
+            return old_label
+
+
 def collate_fn_(items: tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor] | list[tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]]) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
     if isinstance(items, tuple):
         items = [items]
@@ -320,7 +455,7 @@ def get_dataloader(config: ConfigObject | None = None, dataset: None | BaseDatas
 
 
 def get_dataset(config: ConfigObject) -> BaseDataset:
-    datasets: dict[str, torch.utils.data.Dataset] = {"Vulnerability": VulnerabilityDataset, "RandomDummy": RandomDummyDataset, "ACI": ACIIOT2023, "ACI_grouped": partial(ACIIOT2023, grouped=True), "ACI_grouped_fullbalance": partial(ACIIOT2023, grouped=True, diffrence_multiplier=1)}
+    datasets: dict[str, torch.utils.data.Dataset] = {"Vulnerability": VulnerabilityDataset, "RandomDummy": RandomDummyDataset, "ACI": ACIIOT2023, "ACI_grouped": partial(ACIIOT2023, grouped=True), "ACI_grouped_fullbalance": partial(ACIIOT2023, grouped=True, diffrence_multiplier=1), "ACI_flows": ACIPayloadless}
     data: BaseDataset = datasets[config("DatasetName")](target_format=config("LossFunction", getString=True))
     config("NumClasses", data.number_of_classes)
     config("NumFeatures", data.number_of_features)
