@@ -1,0 +1,11 @@
+label,count
+Benign,5800
+DNS Flood,5800
+Dictionary Attack,4645
+Slowloris,2974
+SYN Flood,2113
+Port Scan,582
+Vulnerability Scan,445
+OS Scan,156
+UDP Flood,68
+ICMP Flood,58

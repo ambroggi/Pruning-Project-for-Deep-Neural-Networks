@@ -142,6 +142,7 @@ def TOFD_name_main(optimizer: torch.optim.Optimizer, teacher: task_oriented_feat
             #   get teacher results
             with torch.no_grad():
                 teacher_logits, teacher_feature = teacher(inputs)
+                _, predicted = torch.max(teacher_logits[0].data, 1)
 
             #   init the feature resizing layer depending on the feature size of students and teachers
             #   a fully connected layer is used as feature resizing layer here

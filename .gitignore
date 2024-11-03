@@ -178,6 +178,9 @@ datasets/ACI-IoT-2023-formatted.csv
 datasets/ACI-IoT-2023-formatted-old.parquet
 datasets/ACI-IoT-2023-formatted-undersampled.parquet
 *.parquet
+datasets/ACI-IoT-2023.csv
+*.xlsx
+data/
 
 # Models from more successful runs
 !ModelStateDict1727279595.146707.pt
@@ -186,4 +189,7 @@ datasets/ACI-IoT-2023-formatted-undersampled.parquet
 !ModelStateDict1727406864.8110316.pt
 !ModelStateDict1727494995.7599223.pt
 !ModelStateDict1727571441.4356456.pt
+!ModelStateDict1729994748.6165419.pt
+!ModelStateDict1729994750.2650228.pt
+!ModelStateDict1729994704.069299.pt
 

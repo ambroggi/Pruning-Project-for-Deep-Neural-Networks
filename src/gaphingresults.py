@@ -137,8 +137,8 @@ def graph_pt(pt: pd.DataFrame, pair: tuple[str, str] = ("actual_parameters", "va
 
 
 if __name__ == "__main__":
-    df_small, pt_small, pt_scaled_small = read_results("results/Smallcomputer(v0.119).csv")
-    df, pt, pt_scaled = read_results("results/Bigcomputer(v0.120).csv")
+    df_small, pt_small, pt_scaled_small = read_results("results/Smallcomputer(v0.119)B.csv")
+    df, pt, pt_scaled = read_results("results/Bigcomputer(v0.120)B.csv")
 
     combined = pd.concat([pt_small["mean"][["actual_parameters", "val_f1_score_macro"]], pt["mean"][["actual_parameters", "val_f1_score_macro"]]], axis=1, keys=["small", "big"])
     combined.sort_index(ascending=False, inplace=True)

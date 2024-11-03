@@ -68,6 +68,7 @@ class PostMutablePruningLayer():
         if update_weights:
             w: torch.nn.Parameter = self.module.__getattr__("weight")
             self.module.__getattr__("weight").permute(*torch.arange(w.ndim - 1, -1, -1)).data *= self.para.data
+            self.module.__getattr__("bias").permute(*torch.arange(self.module.__getattr__("bias").ndim - 1, -1, -1)).data *= self.para.data
 
         if self.paramiter:
             self.module.__setattr__(f"v_{self.module._get_name()}", None)
