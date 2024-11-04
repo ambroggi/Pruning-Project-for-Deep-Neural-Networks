@@ -237,8 +237,8 @@ class ACIIOT2023(BaseDataset):
 
         # Get the classes
         self.classes = {label: num for num, label in enumerate(self.original_vals["label"].unique())}
-        self.classes.update({num: label for label, num in self.classes.items()})
         self.number_of_classes = len(self.classes)
+        self.classes.update({num: label for label, num in self.classes.items()})
         self.original_vals["label"] = self.original_vals["label"].map(self.classes)
 
         self.format = target_format
@@ -378,8 +378,8 @@ class ACIPayloadless(BaseDataset):
 
         # Get the classes
         self.classes = {label: num for num, label in enumerate(self.original_vals["Label"].unique())}
-        self.classes.update({num: label for label, num in self.classes.items()})
         self.number_of_classes = len(self.classes)
+        self.classes.update({num: label for label, num in self.classes.items()})
         self.original_vals["label"] = self.original_vals.pop("Label").map(self.classes)
 
         self.format = target_format
