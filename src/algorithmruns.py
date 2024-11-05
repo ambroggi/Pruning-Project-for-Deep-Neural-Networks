@@ -118,7 +118,9 @@ def addm_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, *
     model.frozen = model.frozen | mask
 
     print(f"Before retraining: {model.fit()}")
+    model.train()
     print(model.fit(epochs=config("NumberOfEpochs")))
+    model.eval()
 
     # Removes the added v layers from the model but ports their values over as a multiplier to the weights
     Imported_Code.remove_addm_v_layers(model)
