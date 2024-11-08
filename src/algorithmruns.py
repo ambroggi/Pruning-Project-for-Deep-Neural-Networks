@@ -96,13 +96,17 @@ def swapping_run(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel
 
     tq.close()
 
-    config("PruningSelection", "iteritive_full_theseus")
+    extra_specifier = config("TheseusRequiredGrads") if config("TheseusRequiredGrads") != "All" else ""
+
+    config("PruningSelection", "iteritive_full_theseus"+extra_specifier)
     logger = filemanagement.ExperimentLineManager(cfg=config)
 
     return kwargs | {"model": model, "logger": logger, "config": config}
 
 
 def addm_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, **kwargs):
+    model.optimizer = model.cfg("Optimizer")(model.parameters(), lr=model.cfg("LearningRate"))
+
     # Adds the compatability to the model that is needed
     Imported_Code.add_addm_v_layers(model)
 
@@ -183,7 +187,6 @@ def thinet_test(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel,
 
 
 def bert_of_theseus_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, **kwargs):
-    # Ok so this whole outside bit is just to figure out what layers we want to replace
 
     # This splits the model into the predecessors
     module_group_size = int(1/(sum(config("WeightPrunePercent"))/len(config("WeightPrunePercent"))))
@@ -277,7 +280,7 @@ def TOFD_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, l
     args = Imported_Code.ConfigCompatabilityWrapper(config=config, translations="TOFD")
     new_net = modelstruct.getModel(config)
 
-    # Creating new state dict
+    # Creating new state dict (This is just to set the size of the new model)
     new_net_state_dict = {}
     prior_percentage = 1
     for module_num, module in enumerate(model.get_important_modules()):
@@ -287,8 +290,6 @@ def TOFD_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, l
         new_net_state_dict.update({x: torch.rand_like(y[:math.ceil(len(y)*percentage)]) for x, y in state_dict.items() if ("bias" in x)})
         prior_percentage = percentage
 
-    # print(*[f"{x}:{y.shape}\n" for x, y in model.state_dict().items()])
-    # print(*[f"{x}:{y.shape}\n" for x, y in new_net_state_dict.items()])
     new_net.load_model_state_dict_with_structure(new_net_state_dict)
     # RESET PARAMETERS FOR NEW SIZE. Found here: https://discuss.pytorch.org/t/reset-model-weights/19180/6
     for layer in new_net.modules():
