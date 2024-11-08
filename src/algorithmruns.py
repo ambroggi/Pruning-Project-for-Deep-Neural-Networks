@@ -35,6 +35,8 @@ def swapping_run(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel
     while True in [a > b for a, b in zip(currents, targets)]:
         for i in layers:
             if currents[i] > targets[i]:
+                if config("TheseusRequiredGrads") != "All":
+                    model.requires_grad_(False)
                 # Reduce layer i
 
                 # First get layer i+1's state dictionary
@@ -49,9 +51,17 @@ def swapping_run(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel
 
                 # These need to be unique because I don't know of any generic cloning for the layers
                 if isinstance(old_layer, torch.nn.Linear):
-                    Imported_Code.set_layer_by_state(model, path_for_layer[i], torch.nn.Linear(old_layer.in_features, currents[i]))
+                    # Definitly train the new layer
+                    new_layer = torch.nn.Linear(old_layer.in_features, currents[i])
+                    new_layer.requires_grad_(True)
+
+                    Imported_Code.set_layer_by_state(model, path_for_layer[i], new_layer)
                 elif isinstance(old_layer, torch.nn.Conv1d):
-                    Imported_Code.set_layer_by_state(model, path_for_layer[i], torch.nn.Conv1d(old_layer.in_channels, currents[i], old_layer.kernel_size))
+                    # Definitly train the new layer
+                    new_layer = torch.nn.Conv1d(old_layer.in_channels, currents[i], old_layer.kernel_size)
+                    new_layer.requires_grad_(True)
+
+                    Imported_Code.set_layer_by_state(model, path_for_layer[i], new_layer)
                 else:
                     print(f"Theseus problem, an unknown type of layer just tried to be reduced {old_layer}")
                     raise ValueError()
@@ -71,6 +81,12 @@ def swapping_run(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel
                         state_dict[name] = state_value
 
                 model.load_model_state_dict_with_structure(state_dict)
+
+                # Check what modules to update:
+                if config("TheseusRequiredGrads") == "Nearby":
+                    model.get_important_modules()[i+1].requires_grad_(True)
+                    if i > 0:
+                        model.get_important_modules()[i-1].requires_grad_(True)
 
                 # fit the new model
                 model.fit(epochs=model.cfg("NumberOfEpochs"))

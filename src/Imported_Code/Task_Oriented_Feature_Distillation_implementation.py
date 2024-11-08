@@ -92,7 +92,7 @@ class task_oriented_feature_wrapper(torch.nn.Module):
 class auxillary_module(torch.nn.Module):
     def __init__(self, wrapped_module: torch.nn.Module, expected_tensor_example: torch.Tensor, number_of_classes: int, features_len: int):
         super().__init__()
-        # NOTE: this auxillary module is not accurate to the paper, it is just to test for now.
+        # NOTE: this auxillary module is as accurate as I think I could make it given that we have a diffrent model structure.
         # self.wrapped = wrapped_module
         if len(expected_tensor_example.shape) < 3:
             self.expand = True
@@ -103,8 +103,8 @@ class auxillary_module(torch.nn.Module):
         convkernel = 3
 
         self.intermidiate = torch.nn.Sequential(
-            torch.nn.Conv1d(expected_tensor_example.shape[1], expected_tensor_example.shape[1], convkernel),
-            torch.nn.Conv1d(expected_tensor_example.shape[1], expected_tensor_example.shape[1], convkernel),
+            torch.nn.Conv1d(expected_tensor_example.shape[1], expected_tensor_example.shape[2], convkernel, stride=2, padding=1),
+            torch.nn.Conv1d(expected_tensor_example.shape[2], expected_tensor_example.shape[1], convkernel, stride=2, padding=1),
             torch.nn.MaxPool1d(maxpool),
             torch.nn.Flatten(),
         )

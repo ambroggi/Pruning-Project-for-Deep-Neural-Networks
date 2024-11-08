@@ -12,7 +12,8 @@ readability = {
     "val_f1_score_weight": "F1 score (weighted by occurences)",
     "actual_parameters": "Number of non-zero parameters",
     "TimeForRun": "Time for normal fit after pruning",
-    "TimeForPrune": "Time for pruning the model"
+    "TimeForPrune": "Time for pruning the model",
+    "TimeForPruneAndRetrain": "Time for pruning the model"
 }
 
 
@@ -34,7 +35,7 @@ scatterpairs_scaled = [
     ("actual_parameters", "val_f1_score_weight"),
     ("parameters", "val_f1_score_macro"),
     ("actual_parameters", "TimeForRun"),
-    ("actual_parameters", "TimeForPrune"),
+    ("actual_parameters", "TimeForPruneAndRetrain"),
     ("val_f1_score_weight", "val_f1_score_macro")
 ]
 
@@ -62,6 +63,7 @@ def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.Dat
     # Normalize time
     df["TimeForRun"] = df["TimeForRun"]/max(df["TimeForRun"])
     df["TimeForPrune"] = df["TimeForPrune"]/max(df["TimeForPrune"])
+    df["TimeForPruneAndRetrain"] = df["TimeForPruneAndRetrain"]/max(df["TimeForPruneAndRetrain"])
 
     # Get dataframe for values before pruning
     row_numbers = df["AssociatedOriginalRow"].fillna({x: x for x in df["AssociatedOriginalRow"].index.values}).astype(int)
@@ -71,7 +73,7 @@ def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.Dat
 
     # Create scaled version of dataframe based on the pretrained values
     df_scaled = df.copy()
-    numerical = ["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune"]
+    numerical = ["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune", "TimeForPruneAndRetrain"]
     for x in numerical:
         df_scaled[x] = df[x].values/df_pre[x].values
         df_scaled[x].fillna(-1)
@@ -87,8 +89,8 @@ def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.Dat
     # df_scaled = df_scaled[df_scaled["LengthOfTrainingData"] > 1000]
     df_scaled = df_scaled[df_scaled["Notes"] == 0]
 
-    pt = df.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune", "Memory", "CudaMemory", "GarbageCollectionSizeTotal"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc=["mean", lambda x: np.std(x)/(len(x)**0.5)])
-    pt_scaled = df_scaled.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc=["mean", lambda x: np.std(x)/(len(x)**0.5)])
+    pt = df.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune", "Memory", "CudaMemory", "GarbageCollectionSizeTotal", "TimeForPruneAndRetrain"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc=["mean", lambda x: np.std(x)/(len(x)**0.5)])
+    pt_scaled = df_scaled.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune", "TimeForPruneAndRetrain"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc=["mean", lambda x: np.std(x)/(len(x)**0.5)])
     print(df.head())
     print(pt)
     return df, pt, pt_scaled
@@ -124,6 +126,9 @@ def graph_pt(pt: pd.DataFrame, pair: tuple[str, str] = ("actual_parameters", "va
                    "xaxis": {"type": "linear", "autorange": "reversed"}}
         })
 
+    if "f1" in pair[1]:
+        plot.update({"layout": {"yaxis": {"range": [-0.1, None]}}})
+
     if "Time" in y_name or y_name in []:
         plot.update({"layout": {"yaxis": {"type": "log"}}})
     # "yaxis": {"range": [-0.1, 1.1]}},
@@ -137,13 +142,12 @@ def graph_pt(pt: pd.DataFrame, pair: tuple[str, str] = ("actual_parameters", "va
 
 
 if __name__ == "__main__":
-    df_small, pt_small, pt_scaled_small = read_results("results/Smallcomputer(v0.119)B.csv")
-    df, pt, pt_scaled = read_results("results/Bigcomputer(v0.120)B.csv")
+    df_small, pt_small, pt_scaled_small = read_results("results/Small(v0.124).csv")
+    df, pt, pt_scaled = read_results("results/Bigcomputer(v0.124).csv")
 
-    combined = pd.concat([pt_small["mean"][["actual_parameters", "val_f1_score_macro"]], pt["mean"][["actual_parameters", "val_f1_score_macro"]]], axis=1, keys=["small", "big"])
+    combined = pd.concat([pt_small["mean"][["actual_parameters", "val_f1_score_macro"]], pt["mean"][["actual_parameters", "val_f1_score_macro"]]], axis=1, keys=["small", "big"]).astype(str)
     combined.sort_index(ascending=False, inplace=True)
-    really_annoying_pandas_thing_because_they_changed_to_no_upcasting = combined.loc[:, (["small", "big"], "actual_parameters")].map(lambda x: "N/A" if pd.isna(x) else (str(int(float(x)//1000))+"k"))
-    combined.loc[:, (["small", "big"], "actual_parameters")] = really_annoying_pandas_thing_because_they_changed_to_no_upcasting
+    combined.loc[:, (["small", "big"], "actual_parameters")] = combined.loc[:, (["small", "big"], "actual_parameters")].map(lambda x: "N/A" if pd.isna(float(x)) else (str(int(float(x)//1000))+"k"))
     combined.rename(index=lambda x: str.replace(x, "_", " ") if "[" not in x else x[1:5], inplace=True)
     combined.rename(columns=readability, inplace=True)
     combined.to_latex("results/images/table.txt", float_format="%.5f", longtable=True)

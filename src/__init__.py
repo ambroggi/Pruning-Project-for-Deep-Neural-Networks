@@ -134,7 +134,7 @@ def standardLoad(index: None | int = None, existing_config: cfg.ConfigObject | N
         else:
             print("Specific file loaded, standardLoad has been skipped")
             existing_config("Notes", existing_config("Notes") | 16)
-            return {"config": existing_config}
+            return {"config": existing_config, "loadedfrom": existing_config("FromSaveLocation")}
 
     config, index = filemanagement.load_cfg(config=existing_config) if index is None else filemanagement.load_cfg(row_number=index, config=existing_config)
 

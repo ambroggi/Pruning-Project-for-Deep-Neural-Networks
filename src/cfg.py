@@ -20,6 +20,7 @@ class ConfigObject():
                           "LossFunction": {"MSE": torch.nn.MSELoss, "CrossEntropy": torch.nn.CrossEntropyLoss},
                           "ModelStructure": {"BasicTest": "BasicTest", "SwappingTest": "SwappingTest", "SimpleCNN": "SimpleCNN", "MainLinear": "MainLinear"},
                           "DatasetName": {"RandomDummy": "RandomDummy", "Vulnerability": "Vulnerability", "ACI": "ACI", "ACI_grouped": "ACI_grouped", "ACI_grouped_fullbalance": "ACI_grouped_fullbalance", "ACI_flows": "ACI_flows"},
+                          "TheseusRequiredGrads": {"All": "All", "Nearby": "Nearby", "New": "New"},
                           "Device": {"cpu": torch.device("cpu"), "cuda": torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"), torch.device("cpu"): torch.device("cpu"), torch.device("cuda"): torch.device("cuda")}
                           }
 
@@ -64,6 +65,7 @@ class ConfigObject():
             "DAISRegularizerScale": [2.0, "Multiplier to apply to the loss from having too many nodes", "float"],
             "LassoForDAIS": [False, "Wether to use Lasso or not for DIAS, note that the paper discribes the lasso loss but appears to not use it", "int"],
             "LayerIteration": ["10, 30, *, 30", "iteritive_full_theseus amount each layer is reduced by in each iteration", "strl"],
+            "TheseusRequiredGrads": ["All", "What layers to train with the layer replacement style", "str"],
             "SaveLocation": [None, "What filename the statedict was saved as, if it was saved at all.", "strn"],
             "FromSaveLocation": [None, "What filename the statedict was loaded as, if it was loaded at all. "
                                  "Or you can load a specific row by putting an input in the form of 'csv x' where x can be any row number. ex 'csv 5'", "strn"],

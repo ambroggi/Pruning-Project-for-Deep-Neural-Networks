@@ -438,6 +438,7 @@ class ModelFunctions():
         for name, module in self.named_modules():
             if module is self.get_important_modules()[layer_i]:
                 state_dict = {f"{name}.{x}": y for x, y in module.state_dict().items()}
+                return state_dict
 
         return state_dict
 
