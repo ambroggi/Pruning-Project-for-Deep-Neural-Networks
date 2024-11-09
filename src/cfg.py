@@ -70,7 +70,8 @@ class ConfigObject():
             "FromSaveLocation": [None, "What filename the statedict was loaded as, if it was loaded at all. "
                                  "Or you can load a specific row by putting an input in the form of 'csv x' where x can be any row number. ex 'csv 5'", "strn"],
             "NumClasses": [-1, "How many classes the model is distiguishing between, -1 is to calculate default", "int"],
-            "NumFeatures": [-1, "How many features the model is using, -1 is to calculate default", "int"]
+            "NumFeatures": [-1, "How many features the model is using, -1 is to calculate default", "int"],
+            "NumberWeightsplits": [8, "Purely meta config that deturmines how many tests to run", "int"]
         }
 
         # This is for initial setup
