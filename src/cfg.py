@@ -71,7 +71,8 @@ class ConfigObject():
                                  "Or you can load a specific row by putting an input in the form of 'csv x' where x can be any row number. ex 'csv 5'", "strn"],
             "NumClasses": [-1, "How many classes the model is distiguishing between, -1 is to calculate default", "int"],
             "NumFeatures": [-1, "How many features the model is using, -1 is to calculate default", "int"],
-            "NumberWeightsplits": [8, "Purely meta config that deturmines how many tests to run", "int"]
+            "NumberWeightsplits": [8, "Purely meta config that deturmines how many tests to run", "int"],
+            "ResultsPath": [None, "Path to put the results csv", "strn"]
         }
 
         # This is for initial setup
