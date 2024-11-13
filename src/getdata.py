@@ -259,6 +259,7 @@ class ACIIOT2023(BaseDataset):
             print("Warning, no scaler set! please set the scaler!")
             self.scaler_status = -1
         item = self.dat.iloc[index]
+        item.pop("index")
         tar = item.pop("label")
         features = torch.Tensor(item.astype(float).to_numpy())
         target = torch.Tensor(tar)
@@ -273,6 +274,7 @@ class ACIIOT2023(BaseDataset):
             print("Warning, no scaler set! please set the scaler!")
             self.scaler_status = -1
         items = self.dat.iloc[indexs]
+        items.pop("index")
         tar = items.pop("label")
         features = torch.Tensor(items.astype(float).to_numpy())
         # features.apply_(lambda x: self.scale.transform(x))
@@ -356,8 +358,8 @@ class ACIPayloadless(BaseDataset):
             self.original_vals.drop(["Flow ID", "Timestamp", "Connection Type"], inplace=True, axis=1)
 
             # Set infinity "Flow Bytes/s" and "Flow Packets/s"
-            self.original_vals["Flow Bytes/s"] = self.original_vals["Flow Bytes/s"].map({np.inf: 0})
-            self.original_vals["Flow Packets/s"] = self.original_vals["Flow Packets/s"].map({np.inf: 0})
+            self.original_vals["Flow Bytes/s"] = self.original_vals["Flow Bytes/s"].map(lambda x: 0 if np.isinf(x) else x)
+            self.original_vals["Flow Packets/s"] = self.original_vals["Flow Packets/s"].map(lambda x: 0 if np.isinf(x) else x)
 
             # got how to split the ip columns from: https://stackoverflow.com/a/39358924
             self.original_vals[["src_ip_3", "src_ip_2", "src_ip_1", "src_ip_0"]] = self.original_vals["Src IP"].str.split(".", n=3, expand=True).astype(int)
@@ -391,6 +393,9 @@ class ACIPayloadless(BaseDataset):
 
         self.number_of_features = len(self.original_vals.columns) - 1
 
+        assert True not in pd.isna(self.original_vals)
+        assert True not in pd.isna(self.dat)
+
         pass
 
     def __len__(self) -> int:
@@ -401,7 +406,9 @@ class ACIPayloadless(BaseDataset):
             print("Warning, no scaler set! please set the scaler!")
             self.scaler_status = -1
         item = self.dat.iloc[index]
+        item.pop("index")
         tar = item.pop("label")
+        assert True not in pd.isna(item)
         features = torch.Tensor(item.astype(float).to_numpy())
         target = torch.Tensor(tar)
         target = target.long()
@@ -415,7 +422,9 @@ class ACIPayloadless(BaseDataset):
             print("Warning, no scaler set! please set the scaler!")
             self.scaler_status = -1
         items = self.dat.iloc[indexs]
+        items.pop("index")
         tar = items.pop("label")
+        assert True not in pd.isna(items)
         features = torch.Tensor(items.astype(float).to_numpy())
         # features.apply_(lambda x: self.scale.transform(x))
         targets = torch.Tensor(tar.astype(int).to_numpy())

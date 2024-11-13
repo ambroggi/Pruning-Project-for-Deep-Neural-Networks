@@ -13,6 +13,8 @@ from .cfg import ConfigObject
 class ExperimentLineManager():
     def __init__(self, pth: str | os.PathLike = "results/record.csv", cfg: ConfigObject | None = None):
         self.pth = pth
+        if pth == "results/record.csv" and cfg is not None and cfg("ResultsPath") is not None:
+            self.pth = cfg("ResultsPath")
 
         # Check that config exists
         if cfg is None:

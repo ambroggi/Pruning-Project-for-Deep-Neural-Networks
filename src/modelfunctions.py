@@ -245,7 +245,7 @@ class ModelFunctions():
 
         results["f1_score_weight"] = f1_score(results_of_predictions["True"], results_of_predictions["Predicted"], average="weighted")
         results["f1_score_macro"] = f1_score(results_of_predictions["True"], results_of_predictions["Predicted"], average="macro")
-        results["f1_scores_all"] = f1_score(results_of_predictions["True"], results_of_predictions["Predicted"], average=None).tolist()
+        results["f1_scores_all"] = f1_score(results_of_predictions["True"], results_of_predictions["Predicted"], average=None, labels=range(self.cfg("NumClasses")), zero_division=0).tolist()
         # [results_of_predictions["True"] != results_of_predictions["True"][0]]
         # results["max_class_removed_f1_score"] = f1_score(results_of_predictions["True"], results_of_predictions["Predicted"], average="weighted")
         results["mean_loss"] = results["total_loss"] / len(results_of_predictions["True"])

@@ -86,8 +86,10 @@ def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.Dat
     # df = df[df["Version"] >= df["Version"].max()]
     # df = df[df["LengthOfTrainingData"] > 1000]
     df = df[df["Notes"] == 0]
+    df = df[df["PruningSelection"] != "TOFD"]  # Removing suppport for TOFD since it does not seem to be working dispite efforts
     # df_scaled = df_scaled[df_scaled["LengthOfTrainingData"] > 1000]
     df_scaled = df_scaled[df_scaled["Notes"] == 0]
+    df_scaled = df_scaled[df_scaled["PruningSelection"] != "TOFD"]  # Removing suppport for TOFD since it does not seem to be working dispite efforts
 
     pt = df.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune", "Memory", "CudaMemory", "GarbageCollectionSizeTotal", "TimeForPruneAndRetrain"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc=["mean", lambda x: np.std(x)/(len(x)**0.5)])
     pt_scaled = df_scaled.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune", "TimeForPruneAndRetrain"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc=["mean", lambda x: np.std(x)/(len(x)**0.5)])
@@ -145,12 +147,23 @@ if __name__ == "__main__":
     df_small, pt_small, pt_scaled_small = read_results("results/Small(v0.124).csv")
     df, pt, pt_scaled = read_results("results/Bigcomputer(v0.124).csv")
 
-    combined = pd.concat([pt_small["mean"][["actual_parameters", "val_f1_score_macro"]], pt["mean"][["actual_parameters", "val_f1_score_macro"]]], axis=1, keys=["small", "big"]).astype(str)
-    combined.sort_index(ascending=False, inplace=True)
+    combined = pd.concat([pt_small["mean"][["actual_parameters", "val_f1_score_macro"]],
+                          pt["mean"][["actual_parameters", "val_f1_score_macro"]],
+                          #   pt_scaled_small["mean"][["actual_parameters", "val_f1_score_macro"]],
+                          #   pt_scaled["mean"][["actual_parameters", "val_f1_score_macro"]]
+                          ], axis=1, keys=["small", "big"]).astype(object)
+    combined.sort_index(ascending=False, inplace=True, level=1)
     combined.loc[:, (["small", "big"], "actual_parameters")] = combined.loc[:, (["small", "big"], "actual_parameters")].map(lambda x: "N/A" if pd.isna(float(x)) else (str(int(float(x)//1000))+"k"))
     combined.rename(index=lambda x: str.replace(x, "_", " ") if "[" not in x else x[1:5], inplace=True)
     combined.rename(columns=readability, inplace=True)
-    combined.to_latex("results/images/table.txt", float_format="%.5f", longtable=True)
+    combined = combined.convert_dtypes()
+    combined.sort_index(inplace=True, level=0, sort_remaining=False)
+
+    # https://pandas.pydata.org/docs/reference/api/pandas.io.formats.style.Styler.to_latex.html
+    styler = combined.style.highlight_max([("small", "F1 score in validation"), ("big", "F1 score in validation")], props='cellcolor:{red}')
+    styler.format(subset=[("small", "F1 score in validation"), ("big", "F1 score in validation")], precision=5)
+
+    styler.to_latex("results/images/table.txt", environment="longtable")  # , longtable=True
 
     if not False:  # Just for fun, every time I disable this I am just going to add another "not" here
         for x in scatterpairs_scaled:
