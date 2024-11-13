@@ -247,7 +247,7 @@ class ACIIOT2023(BaseDataset):
         self.dat = pd.DataFrame(self.scaler.transform(self.original_vals), columns=self.original_vals.columns)
         self.dat["label"] = self.original_vals["label"]
 
-        self.number_of_features = len(self.original_vals.columns) - 1
+        self.number_of_features = len(self.original_vals.columns) - 2  # -1 extra for index
 
         pass
 
@@ -391,7 +391,7 @@ class ACIPayloadless(BaseDataset):
         self.dat = pd.DataFrame(self.scaler.transform(self.original_vals), columns=self.original_vals.columns)
         self.dat["label"] = self.original_vals["label"]
 
-        self.number_of_features = len(self.original_vals.columns) - 1
+        self.number_of_features = len(self.original_vals.columns) - 2  # -1 extra for index
 
         assert True not in pd.isna(self.original_vals)
         assert True not in pd.isna(self.dat)
