@@ -34,23 +34,23 @@ class ExperimentLineManager():
         # print(df["StartTime"])
 
         # Attach the history
-        if os.path.exists(pth):
+        if os.path.exists(self.pth):
             # File locking so that data is not overriden: https://www.geeksforgeeks.org/file-locking-in-python/
-            with open(pth, "r") as f:
+            with open(self.pth, "r") as f:
                 fcntl.flock(f.fileno(), fcntl.LOCK_EX)
 
                 # Actual writing:
-                hist = pd.read_csv(pth, index_col=0)
+                hist = pd.read_csv(self.pth, index_col=0)
                 # time.sleep(10)
                 df = pd.concat([hist, df], ignore_index=True)
-                df.to_csv(pth)
+                df.to_csv(self.pth)
 
                 # File unlocking
                 fcntl.flock(f.fileno(), fcntl.LOCK_UN)
         else:
-            with open(pth, "w") as f:
+            with open(self.pth, "w") as f:
                 fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-                df.to_csv(pth)
+                df.to_csv(self.pth)
                 fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
         self.row_id = df.last_valid_index()
@@ -63,7 +63,7 @@ class ExperimentLineManager():
 
         with open(self.pth, "r") as f:
             fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-            hist = pd.read_csv(self.pth, index_col=0)
+            hist = pd.read_csv(self.pth, index_col=0, )
             # time.sleep(10)
 
             # Check that the file still has the same process id attached
@@ -76,6 +76,9 @@ class ExperimentLineManager():
 
             if isinstance(val, list):
                 val = str(val)
+
+            if isinstance(val, str) and hasattr(hist, measure_name) and not isinstance(hist[measure_name].dtype,  pd.StringDtype):
+                hist[measure_name] = hist[measure_name].astype(str)
 
             hist.at[self.row_id, measure_name] = val
             hist.to_csv(self.pth)

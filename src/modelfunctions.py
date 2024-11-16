@@ -459,7 +459,7 @@ class ModelFunctions():
             logger (None | Callable): This is a function that takes "SaveLocation" or logger_column and the name of the save file as its two arguments. Mostly useful for loggging the save location.
             name (str | None, optional): Name of the save file. Will generate a new name if this is none. Defaults to None.
             update_config (bool, optional): Updates the config to say that the model is stored in "SaveLocation". This is useful for the main model version. Defaults to True.
-            logger_column (None | str, optional): Override for "SaveLocation" as first arguement for logger. Defaults to None.
+            logger_column (None | str, optional): Override for "SaveLocation" as first argument for logger. Defaults to None.
         """
         assert isinstance(self, torch.nn.Module)
         if logger_column is None:

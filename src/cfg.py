@@ -1,16 +1,23 @@
 import argparse
 import os
 import sys
+from typing import Literal
 
 import git
 import numpy
 import torch
 import torch.optim
 
+# Printed out by print(config.parameters.keys()) and just copied here
+CONFIG_OPTIONS = Literal['Version', 'Notes', 'LossFunction', 'Optimizer', 'LearningRate', 'SchedulerLR', 'NumberOfEpochs', 'ModelStructure', 'Dropout', 'HiddenDim', 'HiddenDimSize', 'DatasetName', 'BatchSize', 'TrainTest', 'MaxSamples', 'Dataparallel', 'NumberOfWorkers', 'Device', 'AlphaForADMM', 'RhoForADMM', 'LayerPruneTargets', 'WeightPrunePercent', 'PruningSelection', 'BERTTheseusStartingLearningRate', 'BERTTheseusLearningRateModifier', 'AlphaForTOFD', 'BetaForTOFD', 'tForTOFD', 'DAISRegularizerScale', 'LassoForDAIS', 'LayerIteration', 'TheseusRequiredGrads', 'SaveLocation', 'FromSaveLocation', 'NumClasses', 'NumFeatures', 'NumberWeightsplits', 'ResultsPath']
+
 
 class ConfigObject():
 
     def __init__(self):
+        """
+        Creates an maintains the current parameters of the model/run.
+        """
         # the typechart is supposed to define the possible values of a row
         # Typechart[""] is supposed to convert the type (3rd item in self.parameters) into an actual type.
         # The rest are supposed to list out the possible values of the associated parameter, and any translations from strings that are needed
@@ -24,7 +31,7 @@ class ConfigObject():
                           "Device": {"cpu": torch.device("cpu"), "cuda": torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"), torch.device("cpu"): torch.device("cpu"), torch.device("cuda"): torch.device("cuda")}
                           }
 
-        self.readOnly = ["Version"]
+        self.readOnly = ["Version", "NumberWeightsplits", "ResultsPath"]
         self.structuralOnly = ["ModelStructure", "HiddenDim", "HiddenDimSize", "DatasetName", "NumClasses", "NumFeatures", "SaveLocation", "FromSaveLocation"]
 
         self.parameters: dict[str, list[any, str, str]] = {
@@ -34,7 +41,7 @@ class ConfigObject():
                       "\n1 is manually noted inacuracy (for filtering bad runs after they ran),"
                       "\n2 is that the logger was not given the config object (so it cannot actually say what the config is),"
                       "\n4 is that an unexpected overwrite has occured (in the record log, the sanity checker failed),"
-                      "\n8 is undefined at the momemt,"
+                      "\n8 is an extra run (same setup but not all done at the same time, only done manually),"
                       "\n16 is that a model was loaded directly without the assoicated record line (so the config in the logger is not accurate)", "int"],
             "LossFunction": ["CrossEntropy", "Loss function being used", "str"],
             "Optimizer": ["Adam", "Optimizer being used", "str"],
@@ -80,13 +87,40 @@ class ConfigObject():
             if name not in self.readOnly:
                 self(name, values[0])
 
-    def __call__(self, paramName: str, paramVal: str | float | int | None = None, getString: bool = False) -> str | float | int | object | None:
+    def __call__(self, paramName: str | CONFIG_OPTIONS, paramVal: str | float | int | None = None, getString: bool = False) -> str | float | int | object | None:
+        """
+        Set or get a parameter from the config.
+
+        Args:
+            paramName (str | CONFIG_OPTIONS): The name of the parameter you want to access
+            paramVal (str | float | int | None, optional): The value you want to write, leave None if you want to read. Not avalible on readOnly. Defaults to None.
+            getString (bool, optional): _description_. Defaults to False.
+
+        Returns:
+            str | float | int | object | None: _description_
+        """
         if paramVal is None:
             return self.get_param(paramName, getString=getString)
         else:
             return self.set_param(paramName, paramVal)
 
-    def set_param(self, paramName: str, paramVal: str | float | int) -> None:
+    def set_param(self, paramName: str | CONFIG_OPTIONS, paramVal: str | float | int) -> None:
+        """
+        Sets the given parameter, assuming it is not a readOnly parameter.
+        Setting a value to None can be done by setting it to "None".
+        Some parameters have unique effects:
+            "LayerPruneTargets" and "LayerIteration": Can be entered as a string or a list of ints. Also a star "*" duplicates the value before it N times where N is the current HiddenDim (This is done on read, not write)
+            "WeightPrunePercent": Can be entered as a string or a list of floats. Also a star "*" duplicates the value before it N times where N is the current HiddenDim (This is done on read, not write)
+            "PruningSelection": Appends new values unless set to "None", so that it might be possible to stack pruning methods
+
+        Args:
+            paramName (str | CONFIG_OPTIONS): The parameter to overwrite.
+            paramVal (str | float | int): The value to overwrite with.
+
+        Raises:
+            ValueError: The paramVal value is not one of the expected possible values for a parameter with descrete values.
+            TypeError: The paramVal is not an acceptable type.
+        """
         # Deal with numpy types:
         if isinstance(paramVal, numpy.generic):
             paramVal = paramVal.item()
@@ -99,7 +133,7 @@ class ConfigObject():
                 paramVal = self.get_param(paramName)
 
         # Check if the type is valid by querrying typechart
-        if isinstance(paramVal, self.typechart[""][self.parameters[paramName][2]]):
+        if isinstance(paramVal, self.get_param_type(paramName)):
             # Add extra conditionals here:
 
             if paramName in self.typechart.keys():  # Check that the value is valid (if applicable)
@@ -108,12 +142,6 @@ class ConfigObject():
 
             if paramName == "Device":  # Device is translated into a torch.device
                 paramVal = self.typechart["Device"][paramVal]
-
-            # if paramName == "NumClasses" and paramVal == -1:
-            #     default_classes = {
-            #         "RandomDummy": 100
-            #     }
-            #     paramVal = default_classes.get(self.get_param("DatasetName"), -1)
 
             if self.parameters[paramName][2] == "strn" and (paramVal == "" or paramVal == "None"):
                 paramVal = None
@@ -147,9 +175,19 @@ class ConfigObject():
         else:
             if type(paramVal) is float and int(paramVal) == paramVal:
                 return self.set_param(paramName=paramName, paramVal=int(paramVal))
-            raise TypeError(f"Attempted to set Config value ({paramName}) of inappropriate type, type={type(paramVal)}")
+            raise TypeError(f"Attempted to set Config value ({paramName}) of inappropriate type, type={type(paramVal)}, while {paramName} has an expected type(s) of {self.get_param_type(paramName)}")
 
-    def get_param(self, paramName: str, getString: bool = False) -> str | float | int | object:
+    def get_param(self, paramName: str | CONFIG_OPTIONS, getString: bool = False) -> str | float | int | object:
+        """
+        Retreves a parameter from the config.
+
+        Args:
+            paramName (str | CONFIG_OPTIONS): Parameter name to retrieve
+            getString (bool, optional): Gets the parameter value as a string, some parameters are converted into objects, if True this skips that step and just returns the string. Defaults to False.
+
+        Returns:
+            str | float | int | object: The value of the parameter
+        """
         if (paramName in self.typechart.keys()) and not getString:
             return self.typechart[paramName][self.parameters[paramName][0]]
 
@@ -160,14 +198,39 @@ class ConfigObject():
 
         return self.parameters[paramName][0]
 
-    def get_param_description(self, paramName: str) -> str:
+    def get_param_description(self, paramName: str | CONFIG_OPTIONS) -> str:
+        """
+        Gets the description of the parameter, this can also be found in the cfg.py file, this is just here if you want to fech it during runtime for some reason?
+
+        Args:
+            paramName (str | CONFIG_OPTIONS): Parameter you want to get the description of.
+
+        Returns:
+            str: A text description of what the parameter is.
+        """
         return self.parameters[paramName][1]
 
-    def get_param_type(self, paramName: str) -> object:
+    def get_param_type(self, paramName: str | CONFIG_OPTIONS) -> object:
+        """
+        Gets the types accepted by a parameter when you want to set it.
+
+        Args:
+            paramName (str | CONFIG_OPTIONS): The parameter you want to get the possible types of.
+
+        Returns:
+            object: type object or tuple of types. (made for passing to isinstance())
+        """
         return self.typechart[""][self.parameters[paramName][2]]
 
     @staticmethod
-    def get_param_from_args():
+    def get_param_from_args() -> "ConfigObject":
+        """
+        This is the project argument parsing method. It reads the arguments and passes the results back in the form of a config object. Uknown arguments are lost.
+        Note: does not work with pytest, I think the parsing library has some kind of conflict so this just does not run if pytest is imported, it passes a default ConfigObject.
+
+        Returns:
+            ConfigObject: The ConfigObject generated by the command line arguments of this python program.
+        """
         self_ = ConfigObject()
 
         if "pytest" not in sys.modules:  # The argument parser appears to have issues with the pytest tests. I have no idea why.
@@ -196,18 +259,39 @@ class ConfigObject():
 
         return self_
 
-    def clone(self):
+    def clone(self) -> "ConfigObject":
+        """
+        Duplicates ConfigObject. It returns a new ConfigObject with everything identical to the original except for readOnly parameters (which are unlikely to change within a single execution of the code)
+
+        Returns:
+            ConfigObject: Newly created ConfigObject that should be the same as the old one.
+        """
         new = ConfigObject()
         for x in self.parameters:
             if x not in self.readOnly:
                 new(x, self(x, getString=True))
         return new
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, str]:
+        """
+        Turns the config into a dictionary so that it can be serialized and passed to another process.
+
+        Returns:
+            dict[str, str]: Each parameter represented as a value in a dictionary so that it can be loaded with from_dict()
+        """
         return {x: self.get_param(x, getString=True) for x in self.parameters.keys()}
 
     @staticmethod
-    def from_dict(dictionary: dict):
+    def from_dict(dictionary: dict[str, str]) -> "ConfigObject":
+        """
+        Turns a dictionary back into a ConfigObject. This is used to unpack from serialization.
+
+        Args:
+            dictionary (dict[str, str]): A dictionary of as many parameters and their values as you want. All unlisted parameters are left as defaults.
+
+        Returns:
+            ConfigObject: The created ConfigObject.
+        """
         self_ = ConfigObject()
         # This is for initial setup
         for name, value in dictionary.items():
@@ -218,6 +302,12 @@ class ConfigObject():
 
 
 def get_version() -> str:
+    """
+    This function just tries to estimate the version from the git history. Tags are considered to be releases and commits are version numbers.
+
+    Returns:
+        str: The version number in the form "A.B - C" Where A is the version number, B is the commits since that version, and C is the total commits.
+    """
     try:
         repo = git.Repo(os.getcwd())
         # print(f"Tags: {repo.tags}")
@@ -237,6 +327,12 @@ def get_version() -> str:
 
 
 def make_versiontag(message: str):
+    """
+    Unused function that tags the current version in the git history
+
+    Args:
+        message (str): Message to use for the git commit.
+    """
     repo = git.Repo(os.getcwd())
     commit_count = len([1 for _ in repo.iter_commits()])
     repo.create_tag(f"Commit: {commit_count}", message=message)

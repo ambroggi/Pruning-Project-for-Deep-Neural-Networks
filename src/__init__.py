@@ -11,21 +11,52 @@ from .algorithmruns import types_of_tests
 # This may be useful: https://stackoverflow.com/a/53593326
 
 
-def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypoints: bool = False, from_savepoint: None | int = None, **kwargs) -> dict[str, any]:
+def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypoints: bool = False, data: getdata.torch.utils.data.DataLoader | None = None, model: modelstruct.BaseDetectionModel | None = None, PruningSelection: str | None = None, from_savepoint: None | int = None, **kwargs) -> dict[str, any]:
+    """This is the main running function that is used to both train the models and run different algorithms. It calls the specific algorithms using PruningSelection before training (or retraining if using an algorithm).
+    It does assume that any model you set PruningSelection for is already trained.
+
+    Args:
+        config (cfg.ConfigObject | bool | None, optional): The config object to attach to the model. Defaults to None.
+        save_epoch_waypoints (bool, optional): A booliean to check if you want to save the model at 5 intermidate points during training. Defaults to False.
+        data (getdata.torch.utils.data.DataLoader | None, optional): This is a dataloader to use with the model, automatically splits it into train/test. (generates one from config if none is given) Defaults to None.
+        model (modelstruct.BaseDetectionModel | None, optional): This is the model you want to use assuming you don't want to use a config default one. Defaults to None.
+        PruningSelection (str | None, optional): Algorithm to use, called pruning selection because that is what it was called in the config. Defaults to None.
+        from_savepoint (None | int, optional): Where to load from using standard load. Overrides data and model. Defaults to None.
+        modelStateDict (None | dict[str, torch.Tensor]: (hidden) The model state dictionary to load into the active model, mostly used internally for laoding from standardLoad). Defaults to None.
+        NumberOfEpochs (None | int): (hidden) overrides the number of epochs for the model. Defaults to None.
+        logger (None | filemanagement.ExperimentLineManager): (hidden) Internal currently active logging line. Usually creates a new line, but the last line can be kept if you want. None means to use no logger at all and leave the run unlogged. Defaults to Not in kwargs.
+        prior_logger_row (int): (hidden) The last row written to the log file. Used to create links through standardLoad so the graphing can know what model each row was used with. Defaults to Not in kwargs.
+
+    Returns:
+        dict[str, any]: The kwargs needed to rerun this run. Besides PruningSelection being removed, so that you can run a new pruning method. At a minimum has:
+            model: Same as input
+            logger: Logger used to record the most recent run, defaults to None or generated logger, so using the kwargs without modifications will result in no new logger being created.
+            data: Same as input
+            config: Same as input
+            modelStateDict: Same as input
+            prior_logger_row: Same as input, but is generated if it did not exist and logger was not None.
+    """
     # Get the defaults
     # Priority: 1) savepoint, 2) config being None (None meaning not set yet), 3) config being False (false being do not set config), 4) normal config
     if isinstance(from_savepoint, int):
         savepoint = standardLoad(from_savepoint)
         config = savepoint.pop("config")
         kwargs = kwargs | savepoint
+        # Make sure to use the new versions of args (by regenerating them from the new config)
+        data = None
+        model = None
     elif config is None:
         config = cfg.ConfigObject.get_param_from_args()
     elif not config:
         config = cfg.ConfigObject()
     else:
         config = config.clone()
-    data = getdata.get_dataloader(config) if "data" not in kwargs else kwargs["data"]
-    model = modelstruct.getModel(config) if "model" not in kwargs else kwargs["model"]
+
+    if data is None:
+        data = getdata.get_dataloader(config)
+
+    if model is None:
+        model = modelstruct.getModel(config)
 
     # Model set up
     if "modelStateDict" in kwargs.keys():
@@ -41,11 +72,11 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
     t = time.time()
     mem = psutil.virtual_memory()[3]/1000000
     cuda_mem = torch.cuda.memory_allocated()
-    if "PruningSelection" in kwargs.keys() and kwargs["PruningSelection"] is not None:
+    if PruningSelection is not None:
         model.train(True)
         model.to(model.cfg("Device"))
-        kwargs = types_of_tests[kwargs["PruningSelection"]](**kwargs)
-        kwargs.pop("PruningSelection")
+        kwargs = types_of_tests[PruningSelection](**kwargs)
+        assert "PruningSelection" not in kwargs  # Just a test to make sure I didn't accidentally add this anywhere
         model = kwargs["model"]
         logger = kwargs["logger"]
         data = kwargs["data"]
@@ -103,6 +134,13 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
 
 
 def recordModelInfo(model: modelstruct.BaseDetectionModel, logger: filemanagement.ExperimentLineManager):
+    """
+    Records the model information in the log, such as the parameter counts and the zeroed out filters.
+
+    Args:
+        model (modelstruct.BaseDetectionModel): Model to identify the model parameters of.
+        logger (filemanagement.ExperimentLineManager): Logger linking to a log file to write to.
+    """
     logger("macs", model.get_macs())
     logger("parameters", model.get_parameter_count())
     logger("NumberOfZeros", model.get_zero_weights())
@@ -111,10 +149,6 @@ def recordModelInfo(model: modelstruct.BaseDetectionModel, logger: filemanagemen
     logger("Zeroed_filter_outputs", filter_in_out[1])
     logger("ModelWeightStructure", model.get_model_structure(count_zeros=True))
     logger("ModelWeightStructurePruneZero", model.get_model_structure())
-
-    # for name, x in model.named_parameters():
-    #     if ("total_ops" in name) or ("total_params" in name):
-    #         del x
 
     garbage_sum = 0
     # found code for checking garbage collection (removed because other objects were causing errors, see v0.63): https://discuss.pytorch.org/t/how-to-debug-causes-of-gpu-memory-leaks/6741/3
@@ -126,17 +160,43 @@ def recordModelInfo(model: modelstruct.BaseDetectionModel, logger: filemanagemen
 
 
 def standardLoad(index: None | int = None, existing_config: cfg.ConfigObject | None = None) -> dict[str, any]:
-    if existing_config is not None and existing_config("FromSaveLocation") is not None:
-        if existing_config("FromSaveLocation").split(" ")[0] == "csv":
-            # This is if you are loading from a csv row
-            index = int(existing_config("FromSaveLocation").split(" ")[1])
-            existing_config("FromSaveLocation", "None")
-        else:
-            print("Specific file loaded, standardLoad has been skipped")
-            existing_config("Notes", existing_config("Notes") | 16)
-            return {"config": existing_config, "loadedfrom": existing_config("FromSaveLocation")}
+    """
+    This is the standard method that we have for loading a previously run model. It can load either a specific index from the results file, or a specific pytorch tensor file that contains the model weights.
+    It returns them in a dictionary of keywords that the standard run can read and make use of.
 
-    config, index = filemanagement.load_cfg(config=existing_config) if index is None else filemanagement.load_cfg(row_number=index, config=existing_config)
+    Args:
+        index (None | int, optional): Index of the config to load, this is ignored if config(FromSaveLocation) is not None. Defaults to None.
+        existing_config (cfg.ConfigObject | None, optional): This is the existing config you want to use that has FromSaveLocation read from it and is passed back if FromSaveLocation is a file location. Defaults to None.
+
+    Returns:
+        dict[str, any]: A dictionary of keyword arguments for the standard run function. Can contain "config", "prior_logger_row", "modelStateDict", and/or "loadedfrom".
+            "config" is a config object that should match whatever row was read from the results csv
+            "prior_logger_row" is the index the config was loaded from so that connections can be made between the different logging rows.
+            "modelStateDict" is the weights and biases from the loaded model set to be loaded when the model next starts running.
+            "loadedfrom" is the file name that the model was loaded from (only appears if loaded from a specific file)
+    """
+
+    # Set up the kwargs for the load_cfg function because passing None does not get the default value
+    load_kwargs = {"config": existing_config}
+    if index is not None:
+        load_kwargs["row_number"] = index
+
+    if existing_config is not None:  # Just a guard to check that existing_config(value) won't cause an error
+        # Check if you want to load a specific thing, such as a specific row of csv or a specific pytorch file
+        if existing_config("FromSaveLocation") is not None:
+            if existing_config("FromSaveLocation").split(" ")[0] == "csv":
+                # This is if you are loading from a command line defined csv row, replaces index
+                load_kwargs["row_number"] = int(existing_config("FromSaveLocation").split(" ")[1])
+                existing_config("FromSaveLocation", "None")
+            else:
+                print("Specific file loaded, standardLoad has been skipped")
+                existing_config("Notes", existing_config("Notes") | 16)
+                return {"config": existing_config, "loadedfrom": existing_config("FromSaveLocation")}
+
+        if existing_config("ResultsPath") is not None:
+            load_kwargs["pth"] = existing_config("ResultsPath")
+
+    config, index = filemanagement.load_cfg(**load_kwargs)
 
     if config("SaveLocation") is not None:  # prior row actually has a model to load.
         modelStateDict = torch.load("savedModels/"+config("SaveLocation"), map_location=config("Device"))

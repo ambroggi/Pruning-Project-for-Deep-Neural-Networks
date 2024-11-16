@@ -13,7 +13,7 @@ def thinet_pruning(model: torch.nn.Module, parameterNumber: int, config, dataset
             if hasattr(model, "dataloader"):
                 dataset = model.dataloader
             else:
-                raise TypeError("Missing positional arguement 'dataset'")
+                raise TypeError("Missing positional argument 'dataset'")
         if isinstance(dataset, torch.utils.data.DataLoader):
             dataset = dataset.dataset
 
