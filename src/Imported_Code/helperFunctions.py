@@ -5,10 +5,10 @@ if TYPE_CHECKING:
     BaseDetectionModel
 
 
-class ConfigCompatabilityWrapper():
-    def __init__(self, config, translations="ADDM"):
+class ConfigCompatibilityWrapper():
+    def __init__(self, config, translations="ADMM"):
         self.config = config
-        if translations == "ADDM":
+        if translations == "ADMM":
             self.translations = {
                 "num_epochs": "NumberOfEpochs",
                 "lr": "LearningRate",

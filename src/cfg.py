@@ -38,11 +38,11 @@ class ConfigObject():
             "Version": [get_version(), "Version Number", "str"],
             "Notes": [0, "This is supposed to store a integer associated with specific notes for this config."
                       "\n0 is no Notes,"
-                      "\n1 is manually noted inacuracy (for filtering bad runs after they ran),"
+                      "\n1 is manually noted inaccuracy (for filtering bad runs after they ran),"
                       "\n2 is that the logger was not given the config object (so it cannot actually say what the config is),"
-                      "\n4 is that an unexpected overwrite has occured (in the record log, the sanity checker failed),"
+                      "\n4 is that an unexpected overwrite has occurred (in the record log, the sanity checker failed),"
                       "\n8 is an extra run (same setup but not all done at the same time, only done manually),"
-                      "\n16 is that a model was loaded directly without the assoicated record line (so the config in the logger is not accurate)", "int"],
+                      "\n16 is that a model was loaded directly without the associated record line (so the config in the logger is not accurate)", "int"],
             "LossFunction": ["CrossEntropy", "Loss function being used", "str"],
             "Optimizer": ["Adam", "Optimizer being used", "str"],
             "LearningRate": [0.0009, "Learning rate for training", "float"],
@@ -64,21 +64,21 @@ class ConfigObject():
             "LayerPruneTargets": ["30, 30, *, 30", "Number of nodes per layer starting with the first layer. NOTE: Will cause an error with ADMM if it is a larger number than the number of filters in that layer", "strl"],
             "WeightPrunePercent": ["0.99, 0.9, *, 1", "Percent of weights to prune down to for each layer", "strl"],
             "PruningSelection": ["", "What pruning was applied", "str"],
-            "BERTTheseusStartingLearningRate": [0.5, "What Probibility value the Bert Theseus method starts with", "float"],
-            "BERTTheseusLearningRateModifier": [0.5, "What k value (equation 6) the Bert Theseus method modifies the probibility by (devided by epoch count)", "float"],
+            "BERTTheseusStartingLearningRate": [0.5, "What Probability value the Bert Theseus method starts with", "float"],
+            "BERTTheseusLearningRateModifier": [0.5, "What k value (equation 6) the Bert Theseus method modifies the probability by (divided by epoch count)", "float"],
             "AlphaForTOFD": [0.05, "Feature distance multiplier, this controls the importance of student-teacher feature similarity in the distillation", "float"],
-            "BetaForTOFD": [0.03, "This is the multiplier for orthagonal loss, the higher the number, the more weight orthagonal loss will have", "float"],
+            "BetaForTOFD": [0.03, "This is the multiplier for orthogonal loss, the higher the number, the more weight orthogonal loss will have", "float"],
             "tForTOFD": [3.0, "'temperature for logit distillation' - description from original code", "float"],
             "DAISRegularizerScale": [2.0, "Multiplier to apply to the loss from having too many nodes", "float"],
-            "LassoForDAIS": [False, "Wether to use Lasso or not for DIAS, note that the paper discribes the lasso loss but appears to not use it", "int"],
-            "LayerIteration": ["10, 30, *, 30", "iteritive_full_theseus amount each layer is reduced by in each iteration", "strl"],
+            "LassoForDAIS": [False, "Wether to use Lasso or not for DIAS, note that the paper describes the lasso loss but appears to not use it", "int"],
+            "LayerIteration": ["10, 30, *, 30", "iterative_full_theseus amount each layer is reduced by in each iteration", "strl"],
             "TheseusRequiredGrads": ["All", "What layers to train with the layer replacement style", "str"],
             "SaveLocation": [None, "What filename the statedict was saved as, if it was saved at all.", "strn"],
             "FromSaveLocation": [None, "What filename the statedict was loaded as, if it was loaded at all. "
                                  "Or you can load a specific row by putting an input in the form of 'csv x' where x can be any row number. ex 'csv 5'", "strn"],
-            "NumClasses": [-1, "How many classes the model is distiguishing between, -1 is to calculate default", "int"],
+            "NumClasses": [-1, "How many classes the model is distinguishing between, -1 is to calculate default", "int"],
             "NumFeatures": [-1, "How many features the model is using, -1 is to calculate default", "int"],
-            "NumberWeightsplits": [8, "Purely meta config that deturmines how many tests to run", "int"],
+            "NumberWeightsplits": [8, "Purely meta config that determines how many tests to run", "int"],
             "ResultsPath": [None, "Path to put the results csv", "strn"]
         }
 
@@ -93,7 +93,7 @@ class ConfigObject():
 
         Args:
             paramName (str | CONFIG_OPTIONS): The name of the parameter you want to access
-            paramVal (str | float | int | None, optional): The value you want to write, leave None if you want to read. Not avalible on readOnly. Defaults to None.
+            paramVal (str | float | int | None, optional): The value you want to write, leave None if you want to read. Not available on readOnly. Defaults to None.
             getString (bool, optional): _description_. Defaults to False.
 
         Returns:
@@ -118,7 +118,7 @@ class ConfigObject():
             paramVal (str | float | int): The value to overwrite with.
 
         Raises:
-            ValueError: The paramVal value is not one of the expected possible values for a parameter with descrete values.
+            ValueError: The paramVal value is not one of the expected possible values for a parameter with discrete values.
             TypeError: The paramVal is not an acceptable type.
         """
         # Deal with numpy types:
@@ -132,7 +132,7 @@ class ConfigObject():
             if paramVal is None:
                 paramVal = self.get_param(paramName)
 
-        # Check if the type is valid by querrying typechart
+        # Check if the type is valid by querying typechart
         if isinstance(paramVal, self.get_param_type(paramName)):
             # Add extra conditionals here:
 
@@ -179,7 +179,7 @@ class ConfigObject():
 
     def get_param(self, paramName: str | CONFIG_OPTIONS, getString: bool = False) -> str | float | int | object:
         """
-        Retreves a parameter from the config.
+        Retrieves a parameter from the config.
 
         Args:
             paramName (str | CONFIG_OPTIONS): Parameter name to retrieve
@@ -200,7 +200,7 @@ class ConfigObject():
 
     def get_param_description(self, paramName: str | CONFIG_OPTIONS) -> str:
         """
-        Gets the description of the parameter, this can also be found in the cfg.py file, this is just here if you want to fech it during runtime for some reason?
+        Gets the description of the parameter, this can also be found in the cfg.py file, this is just here if you want to fetch it during runtime for some reason?
 
         Args:
             paramName (str | CONFIG_OPTIONS): Parameter you want to get the description of.
@@ -225,7 +225,7 @@ class ConfigObject():
     @staticmethod
     def get_param_from_args() -> "ConfigObject":
         """
-        This is the project argument parsing method. It reads the arguments and passes the results back in the form of a config object. Uknown arguments are lost.
+        This is the project argument parsing method. It reads the arguments and passes the results back in the form of a config object. Unknown arguments are lost.
         Note: does not work with pytest, I think the parsing library has some kind of conflict so this just does not run if pytest is imported, it passes a default ConfigObject.
 
         Returns:

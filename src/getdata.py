@@ -14,7 +14,7 @@ datasets_folder_path = "datasets"
 
 class Targets(torch.Tensor):
     """
-    Should be a 1 dimentisional vector where each value is a int corrisponding to a target class.
+    Should be a 1 dimensional vector where each value is a int corresponding to a target class.
     Like this: [1, 4, 2, 1, 1, 0]
     """
     pass
@@ -22,7 +22,7 @@ class Targets(torch.Tensor):
 
 class InputFeatures(torch.Tensor):
     """
-    Should be a 2 dimentisional vector where each row is all of the features for a single item.
+    Should be a 2 dimensional vector where each row is all of the features for a single item.
     Like this: [
         [0.3, 0.6, 0.1],
         [0.9, 1, 0.2],
@@ -56,13 +56,13 @@ class BaseDataset(torch.utils.data.Dataset):
         self.dat["label"] = self.original_vals["label"]
         self.scaler_status = 1
 
-    def scale_indicies(self, indicies: list[int]):
-        """Create a scaler from specific indicies of the data and save that scaler to self.scaler. Then applies that scaler.
+    def scale_indices(self, indices: list[int]):
+        """Create a scaler from specific indices of the data and save that scaler to self.scaler. Then applies that scaler.
 
         Args:
-            indicies (list[int]): list of indicies to use for the fitting of the scaler.
+            indices (list[int]): list of indices to use for the fitting of the scaler.
         """
-        df = self.original_vals.iloc[indicies]
+        df = self.original_vals.iloc[indices]
         self.scaler = StandardScaler()
         self.scaler.fit(df)
         self.scale(self.scaler)
@@ -86,9 +86,9 @@ class VulnerabilityDataset(BaseDataset):
             target = torch.nn.functional.one_hot(target, num_classes=self.number_of_classes).to(torch.float)
         return features, target
 
-    def __getitems__(self, indexs: list[int]) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
-        features = torch.randint(0, 256, [len(indexs), self.number_of_classes], requires_grad=False, dtype=torch.float32)
-        targets = torch.randint(0, self.number_of_classes, [len(indexs)], requires_grad=False, dtype=torch.long)
+    def __getitems__(self, indexes: list[int]) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
+        features = torch.randint(0, 256, [len(indexes), self.number_of_classes], requires_grad=False, dtype=torch.float32)
+        targets = torch.randint(0, self.number_of_classes, [len(indexes)], requires_grad=False, dtype=torch.long)
         if self.format in ["MSE"]:
             targets = torch.nn.functional.one_hot(targets, num_classes=self.number_of_classes).to(torch.float)
         return features, targets
@@ -137,19 +137,19 @@ class RandomDummyDataset(BaseDataset):
             target = torch.nn.functional.one_hot(target, num_classes=self.number_of_classes).to(torch.float)
         return features, target
 
-    def __getitems__(self, indexs: list[int]) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
-        """Gets a list of items from the dataset using a list of indicies
+    def __getitems__(self, indexes: list[int]) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
+        """Gets a list of items from the dataset using a list of indices
 
         Args:
-            indexs (list[int]): List of integers  pointing at indicies from the dataset, must be avalible in the data so < len(self)
+            indexes (list[int]): List of integers  pointing at indices from the dataset, must be available in the data so < len(self)
 
         Returns:
             tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]: Tuple containing a tensor of features and a tensor of targets
         """
         torch.random.manual_seed(self.rand_seed)
-        features = torch.randint(0, 256, [len(indexs), self.number_of_features], requires_grad=False, dtype=torch.float32)
+        features = torch.randint(0, 256, [len(indexes), self.number_of_features], requires_grad=False, dtype=torch.float32)
         # features.apply_(lambda x: self.scale.transform(x))
-        targets = torch.randint(0, self.number_of_classes, [len(indexs)], requires_grad=False, dtype=torch.long)
+        targets = torch.randint(0, self.number_of_classes, [len(indexes)], requires_grad=False, dtype=torch.long)
         if self.format in ["MSE"]:
             targets = torch.nn.functional.one_hot(targets, num_classes=self.number_of_classes).to(torch.float)
         return features, targets
@@ -158,16 +158,16 @@ class RandomDummyDataset(BaseDataset):
 class ACIIOT2023(BaseDataset):
     """This dataset is the Army Cyber Institute - Internet Of Things 2023 data"""
 
-    def __init__(self, target_format: str = "CrossEntropy", num_classes: int = -1, grouped: bool = False, diffrence_multiplier: int | None = None):
+    def __init__(self, target_format: str = "CrossEntropy", num_classes: int = -1, grouped: bool = False, difference_multiplier: int | None = None):
         """Initialize the ACI dataset, this includes checking if class grouping (combining related smaller classes into one) is working. a
         As well as formatting the data if it has not already been saved in the formatted version, which includes:
             - Undersampling if needed to balance the dataset
             - Dropping the time column
-            - Splitting payloads and IP adresses up by byte
-            - Turining protocol into a one-hot vector
+            - Splitting payloads and IP addresses up by byte
+            - Turning protocol into a one-hot vector
             - And saving the formatted version as a parquet file
         Then some final formatting steps are performed:
-            - Relabling targets as integers instead of strings
+            - Relabeling targets as integers instead of strings
             - Identifying target target format and matching it
             - Scaling the data
 
@@ -178,15 +178,15 @@ class ACIIOT2023(BaseDataset):
         super().__init__()
 
         if grouped:
-            if diffrence_multiplier is None:
+            if difference_multiplier is None:
                 group_str = "-grouped"
-                diffrence_multiplier = 10
+                difference_multiplier = 10
             else:
-                group_str = f"-grouped{diffrence_multiplier}"
+                group_str = f"-grouped{difference_multiplier}"
         else:
             group_str = ""
-            if diffrence_multiplier is None:
-                diffrence_multiplier = 100
+            if difference_multiplier is None:
+                difference_multiplier = 100
 
         if not os.path.exists(os.path.join(datasets_folder_path, f"ACI-IoT-2023{group_str}-formatted-undersampled.parquet")):
             if not os.path.exists(os.path.join(datasets_folder_path, "ACI-IoT-2023-Payload.csv")):
@@ -201,9 +201,9 @@ class ACIIOT2023(BaseDataset):
             # It looks like the geeks for geeks article is more of the way to go though, because I need to select a varying number of samples
             if grouped:
                 self.original_vals["label"] = self.original_vals["label"].apply(self.grouplabels)
-                max_samples = diffrence_multiplier * min(self.original_vals.value_counts("label"))
+                max_samples = difference_multiplier * min(self.original_vals.value_counts("label"))
             else:
-                max_samples = diffrence_multiplier * min(self.original_vals.value_counts("label"))
+                max_samples = difference_multiplier * min(self.original_vals.value_counts("label"))
             self.original_vals = self.original_vals.groupby("label", group_keys=False).apply(lambda group: group.sample(n=max_samples if max_samples <= len(group) else len(group)))
             self.original_vals.reset_index(inplace=True)
 
@@ -269,11 +269,11 @@ class ACIIOT2023(BaseDataset):
             target = torch.nn.functional.one_hot(target, num_classes=self.number_of_classes).to(torch.float)
         return features, target
 
-    def __getitems__(self, indexs: list[int]) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
+    def __getitems__(self, indexes: list[int]) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
         if self.scaler_status == 0:
             print("Warning, no scaler set! please set the scaler!")
             self.scaler_status = -1
-        items = self.dat.iloc[indexs]
+        items = self.dat.iloc[indexes]
         items.pop("index")
         tar = items.pop("label")
         features = torch.Tensor(items.astype(float).to_numpy())
@@ -305,16 +305,16 @@ class ACIIOT2023(BaseDataset):
 class ACIPayloadless(BaseDataset):
     """This dataset is the Army Cyber Institute - Internet Of Things 2023 data but does not have the payload data"""
 
-    def __init__(self, target_format: str = "CrossEntropy", num_classes: int = -1, grouped: bool = False, diffrence_multiplier: int | None = None):
+    def __init__(self, target_format: str = "CrossEntropy", num_classes: int = -1, grouped: bool = False, difference_multiplier: int | None = None):
         """Initialize the ACI dataset, this includes checking if class grouping (combining related smaller classes into one) is working. a
         As well as formatting the data if it has not already been saved in the formatted version, which includes:
             - Undersampling if needed to balance the dataset
             - Dropping the time column
-            - Splitting payloads and IP adresses up by byte
-            - Turining protocol into a one-hot vector
+            - Splitting payloads and IP addresses up by byte
+            - Turning protocol into a one-hot vector
             - And saving the formatted version as a parquet file
         Then some final formatting steps are performed:
-            - Relabling targets as integers instead of strings
+            - Relabeling targets as integers instead of strings
             - Identifying target target format and matching it
             - Scaling the data
 
@@ -325,15 +325,15 @@ class ACIPayloadless(BaseDataset):
         super().__init__()
 
         if grouped:
-            if diffrence_multiplier is None:
+            if difference_multiplier is None:
                 group_str = "-grouped"
-                diffrence_multiplier = 10
+                difference_multiplier = 10
             else:
-                group_str = f"-grouped{diffrence_multiplier}"
+                group_str = f"-grouped{difference_multiplier}"
         else:
             group_str = ""
-            if diffrence_multiplier is None:
-                diffrence_multiplier = 100
+            if difference_multiplier is None:
+                difference_multiplier = 100
 
         if not os.path.exists(os.path.join(datasets_folder_path, f"ACI-IoT-2023-flow{group_str}-formatted-undersampled.parquet")):
             if not os.path.exists(os.path.join(datasets_folder_path, "ACI-IoT-2023.xlsx")):
@@ -348,9 +348,9 @@ class ACIPayloadless(BaseDataset):
             # It looks like the geeks for geeks article is more of the way to go though, because I need to select a varying number of samples
             if grouped:
                 self.original_vals["Label"] = self.original_vals["Label"].apply(self.grouplabels)
-                max_samples = diffrence_multiplier * min(self.original_vals.value_counts("Label"))
+                max_samples = difference_multiplier * min(self.original_vals.value_counts("Label"))
             else:
-                max_samples = diffrence_multiplier * min(self.original_vals.value_counts("Label"))
+                max_samples = difference_multiplier * min(self.original_vals.value_counts("Label"))
             self.original_vals = self.original_vals.groupby("Label", group_keys=False).apply(lambda group: group.sample(n=max_samples if max_samples <= len(group) else len(group)))
             self.original_vals.reset_index(inplace=True)
 
@@ -417,11 +417,11 @@ class ACIPayloadless(BaseDataset):
             target = torch.nn.functional.one_hot(target, num_classes=self.number_of_classes).to(torch.float)
         return features, target
 
-    def __getitems__(self, indexs: list[int]) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
+    def __getitems__(self, indexes: list[int]) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
         if self.scaler_status == 0:
             print("Warning, no scaler set! please set the scaler!")
             self.scaler_status = -1
-        items = self.dat.iloc[indexs]
+        items = self.dat.iloc[indexes]
         items.pop("index")
         tar = items.pop("label")
         assert True not in pd.isna(items)
@@ -445,14 +445,32 @@ class ACIPayloadless(BaseDataset):
 
 
 def collate_fn_(items: tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor] | list[tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]]) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
+    """
+    Function for joining key, feature tuples together in the format that we want it in.
+
+    Args:
+        items (tuple[InputFeatures  |  torch.Tensor, Targets  |  torch.Tensor] | list[tuple[InputFeatures  |  torch.Tensor, Targets  |  torch.Tensor]]): Items to join together.
+
+    Returns:
+        tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]: The items joined and then repackaged into  tuple.
+    """
     if isinstance(items, tuple):
         items = [items]
-    features = [i[0] for i in items]
-    tags = [i[1] for i in items]
+    features, tags = zip(*items)
     return (torch.cat(features), torch.cat(tags))
 
 
 def get_dataloader(config: ConfigObject | None = None, dataset: None | BaseDataset = None) -> torch.utils.data.DataLoader:
+    """
+    Gets the dataloader specified by the config or wraps a dataset in a dataloader. If neither is given the default config from cfg.py is used.
+
+    Args:
+        config (ConfigObject | None, optional): Config to specify what dataset to retrieve if none is given. Defaults to None.
+        dataset (None | BaseDataset, optional): Dataset to wrap in a dataloader so that it can be iterated over. Defaults to None.
+
+    Returns:
+        torch.utils.data.DataLoader: torch dataloader that can be iterated over.
+    """
     if dataset is None:
         if config is None:
             print("Config was not given for dataset, creating config")
@@ -464,7 +482,16 @@ def get_dataloader(config: ConfigObject | None = None, dataset: None | BaseDatas
 
 
 def get_dataset(config: ConfigObject) -> BaseDataset:
-    datasets: dict[str, torch.utils.data.Dataset] = {"Vulnerability": VulnerabilityDataset, "RandomDummy": RandomDummyDataset, "ACI": ACIIOT2023, "ACI_grouped": partial(ACIIOT2023, grouped=True), "ACI_grouped_fullbalance": partial(ACIIOT2023, grouped=True, diffrence_multiplier=1), "ACI_flows": ACIPayloadless}
+    """
+    Retrieves the dataset specified by the config. Also sets the number of classes and number of features config parameters.
+
+    Args:
+        config (ConfigObject): Config to use to retrieve the correct dataset.
+
+    Returns:
+        BaseDataset: The dataset retrieved from the config.
+    """
+    datasets: dict[str, torch.utils.data.Dataset] = {"Vulnerability": VulnerabilityDataset, "RandomDummy": RandomDummyDataset, "ACI": ACIIOT2023, "ACI_grouped": partial(ACIIOT2023, grouped=True), "ACI_grouped_fullbalance": partial(ACIIOT2023, grouped=True, difference_multiplier=1), "ACI_flows": ACIPayloadless}
     data: BaseDataset = datasets[config("DatasetName")](target_format=config("LossFunction", getString=True))
     config("NumClasses", data.number_of_classes)
     config("NumFeatures", data.number_of_features)
@@ -476,6 +503,19 @@ def get_dataset(config: ConfigObject) -> BaseDataset:
 
 
 def get_train_test(config: ConfigObject | None = None, dataset: None | BaseDataset = None, dataloader: None | torch.utils.data.DataLoader = None) -> tuple[torch.utils.data.Dataset, torch.utils.data.Dataset] | tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
+    """
+    Splits a dataset or the data in a dataloader into train and test datasets by the percentages given in config.
+    The first such split generates a Scaler for the features from the training half and applies it to both the train and test.
+    If both dataloader and dataset are None it calls get_dataset(config) to get the dataset and returns the train/test split of that.
+
+    Args:
+        config (ConfigObject | None, optional): Config to retrieve the train/test percentage from. If None, it uses the default from cfg.py. Defaults to None.
+        dataset (None | BaseDataset, optional): Dataset to split. Only give one of dataset or dataloader. Defaults to None.
+        dataloader (None | torch.utils.data.DataLoader, optional): Dataloader to split, returns two dataloaders if this is used. Defaults to None.
+
+    Returns:
+        tuple[torch.utils.data.Dataset, torch.utils.data.Dataset] | tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]: returns either a pair of datasets that are exclusively split or a pair of dataloaders if dataloader is not None
+    """
     if config is None:
         print("Config was not given for dataset, creating config")
         config = ConfigObject()
@@ -484,7 +524,7 @@ def get_train_test(config: ConfigObject | None = None, dataset: None | BaseDatas
     elif dataset is not None:
         train, test = torch.utils.data.random_split(dataset, [1 - config("TrainTest"), config("TrainTest")], generator=torch.Generator().manual_seed(1))
         if dataset.base.scaler_status != 1:
-            dataset.base.scale_indicies(train.indices)
+            dataset.base.scale_indices(train.indices)
         train.base = dataset.base
         test.base = dataset.base
         return train, test

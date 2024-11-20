@@ -16,7 +16,7 @@ from .extramodules import (Nothing_Module, PostMutablePruningLayer,
 
 class ModelFunctions():
     """
-    This is an abstract class, intended to be inhearited from to pass on all of the useful functions.
+    This is an abstract class, intended to be inherited from to pass on all of the useful functions.
     """
     def __init__(self):
         assert isinstance(self, torch.nn.Module)
@@ -32,13 +32,13 @@ class ModelFunctions():
         self.make_progressbar = True  # wether or not to use a progress bar to show progression
         self.num_epochs_trained = 0  # Just to keep track of the number of epochs that were used to train the model
 
-        # Overriden Values (should be overriden by multi-inheritence)
+        # Overridden Values (should be overridden by multi-inheritance)
         self.cfg: cfg.ConfigObject = cfg.ConfigObject()
         # self.train = True
         # self.parameters = None  # <- Does not work as it overrides the actual function that should be there
 
     def set_training_data(self, dataloader: DataLoader | None = None) -> None:
-        """A setter for the taining dataset
+        """A setter for the training dataset
 
         Args:
             dataloader (DataLoader | None, optional): Pytorch dataloader to set as default training data. Defaults to None.
@@ -54,7 +54,7 @@ class ModelFunctions():
         self.validation_dataloader = dataloader
 
     def get_progress_bar(self, epochs: int) -> None | tqdm.tqdm:
-        """This returns either a tqdm iterator that displays a prpgress bar in "results/progressbar.txt" if it exists or the console if it does not OR returns None if self.make_progressbar is false
+        """This returns either a tqdm iterator that displays a progress bar in "results/progressbar.txt" if it exists or the console if it does not OR returns None if self.make_progressbar is false
         Also, this sets up for the progressbar to be removed later.
 
         Args:
@@ -65,24 +65,24 @@ class ModelFunctions():
         """
         if os.path.exists("results/progressbar.txt") and self.make_progressbar:
             # Write into the progressbar file, but this is a bit complicated because we want to keep overwriting the same line so that it shows progress correctly.
-            self.progres_file = open("results/progressbar.txt", mode="r+")  # This might be useful so I am putting it here: https://stackoverflow.com/a/72412819
-            self.progres_file.seek(0, 2)
-            progres_pos = self.progres_file.tell()
-            progres_bar = tqdm.tqdm(range(epochs), desc=f"Fit \t|{self.cfg('PruningSelection')}| \tPID:{os.getpid()}\t", total=epochs, file=self.progres_file, ascii=True)
+            self.progress_file = open("results/progressbar.txt", mode="r+")  # This might be useful so I am putting it here: https://stackoverflow.com/a/72412819
+            self.progress_file.seek(0, 2)
+            progress_pos = self.progress_file.tell()
+            progress_bar = tqdm.tqdm(range(epochs), desc=f"Fit \t|{self.cfg('PruningSelection')}| \tPID:{os.getpid()}\t", total=epochs, file=self.progress_file, ascii=True)
             self.progress_need_to_remove = []
-            self.progress_need_to_remove.append(lambda r: self.progres_file.seek(progres_pos, 0))
-            self.progress_need_to_remove.append(lambda results: progres_bar.set_postfix_str(f"{results['f1_score_macro']*100:2.3f}% Train F1, {results['val_f1_score_macro']*100:2.3f}% Validation F1"))
-            self.progress_need_to_remove.append(lambda r: self.progres_file.seek(progres_pos, 0))
+            self.progress_need_to_remove.append(lambda r: self.progress_file.seek(progress_pos, 0))
+            self.progress_need_to_remove.append(lambda results: progress_bar.set_postfix_str(f"{results['f1_score_macro']*100:2.3f}% Train F1, {results['val_f1_score_macro']*100:2.3f}% Validation F1"))
+            self.progress_need_to_remove.append(lambda r: self.progress_file.seek(progress_pos, 0))
             self.epoch_callbacks.extend(self.progress_need_to_remove)
 
-            return progres_bar
+            return progress_bar
         elif self.make_progressbar:
             # if the file does not exist print to console. This is much easier because it is the default.
             self.progress_need_to_remove = []
-            progres_bar = tqdm.tqdm(range(epochs), desc=f"Fit |{self.cfg('PruningSelection')}| PID:{os.getpid()}", total=epochs)
-            self.progress_need_to_remove.append(lambda results: progres_bar.set_postfix_str(f"{results['f1_score_macro']*100:2.3f}% Train F1, {results['val_f1_score_macro']*100:2.3f}% Validation F1"))
+            progress_bar = tqdm.tqdm(range(epochs), desc=f"Fit |{self.cfg('PruningSelection')}| PID:{os.getpid()}", total=epochs)
+            self.progress_need_to_remove.append(lambda results: progress_bar.set_postfix_str(f"{results['f1_score_macro']*100:2.3f}% Train F1, {results['val_f1_score_macro']*100:2.3f}% Validation F1"))
             self.epoch_callbacks.extend(self.progress_need_to_remove)
-            return progres_bar
+            return progress_bar
         else:
             # disabled progressbar
             return None
@@ -94,11 +94,11 @@ class ModelFunctions():
         for x in self.progress_need_to_remove:
             self.epoch_callbacks.remove(x)
         if len(self.progress_need_to_remove) > 1:
-            self.progres_file.close()
+            self.progress_file.close()
         self.progress_need_to_remove = []
 
     def fit(self, epochs: int = 0, dataloader: DataLoader | None = None, keep_callbacks: bool = False) -> str:
-        """This is the main function of training for the model. It sets things up based on the config if they were not alrady generated or given in the args
+        """This is the main function of training for the model. It sets things up based on the config if they were not already generated or given in the args
         Then it runs run_single_epoch per epoch interspaced with checks to the validation dataloader if it exist and running the callbacks.
         Returns a string stating the final results of the model and clears out the callbacks for future work (unless keep_callbacks is true).
 
@@ -147,12 +147,12 @@ class ModelFunctions():
         for incorrect_frozen in frozen_bad:
             self.frozen.pop(incorrect_frozen)
 
-        progres_bar = self.get_progress_bar(epochs)
+        progress_bar = self.get_progress_bar(epochs)
 
         # Get the scheduler
         scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, 30) if self.cfg("SchedulerLR") == 1 else None
 
-        for e in progres_bar if progres_bar is not None else range(epochs):
+        for e in progress_bar if progress_bar is not None else range(epochs):
             # Run the epoch
             epoch_results = self.run_single_epoch(dl)
 
@@ -181,7 +181,7 @@ class ModelFunctions():
             for call in self.epoch_callbacks:
                 call(epoch_results)
 
-        if progres_bar is not None:
+        if progress_bar is not None:
             # Clear out the tqdm callback
             self.remove_progress_bar()
 
@@ -240,7 +240,8 @@ class ModelFunctions():
             results_of_predictions["Predicted"].extend(y_predict.argmax(dim=1).detach().cpu())
 
             # Reset frozen weights
-            self.load_state_dict({name: torch.where(torch.isnan(value), self.state_dict()[name], value) for name, value in self.frozen.items()}, strict=False)
+            if self.training:
+                self.load_state_dict({name: torch.where(torch.isnan(value), self.state_dict()[name], value) for name, value in self.frozen.items()}, strict=False)
             assert False not in [False not in (torch.eq(value, self.state_dict()[name]) | torch.isnan(value)) for name, value in self.frozen.items()]
 
         results["f1_score_weight"] = f1_score(results_of_predictions["True"], results_of_predictions["Predicted"], average="weighted")
@@ -281,10 +282,10 @@ class ModelFunctions():
             else:
                 return self(inputs_)
 
-    # This should be hidden by Module Inheritence
+    # This should be hidden by Module Inheritance
     def __call__(self, value: torch.Tensor) -> torch.Tensor:
         """This is a dummy function that should not be able to be called. It is just here for typechecking so that it is clear what should be output from the model.
-        In the actual case, this is overriden by torch.nn.Module's call function which is a wrapped version of forwards()
+        In the actual case, this is overridden by torch.nn.Module's call function which is a wrapped version of forwards()
 
         Args:
             value (torch.Tensor): Tensor to apply model pipeline to.
@@ -292,7 +293,7 @@ class ModelFunctions():
         Returns:
             torch.Tensor: Output logits from the model.
         """
-        print("Model Functions should be behind Module in the inheritence for the model class.")
+        print("Model Functions should be behind Module in the inheritance for the model class.")
         assert False
         return torch.tensor([0])
 
@@ -349,7 +350,7 @@ class ModelFunctions():
         return count_input, count_output
 
     def get_model_structure(self, count_zeros: bool = False) -> str:
-        """Finds the structure of the weights, when flattned. If count_zeros is true, weights that are zero are included in this final count.
+        """Finds the structure of the weights, when flattened. If count_zeros is true, weights that are zero are included in this final count.
 
         Args:
             count_zeros (bool, optional): Wether or not to count pruned filters as well as regular filters. Defaults to False.
@@ -375,7 +376,7 @@ class ModelFunctions():
         """Loads the model from a state dict that is a paired down version of the model.
 
         Args:
-            state_dict (dict[str, torch.Tensor]): A state dictionary full of tensors that corrispond to the diffrent model layers.
+            state_dict (dict[str, torch.Tensor]): A state dictionary full of tensors that correspond to the different model layers.
         """
         assert isinstance(self, torch.nn.Module)
         self.optimizer = None
@@ -453,10 +454,10 @@ class ModelFunctions():
         return val
 
     def save_model_state_dict(self, logger: None | Callable, name: str | None = None, update_config: bool = True, logger_column: None | str = None):
-        """Save the model state dictionary as a .pt (PyTorch) file for later retrival.
+        """Save the model state dictionary as a .pt (PyTorch) file for later retrieval.
 
         Args:
-            logger (None | Callable): This is a function that takes "SaveLocation" or logger_column and the name of the save file as its two arguments. Mostly useful for loggging the save location.
+            logger (None | Callable): This is a function that takes "SaveLocation" or logger_column and the name of the save file as its two arguments. Mostly useful for logging the save location.
             name (str | None, optional): Name of the save file. Will generate a new name if this is none. Defaults to None.
             update_config (bool, optional): Updates the config to say that the model is stored in "SaveLocation". This is useful for the main model version. Defaults to True.
             logger_column (None | str, optional): Override for "SaveLocation" as first argument for logger. Defaults to None.

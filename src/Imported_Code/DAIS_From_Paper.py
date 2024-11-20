@@ -64,7 +64,7 @@ class add_alpha(PostMutablePruningLayer):
         super().remove()
 
 
-def regulizer_loss(lst: list[add_alpha], scale: int = 1):
+def regularizer_loss(lst: list[add_alpha], scale: int = 1):
     # Equation 8
     lasso = torch.sum(torch.stack([x.lasso_reg() for x in lst]))
 
@@ -85,11 +85,26 @@ def regulizer_loss(lst: list[add_alpha], scale: int = 1):
     return (lasso + flops) * scale
 
 
-def DAIS_fit(model: BaseDetectionModel, alpha_hooks: list[add_alpha], epochs: int = 0, dataloader: DataLoader | None = None, keep_callbacks=False):
-    # This is an implementation of the DAIS regularizer and DARTS (https://arxiv.org/pdf/1806.09055) search method.
-    # DARTS is used because that is the method that DAIS says that their method is based on.
-    # The exact DAIS method is supposedly in a different file, that I cannot find. "more details provided in the reference paper" - DAIS
-    # The actual fit function is based off of the fit function we were using before.
+def DAIS_fit(model: BaseDetectionModel, alpha_hooks: list[add_alpha], epochs: int = 0, dataloader: DataLoader | None = None, keep_callbacks=False) -> str:
+    """
+    This is an implementation of the DAIS regularizer and DARTS (https://arxiv.org/pdf/1806.09055) search method.
+    DARTS is used because that is the method that DAIS says that their method is based on.
+    The exact DAIS method is supposedly in a different file, that I cannot find. "more details provided in the reference paper" - DAIS
+    The actual fit function is based off of the fit function we were using before.
+
+    Args:
+        model (BaseDetectionModel): Model to fit
+        alpha_hooks (list[add_alpha]): The list of parameters for pruning masks
+        epochs (int, optional): Number of epochs to train. Defaults to 0.
+        dataloader (DataLoader | None, optional): Data to use. Defaults to None.
+        keep_callbacks (bool, optional): Wether or not to keep the callbacks or reset them. Defaults to False.
+
+    Raises:
+        TypeError: Raises an error if no dataloader is given or set within the model.
+
+    Returns:
+        str: Description of the final fit.
+    """
 
     # Find the alpha parameters
     alp = [a.para for a in alpha_hooks]
@@ -125,21 +140,21 @@ def DAIS_fit(model: BaseDetectionModel, alpha_hooks: list[add_alpha], epochs: in
     for incorrect_frozen in frozen_bad:
         model.frozen.pop(incorrect_frozen)
 
-    progres_bar = model.get_progress_bar(epochs)
+    progress_bar = model.get_progress_bar(epochs)
 
     # Get the scheduler
     scheduler = torch.optim.lr_scheduler.StepLR(model.optimizer, 30) if model.cfg("SchedulerLR") == 1 else None
 
-    for e in progres_bar if progres_bar is not None else range(epochs):
+    for e in progress_bar if progress_bar is not None else range(epochs):
         # Find speculative weights (This is training the model weights). DARTS Algorithm 1, step 1, estimate W*
         model.loss_additive_info = torch.tensor, (0, )
         model.optimizer = primary_optimizer
-        non_speculative_weights = {x: y for x, y in model.state_dict().items() if "v" not in x}  # Because of addm all of the alpha weights are called "v_"
+        non_speculative_weights = {x: y for x, y in model.state_dict().items() if "v" not in x}  # Because of admm all of the alpha weights are called "v_"
         epoch_results = model.run_single_epoch(weight_dl)
         e_results = {f"spec_{x[0]}": x[1] for x in epoch_results.items()}
 
         # Find new alpha values. DARTS Algorithm 1, step 1, update alpha
-        model.loss_additive_info = regulizer_loss, (alpha_hooks, model.cfg("DAISRegularizerScale"))
+        model.loss_additive_info = regularizer_loss, (alpha_hooks, model.cfg("DAISRegularizerScale"))
         model.optimizer = secondary_optimizer
         model.zero_grad()
         epoch_results = model.run_single_epoch(alpha_dl)
@@ -153,7 +168,7 @@ def DAIS_fit(model: BaseDetectionModel, alpha_hooks: list[add_alpha], epochs: in
         epoch_results = model.run_single_epoch(weight_dl)
         e_results = e_results | epoch_results
 
-        # I AM NOT CALLING A TRAINING DATASET "VALIDATION", it will be known as alpha_dl. This is the actual validation dataset
+        # This is the validation dataset
         if model.validation_dataloader is not None:
             val_epoch_results = {f"val_{x[0]}": x[1] for x in model.run_single_epoch(model.validation_dataloader).items()}
         else:
@@ -168,7 +183,7 @@ def DAIS_fit(model: BaseDetectionModel, alpha_hooks: list[add_alpha], epochs: in
             call(e_results)
 
     # Clear out the tqdm callback
-    if progres_bar is not None:
+    if progress_bar is not None:
         model.remove_progress_bar()
 
     if not keep_callbacks:

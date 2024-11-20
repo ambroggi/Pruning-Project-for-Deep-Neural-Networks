@@ -13,16 +13,16 @@ if TYPE_CHECKING:
 #     print(f"Adding \'{subpackage}\' to system path")
 #     sys.path.append(subpackage)
 
-from .helperFunctions import remove_layers, get_layer_by_state, set_layer_by_state, forward_hook, ConfigCompatabilityWrapper
-remove_layers, get_layer_by_state, set_layer_by_state, forward_hook, ConfigCompatabilityWrapper
+from .helperFunctions import remove_layers, get_layer_by_state, set_layer_by_state, forward_hook, ConfigCompatibilityWrapper
+remove_layers, get_layer_by_state, set_layer_by_state, forward_hook, ConfigCompatibilityWrapper
 
 sys.path.append("src/Imported_Code/admm_joint_pruning/joint_pruning")
 from .admm_joint_pruning.joint_pruning.main import prune_admm, apply_filter, apply_prune, apply_l1_prune
 prune_admm, apply_filter, apply_prune, apply_l1_prune
 sys.path.remove("src/Imported_Code/admm_joint_pruning/joint_pruning")
 
-from .ADMM_extra import add_addm_v_layers, remove_addm_v_layers
-add_addm_v_layers, remove_addm_v_layers
+from .ADMM_extra import add_admm_v_layers, remove_admm_v_layers
+add_admm_v_layers, remove_admm_v_layers
 
 from .ThiNet_From_Paper import thinet_pruning
 thinet_pruning

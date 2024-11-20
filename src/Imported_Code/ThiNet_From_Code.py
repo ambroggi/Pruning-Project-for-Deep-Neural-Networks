@@ -1,5 +1,5 @@
 # This is copy pasted from https://github.com/Roll920/ThiNet_Code/blob/master/ThiNet_TPAMI/VGG16/compress_model.py#L152
-# Could not import the entire thing because the caffe library does not work on non-CUDA computs as far as I can read.
+# Could not import the entire thing because the caffe library does not work on non-CUDA computers as far as I can read.
 import numpy as np
 import time
 

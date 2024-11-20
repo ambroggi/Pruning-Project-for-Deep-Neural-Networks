@@ -9,24 +9,41 @@ import plotly.graph_objects
 readability = {
     "parameters": "Total number of parameters",
     "val_f1_score_macro": "F1 score in validation",
-    "val_f1_score_weight": "F1 score (weighted by occurences)",
+    "val_f1_score_weight": "F1 score (weighted by occurrences)",
     "actual_parameters": "Number of non-zero parameters",
     "TimeForRun": "Time for normal fit after pruning",
     "TimeForPrune": "Time for pruning the model",
-    "TimeForPruneAndRetrain": "Time for pruning the model"
+    "TimeForPruneAndRetrain": "Time for pruning the model",
+    "ADDM_Joint": "ADMM Joint",
+    "ADMM_Joint": "ADMM Joint",
+    "BERT_theseus": "BERT Theseus",
+    "DAIS": "DAIS",
+    "Normal_Run": "Original Run",
+    "RandomStructured": "Random Structured",
+    "Recreation_Run": "Recreation",
+    "TOFD": "TOFD",
+    "iterative_full_theseus": "Iterative Theseus",
+    "iteritive_full_theseus": "Iterative Theseus",
+    "thinet": "Thinet"
 }
 
+extra_readability = {
+    "BERT_theseus_training|": "",
+    "iterative_full_theseus_training|": "",
+    "iteritive_full_theseus_training|": "",
+    "DAIS_training|": ""
+}
 
 colors = {
-    "ADDM_Joint": "red",
-    "BERT_theseus": "orange",
+    "ADMM Joint": "red",
+    "BERT Theseus": "orange",
     "DAIS": "gold",
-    "Normal_Run": "black",
-    "RandomStructured": "limegreen",
-    "Recreation_Run": "gray",
+    "Original Run": "black",
+    "Random Structured": "limegreen",
+    "Recreation": "gray",
     "TOFD": "cyan",
-    "iteritive_full_theseus": "blue",
-    "thinet": "purple"
+    "Iterative Theseus": "blue",
+    "Thinet": "purple"
 }
 
 
@@ -55,7 +72,9 @@ def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.Dat
 
     # Replace NANs with Normal Run
     df["PruningSelection"] = df["PruningSelection"].fillna("Normal_Run")
-    df["PruningSelection"] = df["PruningSelection"].apply(lambda x: str.replace(str.replace(str.replace(x, "BERT_theseus_training|", ""), "iteritive_full_theseus_training|", ""), "DAIS_training|", ""))
+    for extra_str in extra_readability:
+        df["PruningSelection"] = df["PruningSelection"].apply(lambda x: str.replace(x, extra_str, extra_readability[extra_str]))
+    df["PruningSelection"] = df["PruningSelection"].map(readability)
 
     # Calculate the actual parameters out of the normal parameters
     df["actual_parameters"] = df["parameters"] - df["NumberOfZeros"]
@@ -85,11 +104,11 @@ def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.Dat
     # Get only the current version (Done this late just so the scaling is not indexing into a Null)
     # df = df[df["Version"] >= df["Version"].max()]
     # df = df[df["LengthOfTrainingData"] > 1000]
-    df = df[df["Notes"] == 0]
-    df = df[df["PruningSelection"] != "TOFD"]  # Removing suppport for TOFD since it does not seem to be working dispite efforts
+    df = df[(df["Notes"] == 0) | (df["Notes"] == 8)]
+    df = df[df["PruningSelection"] != "TOFD"]  # Removing support for TOFD since it does not seem to be working despite efforts
     # df_scaled = df_scaled[df_scaled["LengthOfTrainingData"] > 1000]
-    df_scaled = df_scaled[df_scaled["Notes"] == 0]
-    df_scaled = df_scaled[df_scaled["PruningSelection"] != "TOFD"]  # Removing suppport for TOFD since it does not seem to be working dispite efforts
+    df_scaled = df_scaled[(df_scaled["Notes"] == 0) | (df["Notes"] == 8)]
+    df_scaled = df_scaled[df_scaled["PruningSelection"] != "TOFD"]  # Removing support for TOFD since it does not seem to be working despite efforts
 
     pt = df.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune", "Memory", "CudaMemory", "GarbageCollectionSizeTotal", "TimeForPruneAndRetrain"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc=["mean", lambda x: np.std(x)/(len(x)**0.5)])
     pt_scaled = df_scaled.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune", "TimeForPruneAndRetrain"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc=["mean", lambda x: np.std(x)/(len(x)**0.5)])
@@ -144,11 +163,11 @@ def graph_pt(pt: pd.DataFrame, pair: tuple[str, str] = ("actual_parameters", "va
 
 
 if __name__ == "__main__":
-    df_small, pt_small, pt_scaled_small = read_results("results/Small(v0.124).csv")
-    df, pt, pt_scaled = read_results("results/Bigcomputer(v0.124).csv")
+    df_small, pt_small, pt_scaled_small = read_results("results/SmallModel(v0.131).csv")
+    df, pt, pt_scaled = read_results("results/BigModel(v0.131).csv")
 
-    combined = pd.concat([pt_small["mean"][["actual_parameters", "val_f1_score_macro"]],
-                          pt["mean"][["actual_parameters", "val_f1_score_macro"]],
+    combined = pd.concat([pt_small["mean"][["actual_parameters", "val_f1_score_macro", "TimeForPruneAndRetrain"]],
+                          pt["mean"][["actual_parameters", "val_f1_score_macro", "TimeForPruneAndRetrain"]],
                           #   pt_scaled_small["mean"][["actual_parameters", "val_f1_score_macro"]],
                           #   pt_scaled["mean"][["actual_parameters", "val_f1_score_macro"]]
                           ], axis=1, keys=["small", "big"]).astype(object)

@@ -14,9 +14,9 @@ if __name__ == "__main__":
             src.standard_run(PruningSelection="RandomStructured", **kwargs)
             src.standard_run(PruningSelection="DAIS", **kwargs)
             src.standard_run(PruningSelection="BERT_theseus", **kwargs)
-            src.standard_run(PruningSelection="iteritive_full_theseus", **kwargs)
+            src.standard_run(PruningSelection="iterative_full_theseus", **kwargs)
             src.standard_run(PruningSelection="thinet", **kwargs)
-            src.standard_run(PruningSelection="ADDM_Joint", **kwargs)
+            src.standard_run(PruningSelection="ADMM_Joint", **kwargs)
             src.standard_run(PruningSelection="TOFD", **kwargs)
             src.standard_run(**(kwargs | {"logger": None, "NumberOfEpochs": 0}))
 
@@ -28,7 +28,7 @@ if __name__ == "__main__":
         config("PruningSelection", "Reset")
 
         if selected == "None" or selected == "0":
-            print("Starting normalrun")
+            print("Starting normal run")
             kwargs = src.standard_run(save_epoch_waypoints=True, config=config)
             kwargs["model"].save_model_state_dict(logger=kwargs["logger"])
         else:

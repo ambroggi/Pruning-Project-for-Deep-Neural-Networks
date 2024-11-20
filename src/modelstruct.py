@@ -11,7 +11,7 @@ class BaseDetectionModel(torch.nn.Module, modelfunctions.ModelFunctions):
 
     def __init__(self, num_classes=100, num_features=100):
         """
-        Initialization, inhearits from both torch.nn.Module and from the model functions object which includes all of the functions we want to use.
+        Initialization, inherits from both torch.nn.Module and from the model functions object which includes all of the functions we want to use.
         """
         modelfunctions.ModelFunctions.__init__(self)
         super(BaseDetectionModel, self).__init__()
@@ -26,7 +26,7 @@ class BaseDetectionModel(torch.nn.Module, modelfunctions.ModelFunctions):
 
     def get_important_modules(self) -> torch.nn.ModuleList:
         """
-        This is an added function that returns all of the models that should be able to be affected by pruning. This does not count activation functions, Dropout, or Seqentual modules.
+        This is an added function that returns all of the models that should be able to be affected by pruning. This does not count activation functions, Dropout, or Sequential modules.
         """
         return torch.nn.ModuleList([x for x in self.modules() if isinstance(x, (torch.nn.Linear, torch.nn.Conv1d))])
 
@@ -46,7 +46,8 @@ class BaseDetectionModel(torch.nn.Module, modelfunctions.ModelFunctions):
 
     def load_from_config(self):
         """
-        Loads the model from the --FromSaveLocation config value assuming that it was written to. This overrides the current model and thus might cause innacuracies in the output log"""
+        Loads the model from the --FromSaveLocation config value assuming that it was written to. This overrides the current model and thus might cause inaccuracies in the output log
+        """
         if self.cfg("FromSaveLocation") is not None and len(self.cfg("FromSaveLocation")) != 0:
             self.load_model_state_dict_with_structure(torch.load("savedModels/"+self.cfg("FromSaveLocation"), map_location=self.cfg("Device")))
 
@@ -81,7 +82,7 @@ class SimpleCNNModel(BaseDetectionModel):
 
 class SwappingDetectionModel(BaseDetectionModel):
     """
-    Poorly named module that is just three linear layers. Nothing intresintg here as it ws just used for a few simple tests vefore selecting a final model.
+    Poorly named module that is just three linear layers. Nothing interesting here as it ws just used for a few simple tests before selecting a final model.
     """
     def __init__(self, num_classes=100, num_features=100):
         modelfunctions.ModelFunctions.__init__(self)
@@ -207,7 +208,7 @@ def validateConfigInModel(model: BaseDetectionModel):
 
 def setlayerprunetargets_to_weightprunepercent(model: BaseDetectionModel):
     """
-    Set the ADDM layer prune targets to match the total pruning target.
+    Set the ADMM layer prune targets to match the total pruning target.
     """
     # This kind of invalidates that prior "LayerPruneTargets"
     percentages = model.cfg("WeightPrunePercent")
@@ -215,7 +216,7 @@ def setlayerprunetargets_to_weightprunepercent(model: BaseDetectionModel):
     model.cfg("LayerPruneTargets", layer_prune_targets)
 
 
-# These are modules that just be ignored because they are just conatainers for the actual useful modules.
+# These are modules that just be ignored because they are just containers for the actual useful modules.
 container_modules = (torch.nn.Sequential, LinearLayer)
 
 if __name__ == "__main__":

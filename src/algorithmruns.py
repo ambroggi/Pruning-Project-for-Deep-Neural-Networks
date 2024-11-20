@@ -11,7 +11,24 @@ from . import (Imported_Code, cfg, extramodules, filemanagement,
                modelstruct)
 
 
-def swapping_run(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel, layers: list[int] | None = None, **kwargs):
+def swapping_run(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel, layers: list[int] | None = None, **kwargs) -> dict[str, object]:
+    """
+    This is the Iterative Full Theseus run (original).
+    A) It slowly reduces the model size by replacing each layer by a smaller layer without transferring the weights from the replaced layer, but the rest of the layers stay the same.
+    B) The next layer is minimally adjusted to work with the fewer number of input features.
+    C) Repeating until the model is at the expected size.
+
+    Args:
+        config (cfg.ConfigObject): The configuration to use.
+        model (modelstruct.BaseDetectionModel): The model to reduce.
+        layers (list[int] | None, optional): The layers to reduce from the model, in the form of a sorted list of integers. Defaults to None.
+
+    Raises:
+        ValueError: Tried to reduce an unknown module type, don't know how to reduce it.
+
+    Returns:
+        dict[str, object]: This is an updated version of the initial arguments given to the function, so that the pruning methods can be stacked.
+    """
     if layers is None:
         layers = [layernum for layernum, layerpercent in enumerate(config("WeightPrunePercent")) if layerpercent < 1]
 
@@ -20,18 +37,18 @@ def swapping_run(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel
     path_for_layer = []
 
     for i in layers:
-        # This is for finding the target dimentions
-        state_dict = model.state_dict_of_layer_i(i)  # get the state dict of current layer
-        weights_path = [x for x in state_dict.keys() if "weight" in x][0]  # find what the weights are called (it is in the form "x.weight")
+        # This is for finding the target dimensions
+        state_dict_for_next_layer = model.state_dict_of_layer_i(i)  # get the state dict of current layer
+        weights_path = [x for x in state_dict_for_next_layer.keys() if "weight" in x][0]  # find what the weights are called (it is in the form "x.weight")
         path_for_layer.append(weights_path)  # save the path to weights so we dont need to calculate it again
-        targets.append(math.ceil(len(state_dict[weights_path])*config("WeightPrunePercent")[i]))  # find how small it should be pruned to
-        currents.append(len(state_dict[weights_path]))  # save the shape it currently is
+        targets.append(math.ceil(len(state_dict_for_next_layer[weights_path])*config("WeightPrunePercent")[i]))  # find how small it should be pruned to
+        currents.append(len(state_dict_for_next_layer[weights_path]))  # save the shape it currently is
 
-    config("PruningSelection", "iteritive_full_theseus_training")
+    config("PruningSelection", "iterative_full_theseus_training")
 
     tq = tqdm(total=sum(currents)-sum(targets), initial=0)
 
-    # This is so inefficent, it loops until the layer sizes are at least as small as the targets
+    # This is so inefficient, it loops until the layer sizes are at least as small as the targets (PART: C)
     while True in [a > b for a, b in zip(currents, targets)]:
         for i in layers:
             if currents[i] > targets[i]:
@@ -40,8 +57,9 @@ def swapping_run(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel
                 # Reduce layer i
 
                 # First get layer i+1's state dictionary
-                state_dict = model.state_dict_of_layer_i(i+1)
+                state_dict_for_next_layer = model.state_dict_of_layer_i(i+1)
 
+                # PART: A
                 # check the planned reduction and save it
                 reduction = currents[i] - max(targets[i], currents[i] - config("LayerIteration")[i])
                 currents[i] = max(targets[i], currents[i] - config("LayerIteration")[i])
@@ -51,13 +69,13 @@ def swapping_run(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel
 
                 # These need to be unique because I don't know of any generic cloning for the layers
                 if isinstance(old_layer, torch.nn.Linear):
-                    # Definitly train the new layer
+                    # Definitely train the new layer
                     new_layer = torch.nn.Linear(old_layer.in_features, currents[i])
                     new_layer.requires_grad_(True)
 
                     Imported_Code.set_layer_by_state(model, path_for_layer[i], new_layer)
                 elif isinstance(old_layer, torch.nn.Conv1d):
-                    # Definitly train the new layer
+                    # Definitely train the new layer
                     new_layer = torch.nn.Conv1d(old_layer.in_channels, currents[i], old_layer.kernel_size)
                     new_layer.requires_grad_(True)
 
@@ -66,9 +84,10 @@ def swapping_run(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel
                     print(f"Theseus problem, an unknown type of layer just tried to be reduced {old_layer}")
                     raise ValueError()
 
-                for name in state_dict:
-                    if isinstance(state_dict[name], torch.Tensor):
-                        state_value: torch.Tensor = state_dict[name]
+                # The next layer needs to be adjusted so tht it can accept a reduced input shape (PART: B)
+                for name in state_dict_for_next_layer:
+                    if isinstance(state_dict_for_next_layer[name], torch.Tensor):
+                        state_value: torch.Tensor = state_dict_for_next_layer[name]
                         if len(state_value.shape) == 2:
                             if isinstance(old_layer, torch.nn.Conv1d):
                                 # This is just to check if going from CNN layer to FC and scale
@@ -78,9 +97,9 @@ def swapping_run(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel
                         elif len(state_value.shape) == 3:
                             state_value = state_value[:, :currents[i], :]
 
-                        state_dict[name] = state_value
+                        state_dict_for_next_layer[name] = state_value
 
-                model.load_model_state_dict_with_structure(state_dict)
+                model.load_model_state_dict_with_structure(state_dict_for_next_layer)
 
                 # Check what modules to update:
                 if config("TheseusRequiredGrads") == "Nearby":
@@ -98,23 +117,38 @@ def swapping_run(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel
 
     extra_specifier = config("TheseusRequiredGrads") if config("TheseusRequiredGrads") != "All" else ""
 
-    config("PruningSelection", "iteritive_full_theseus"+extra_specifier)
+    config("PruningSelection", "iterative_full_theseus"+extra_specifier)
     logger = filemanagement.ExperimentLineManager(cfg=config)
 
     return kwargs | {"model": model, "logger": logger, "config": config}
 
 
-def addm_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, **kwargs):
+def admm_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, **kwargs) -> dict[str, object]:
+    """
+    ADMM testing (Mostly from the code but crosschecked with the paper),
+        Attaches extra masking parameters to each layer of the network (recreating the optimizer to work with these extra layers)
+        Trains to minimize these layers both within a module and as a whole according to alternating direction method of multipliers.
+        Then applies these masking layers both on filters (apply_filter()) and within filters (apply_prune())
+        A retraining step is applied before we remove the extra masking parameters.
+        The masking parameters are applied to the weights as they would be if the layers were being used (basically just rolling them into the existing parameters)
+
+    Args:
+        model (modelstruct.BaseDetectionModel): Model to prune
+        config (cfg.ConfigObject): Config to use
+
+    Returns:
+        dict[str, object]:  An updated version of the initial arguments given to the function, so that the pruning methods can be stacked.
+    """
     model.optimizer = model.cfg("Optimizer")(model.parameters(), lr=model.cfg("LearningRate"))
 
-    # Adds the compatability to the model that is needed
-    Imported_Code.add_addm_v_layers(model)
+    # Adds the compatibility to the model that is needed
+    Imported_Code.add_admm_v_layers(model)
 
     # Reset the optimizer to include the v layers (This is to emulate the original code, not sure if it is in the paper)
     optimizer = model.cfg("Optimizer")(model.parameters(), lr=model.cfg("LearningRate"))
 
     # Adds an interpretation layer to the config so that it can be read
-    wrapped_cfg = Imported_Code.ConfigCompatabilityWrapper(config, translations="ADDM")
+    wrapped_cfg = Imported_Code.ConfigCompatibilityWrapper(config, translations="ADMM")
 
     # Expects model to have log_softmax applied (observed from the model used in the code)
     remover = model.register_forward_hook(lambda module, args, output: torch.nn.functional.log_softmax(output, dim=1))
@@ -122,9 +156,9 @@ def addm_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, *
     # Performs the pruning method
     Imported_Code.prune_admm(wrapped_cfg, model, config("Device"), model.dataloader, model.validation_dataloader, optimizer)
 
-    # Applies the pruning to the base model, NOTE: MIGHT CAUSE ISSUES WITH "Imported_Code.remove_addm_v_layers"
+    # Applies the pruning to the base model, NOTE: MIGHT CAUSE ISSUES WITH "Imported_Code.remove_admm_v_layers"
     Imported_Code.apply_filter(model, config("Device"), wrapped_cfg)
-    # Imported_Code.apply_filter(model, config("Device"), wrapped_cfg)  # Commenting out because I think this is redundent
+    # Imported_Code.apply_filter(model, config("Device"), wrapped_cfg)  # Commenting out because I think this is redundant
     mask = Imported_Code.apply_prune(model, config("Device"), wrapped_cfg)
     for m in mask:
         a = mask[m].cpu()
@@ -143,20 +177,31 @@ def addm_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, *
     model.eval()
 
     # Removes the added v layers from the model but ports their values over as a multiplier to the weights
-    Imported_Code.remove_addm_v_layers(model)
+    Imported_Code.remove_admm_v_layers(model)
 
     # Remove F.log_softmax
     remover.remove()
 
     model.eval()
 
-    config("PruningSelection", "ADDM_Joint")
+    config("PruningSelection", "admm_Joint")
     logger = filemanagement.ExperimentLineManager(cfg=config)
 
     return kwargs | {"model": model, "logger": logger, "config": config}
 
 
-def thinet_test_old(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel, layers: list[int] | None = None, **kwargs):
+def thinet_test_old(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel, layers: list[int] | None = None, **kwargs) -> dict[str, object]:
+    """
+    Defunct attempt at implementing the thinet algorithm from the paper description.
+
+    Args:
+        config (cfg.ConfigObject): Config to use.
+        model (modelstruct.BaseDetectionModel): model to use.
+        layers (list[int] | None, optional): Layer indices to apply the pruning to. Defaults to None.
+
+    Returns:
+        dict[str, object]: An updated version of the initial arguments given to the function, so that the pruning methods can be stacked.
+    """
     if layers is None:
         layers = [layernum for layernum, layerpercent in enumerate(config("WeightPrunePercent")) if layerpercent < 1]
 
@@ -169,7 +214,23 @@ def thinet_test_old(config: cfg.ConfigObject, model: modelstruct.BaseDetectionMo
     return kwargs | {"model": model, "logger": logger, "config": config, "layers": layers}
 
 
-def thinet_test(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel, layers: list[int] | None = None, **kwargs):
+def thinet_test(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel, layers: list[int] | None = None, **kwargs) -> dict[str, object]:
+    """
+    This runs the thinet method of pruning (core algorithm mostly from the code, but crosschecked with the paper),
+       Some training data is selected to run through the layers of the model that are going to be pruned.
+       Each layer that needs to be pruned is passed the training data, which is then collected.
+       The outputs are passed through the next layer one at a time and recorded, the filter that had the least impact on the next layer output is pruned.
+       Repeat the last step until the layer is pruned enough.
+       Most of the code has been put into Imported_Code.run_thinet_on_layer, read more there.
+
+    Args:
+        config (cfg.ConfigObject): Config to use.
+        model (modelstruct.BaseDetectionModel): Model to prune.
+        layers (list[int] | None, optional): Layers to prune, identified by integers. Defaults to None.
+
+    Returns:
+        dict[str, object]:  An updated version of the initial arguments given to the function, so that the pruning methods can be stacked.
+    """
     if layers is None:
         layers = [layernum for layernum, layerpercent in enumerate(config("WeightPrunePercent")) if layerpercent < 1]
 
@@ -186,7 +247,22 @@ def thinet_test(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel,
     return kwargs | {"model": model, "logger": logger, "config": config, "layers": layers}
 
 
-def bert_of_theseus_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, **kwargs):
+def bert_of_theseus_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, **kwargs) -> dict[str, object]:
+    """
+    Runs the bert of theseus pruning method (Completely from the paper, no code was found),
+       Replaces the layers with layers that have two versions, the original and the pruned. In this case, pruned, means that several layers are combined into one.
+       The model is then retrained with each layer having a chance of contributing to the final result.
+       As the model trains the chance that the layer that contributes is the pruned version increases.
+       Then the layers are completely replaced with the pruned versions.
+
+
+    Args:
+        model (modelstruct.BaseDetectionModel): Model to prune
+        config (cfg.ConfigObject): Configuration to use
+
+    Returns:
+        dict[str, object]: An updated version of the initial arguments given to the function, so that the pruning methods can be stacked.
+    """
 
     # This splits the model into the predecessors
     module_group_size = int(1/(sum(config("WeightPrunePercent"))/len(config("WeightPrunePercent"))))
@@ -198,7 +274,7 @@ def bert_of_theseus_test(model: modelstruct.BaseDetectionModel, config: cfg.Conf
     # List of all modules that are not containers (containers being purely structural and not actually functional)
     lst_of_modules: list[torch.nn.Module] = [m for m in model.modules() if not isinstance(m, modelstruct.container_modules)]
     for start, end in zip(module_group, module_group[1:]):
-        # This is for each predecessor, orginized by the starting and ending modules
+        # This is for each predecessor, organized by the starting and ending modules
 
         # Get a list of all the modules that are encompassed by the predecessor
         lst = lst_of_modules[lst_of_modules.index(start): lst_of_modules.index(end)]
@@ -240,7 +316,23 @@ def bert_of_theseus_test(model: modelstruct.BaseDetectionModel, config: cfg.Conf
     return kwargs | {"model": model, "config": config, "logger": logger}
 
 
-def DAIS_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, layers: list[int] | None = None, **kwargs):
+def DAIS_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, layers: list[int] | None = None, **kwargs) -> dict[str, object]:
+    """
+    Runs the DAIS method for pruning (from paper, code not found),
+       Adds a masking layer to the specified parameters.
+       This masking layer starts out as a smooth function but becomes more binary as an annealing function is called.
+       Then fit each model using a method of estimating the next weights and then calculating the masking parameters based on those before actually updating the weights.
+       This slowly fits the masking parameters to block out some weights.
+
+
+    Args:
+        config (cfg.ConfigObject): Config to use.
+        model (modelstruct.BaseDetectionModel): Model to prune.
+        layers (list[int] | None, optional): Layers to prune, identified by integers. Defaults to None.
+
+    Returns:
+        dict[str, object]: An updated version of the initial arguments given to the function, so that the pruning methods can be stacked.
+    """
     # Find the layers to apply it to
     if layers is None:
         layers = [layernum for layernum, layerpercent in enumerate(config("WeightPrunePercent")) if layerpercent < 1]
@@ -250,11 +342,12 @@ def DAIS_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, l
         if layer in layers:
             alphas.append(Imported_Code.add_alpha(module, config("WeightPrunePercent")[layer], config("NumberOfEpochs"), lasso=config("LassoForDAIS")))
 
+    # Add the annealing to the epoch callbacks
     model.epoch_callbacks.extend([a.callback_fn for a in alphas])
 
     config("PruningSelection", "DAIS_training")
     logger = filemanagement.ExperimentLineManager(cfg=config, pth="results/extra.csv")
-    # This is just adding thigns to the log
+    # This is just adding things to the log
     model.epoch_callbacks.append(lambda x: ([logger(a, b, can_overwrite=True) for a, b in x.items()]))
 
     Imported_Code.DAIS_fit(model, alphas, epochs=10)
@@ -271,13 +364,29 @@ def DAIS_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, l
     return kwargs | {"model": model, "config": config, "logger": logger}
 
 
-def TOFD_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, layers: list[int] | None = None, **kwargs):
+def TOFD_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, layers: list[int] | None = None, **kwargs) -> dict[str, object]:
+    """
+    Task Oriented Feature Distillation method, Not used in final paper, (From code)
+        This method works by adding extra auxiliary layers to the model and then using those in feature distillation.
+        The extra layers are added by the Imported_Code.task_oriented_feature_wrapper() function and then are trained.
+        Then we create a new model that is smaller and add the auxiliary layers to that as well.
+        We run the TOFD training cycle which adds a loss for the difference between the auxiliary layers.
+        Finally, we remove the new small model from the auxiliary layers and pass it back.
+
+    Args:
+        config (cfg.ConfigObject): Config to use.
+        model (modelstruct.BaseDetectionModel): Model to prune.
+        layers (list[int] | None, optional): Layers to prune, identified by integers. Defaults to None.
+
+    Returns:
+        dict[str, object]: An updated version of the initial arguments given to the function, so that the pruning methods can be stacked.
+    """
     wrap = Imported_Code.task_oriented_feature_wrapper(model)
 
     optimizer = config("Optimizer")(wrap.parameters(), lr=config("LearningRate"))
     wrap.fit(model.dataloader, optimizer, config("NumberOfEpochs"))
 
-    args = Imported_Code.ConfigCompatabilityWrapper(config=config, translations="TOFD")
+    args = Imported_Code.ConfigCompatibilityWrapper(config=config, translations="TOFD")
     new_net = modelstruct.getModel(config)
 
     # Creating new state dict (This is just to set the size of the new model)
@@ -307,7 +416,10 @@ def TOFD_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, l
     optimizer = new_net.cfg("Optimizer")(new_wrap.parameters(), lr=config("LearningRate"))
 
     # This is the actual TOFD run, everything else is just setup (create aux modules/create student model)
-    new_wrap = Imported_Code.TOFD_name_main(optimizer=optimizer, teacher=wrap, net=new_wrap, trainloader=model.dataloader, testloader=model.validation_dataloader, device=config("Device"), args=args, epochs=config("NumberOfEpochs"), LR=config("LearningRate"), criterion=config("LossFunction")())
+    new_wrap = Imported_Code.TOFD_name_main(optimizer=optimizer, teacher=wrap, net=new_wrap,
+                                            trainloader=model.dataloader, testloader=model.validation_dataloader,
+                                            device=config("Device"), args=args, epochs=config("NumberOfEpochs"),
+                                            LR=config("LearningRate"), criterion=config("LossFunction")())
 
     wrap.remove()
     new_wrap.remove()
@@ -323,7 +435,17 @@ def TOFD_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, l
     return kwargs | {"model": new_net, "config": config, "logger": logger}
 
 
-def Random_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, **kwargs):
+def Random_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, **kwargs) -> dict[str, object]:
+    """
+    Randomly prunes some of the filters in each layer.
+
+    Args:
+        model (modelstruct.BaseDetectionModel): Model to prune
+        config (cfg.ConfigObject): Configuration
+
+    Returns:
+        dict[str, object]: An updated version of the initial arguments given to the function, so that the pruning methods can be stacked.
+    """
     pruning_list = []
     for count, module in enumerate(model.get_important_modules()):
         pruning_layer = (extramodules.PostMutablePruningLayer(module, register_parameter=False))
@@ -348,7 +470,21 @@ def Random_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject,
     return kwargs | {"model": model, "config": config, "logger": logger}
 
 
-def Recreation_run(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, layers: list[int] | None = None, **kwargs):
+def Recreation_run(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, layers: list[int] | None = None, **kwargs) -> dict[str, object]:
+    """
+    Recreates a model that is smaller and retrains it from scratch.
+
+    Args:
+        model (modelstruct.BaseDetectionModel): Model to prune.
+        config (cfg.ConfigObject): Configuration to use.
+        layers (list[int] | None, optional): Layers to reduce, leave none for pruning all. Defaults to None.
+
+    Raises:
+        ValueError: Raises a value error if it encounters a module type that it does not know how to reduce.
+
+    Returns:
+        dict[str, object]: An updated version of the initial arguments given to the function, so that the pruning methods can be stacked.
+    """
     # This just makes a new model with the specified size
     if layers is None:
         layers = [layernum for layernum, layerpercent in enumerate(config("WeightPrunePercent")) if layerpercent < 1]
@@ -358,14 +494,14 @@ def Recreation_run(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObje
     path_for_layer = []
 
     for i in layers:
-        # This is for finding the target dimentions
+        # This is for finding the target dimensions
         state_dict = model.state_dict_of_layer_i(i)  # get the state dict of current layer
         weights_path = [x for x in state_dict.keys() if "weight" in x][0]  # find what the weights are called (it is in the form "x.weight")
         path_for_layer.append(weights_path)  # save the path to weights so we dont need to calculate it again
         targets.append(math.ceil(len(state_dict[weights_path])*(1-(1-config("WeightPrunePercent")[i])/2)))  # find how small it should be pruned to
         currents.append(len(state_dict[weights_path]))  # save the shape it currently is
 
-    # This is so inefficent, it loops until the layer sizes are at least as small as the targets
+    # This is so inefficient, it loops until the layer sizes are at least as small as the targets
     for i in layers:
         if currents[i] > targets[i]:
             # Reduce layer i
@@ -403,16 +539,16 @@ def Recreation_run(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObje
 
 
 types_of_tests = {
-    "ADDM_Joint": addm_test,
+    "ADMM_Joint": admm_test,
     "thinet_recreation": thinet_test_old,
     "thinet": thinet_test,
-    "iteritive_full_theseus": swapping_run,
+    "iterative_full_theseus": swapping_run,
     "BERT_theseus": bert_of_theseus_test,
     "DAIS": DAIS_test,
     "TOFD": TOFD_test,
     "RandomStructured": Random_test,
     "Reduced_Normal_Run": Recreation_run,
-    "1": addm_test,
+    "1": admm_test,
     "2": TOFD_test,
     "3": swapping_run,
     "4": bert_of_theseus_test,

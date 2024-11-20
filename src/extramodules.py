@@ -12,10 +12,10 @@ class PreMutablePruningLayer():
         self.module = module
 
         if register_parameter:
-            self.paramiter = True
+            self.parameter = True
             module.register_parameter(f"v_{module._get_name()}", self.para)
         else:
-            self.paramiter = False
+            self.parameter = False
         self.remove_hook = module.register_forward_pre_hook(self)
 
     def __call__(self, module: torch.nn.Module, args: tuple[torch.Tensor]) -> torch.Tensor:
@@ -32,7 +32,7 @@ class PreMutablePruningLayer():
         if update_weights:
             self.module.__getattr__("weight").data *= self.para.data
 
-        if self.paramiter:
+        if self.parameter:
             self.module.__setattr__(f"v_{self.module._get_name()}", None)
         del self.para
 
@@ -48,10 +48,10 @@ class PostMutablePruningLayer():
         self.module = module
 
         if register_parameter:
-            self.paramiter = True
+            self.parameter = True
             module.register_parameter(f"v_{module._get_name()}", self.para)
         else:
-            self.paramiter = False
+            self.parameter = False
         self.remove_hook = module.register_forward_hook(self)
 
     def __call__(self, module: torch.nn.Module, args: list[torch.Tensor], output: torch.Tensor) -> torch.Tensor:
@@ -70,13 +70,19 @@ class PostMutablePruningLayer():
             self.module.__getattr__("weight").permute(*torch.arange(w.ndim - 1, -1, -1)).data *= self.para.data
             self.module.__getattr__("bias").permute(*torch.arange(self.module.__getattr__("bias").ndim - 1, -1, -1)).data *= self.para.data
 
-        if self.paramiter:
+        if self.parameter:
             self.module.__setattr__(f"v_{self.module._get_name()}", None)
         del self.para
 
 
 class Nothing_Module(torch.nn.Module):
     def __init__(self, old: torch.nn.Module):
+        """
+        This is just a module that does nothing so that it can store the place where an actual module used to be.
+
+        Args:
+            old (torch.nn.Module): The module that this is replacing. It is stored as self.old[0] so that it cannot be found by torch autograd
+        """
         super().__init__()
         self.old = [old]  # Making it a list so torch cannot find it
 

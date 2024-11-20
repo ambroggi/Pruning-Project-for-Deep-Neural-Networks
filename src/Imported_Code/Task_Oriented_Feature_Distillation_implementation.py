@@ -6,7 +6,7 @@
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from src.Imported_Code import ConfigCompatabilityWrapper
+    from src.Imported_Code import ConfigCompatibilityWrapper
     from src.modelstruct import BaseDetectionModel
 
 
@@ -20,12 +20,12 @@ from .helperFunctions import forward_hook
 # from TaskOrientedFeatureDistillation.utils import get_orth_loss
 
 
-# This is just a wrapper to add the auxillery modules that the code wants
+# This is just a wrapper to add the axillary modules that the code wants
 class task_oriented_feature_wrapper(torch.nn.Module):
     def __init__(self, wrapped_module: 'BaseDetectionModel'):
         super().__init__()
         self.wrapped_module = wrapped_module
-        # This part is solely just to get the dimentions of the outputs, it is not great but should work
+        # This part is solely just to get the dimensions of the outputs, it is not great but should work
         self.module_hooks_for_outdim = {}
         self.fw_hooks: list[torch.utils.hooks.RemovableHandle] = []
         for module in wrapped_module.get_important_modules():
@@ -36,12 +36,12 @@ class task_oriented_feature_wrapper(torch.nn.Module):
         class_count = len(wrapped_module(data)[0])
         length_of_last_block_input = len(self.module_hooks_for_outdim[module].inp[0])
 
-        # Create the auxillary modules
+        # Create the auxiliary modules
         self.aux = torch.nn.ModuleList()
         for module in wrapped_module.modules():
             if isinstance(module, (torch.nn.Linear, torch.nn.Conv1d)):
                 self.module_hooks_for_outdim[module].out
-                self.aux.append(auxillary_module(module, self.module_hooks_for_outdim[module].out, class_count, features_len=length_of_last_block_input))
+                self.aux.append(auxiliary_module(module, self.module_hooks_for_outdim[module].out, class_count, features_len=length_of_last_block_input))
         self.link = torch.nn.ModuleList()
 
     def forward(self, x):
@@ -67,7 +67,7 @@ class task_oriented_feature_wrapper(torch.nn.Module):
             x.remove()
 
     def fit(self, dataloader, optimizer, epochs):
-        # This is just fitting the auxillary modules, NOTE: I am not sure if they should be trained on the teacher network or not?
+        # This is just fitting the auxiliary modules, NOTE: I am not sure if they should be trained on the teacher network or not?
         if self.wrapped_module.loss_fn is None:
             self.wrapped_module.loss_fn = self.wrapped_module.cfg("LossFunction")()
         for e in range(epochs):
@@ -85,14 +85,14 @@ class task_oriented_feature_wrapper(torch.nn.Module):
 
                 loss.backward()
                 optimizer.step()
-            print(f"TOFD teacher auxillery modules training epoch({e}/{epochs}), Last loss: {loss} complete")
+            print(f"TOFD teacher auxiliary modules training epoch({e}/{epochs}), Last loss: {loss} complete")
 
 
-# This is the auxillary modules attempted to be made in the format given by the paper, several convolutional layers and a fully connected layer
-class auxillary_module(torch.nn.Module):
+# This is the auxiliary modules attempted to be made in the format given by the paper, several convolutional layers and a fully connected layer
+class auxiliary_module(torch.nn.Module):
     def __init__(self, wrapped_module: torch.nn.Module, expected_tensor_example: torch.Tensor, number_of_classes: int, features_len: int):
         super().__init__()
-        # NOTE: this auxillary module is as accurate as I think I could make it given that we have a diffrent model structure.
+        # NOTE: this auxiliary module is as accurate as I think I could make it given that we have a diffrent model structure.
         # self.wrapped = wrapped_module
         if len(expected_tensor_example.shape) < 3:
             self.expand = True
@@ -102,24 +102,24 @@ class auxillary_module(torch.nn.Module):
         maxpool = 2
         convkernel = 3
 
-        self.intermidiate = torch.nn.Sequential(
+        self.intermediate = torch.nn.Sequential(
             torch.nn.Conv1d(expected_tensor_example.shape[1], expected_tensor_example.shape[2], convkernel, stride=2, padding=1),
             torch.nn.Conv1d(expected_tensor_example.shape[2], expected_tensor_example.shape[1], convkernel, stride=2, padding=1),
             torch.nn.MaxPool1d(maxpool),
             torch.nn.Flatten(),
         )
-        self.intermidiate.to(expected_tensor_example.device)
-        self.intermidiate.append(torch.nn.Linear(self.intermidiate(expected_tensor_example).shape[-1], features_len, device=expected_tensor_example.device))
+        self.intermediate.to(expected_tensor_example.device)
+        self.intermediate.append(torch.nn.Linear(self.intermediate(expected_tensor_example).shape[-1], features_len, device=expected_tensor_example.device))
         self.final = torch.nn.Linear(features_len, number_of_classes, device=expected_tensor_example.device)
 
     def forward(self, x: torch.Tensor):
         if self.expand:
             x = x.unsqueeze(1)
-        feature = self.intermidiate(x)
+        feature = self.intermediate(x)
         return self.final(feature), feature
 
 
-def TOFD_name_main(optimizer: torch.optim.Optimizer, teacher: task_oriented_feature_wrapper, net: task_oriented_feature_wrapper, trainloader: torch.utils.data.DataLoader, testloader: torch.utils.data.DataLoader, device: torch.device, LR: float, criterion: nn.Module, args: 'ConfigCompatabilityWrapper', epochs: int = 250):
+def TOFD_name_main(optimizer: torch.optim.Optimizer, teacher: task_oriented_feature_wrapper, net: task_oriented_feature_wrapper, trainloader: torch.utils.data.DataLoader, testloader: torch.utils.data.DataLoader, device: torch.device, LR: float, criterion: nn.Module, args: 'ConfigCompatibilityWrapper', epochs: int = 250):
     # This is code from before the __name__=="__main__" block in /distill.py of the origin code
     init = False
     # This is code from the __name__ == "__main__" block in /distill.py of the origin code (https://github.com/ArchipLab-LinfengZhang/Task-Oriented-Feature-Distillation)

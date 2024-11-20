@@ -17,14 +17,14 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
 
     Args:
         config (cfg.ConfigObject | bool | None, optional): The config object to attach to the model. Defaults to None.
-        save_epoch_waypoints (bool, optional): A booliean to check if you want to save the model at 5 intermidate points during training. Defaults to False.
+        save_epoch_waypoints (bool, optional): A boolean to check if you want to save the model at 5 intermediate points during training. Defaults to False.
         data (getdata.torch.utils.data.DataLoader | None, optional): This is a dataloader to use with the model, automatically splits it into train/test. (generates one from config if none is given) Defaults to None.
         model (modelstruct.BaseDetectionModel | None, optional): This is the model you want to use assuming you don't want to use a config default one. Defaults to None.
         PruningSelection (str | None, optional): Algorithm to use, called pruning selection because that is what it was called in the config. Defaults to None.
         from_savepoint (None | int, optional): Where to load from using standard load. Overrides data and model. Defaults to None.
-        modelStateDict (None | dict[str, torch.Tensor]: (hidden) The model state dictionary to load into the active model, mostly used internally for laoding from standardLoad). Defaults to None.
+        modelStateDict (None | dict[str, torch.Tensor]: (hidden) The model state dictionary to load into the active model, mostly used internally for loading from standardLoad). Defaults to None.
         NumberOfEpochs (None | int): (hidden) overrides the number of epochs for the model. Defaults to None.
-        logger (None | filemanagement.ExperimentLineManager): (hidden) Internal currently active logging line. Usually creates a new line, but the last line can be kept if you want. None means to use no logger at all and leave the run unlogged. Defaults to Not in kwargs.
+        logger (None | filemanagement.ExperimentLineManager): (hidden) Internal currently active logging line. Usually creates a new line, but the last line can be kept if you want. None means to use no logger at all and leave the run un-logged. Defaults to Not in kwargs.
         prior_logger_row (int): (hidden) The last row written to the log file. Used to create links through standardLoad so the graphing can know what model each row was used with. Defaults to Not in kwargs.
 
     Returns:

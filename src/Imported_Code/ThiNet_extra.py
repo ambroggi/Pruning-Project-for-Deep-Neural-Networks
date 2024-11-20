@@ -37,6 +37,18 @@ def run_one_channel_module(module: torch.nn.Module, dat: torch.Tensor) -> list[t
 
 
 def collect_module_is(model: "BaseDetectionModel", paramNumbers: list, batch: torch.Tensor) -> list[forward_hook]:
+    """
+    Thinet calls the outputs of the layers i in the code, so this is collect the i s.
+    That is, this code creates the hooks for the model that collect the input and output, runs the model, and removes the hooks while passing back the results.
+
+    Args:
+        model (BaseDetectionModel): Model to add the hooks to.
+        paramNumbers (list): Specific layer numbers to add hooks to.
+        batch (torch.Tensor): Batch of data to pass through the model and collect.
+
+    Returns:
+        list[forward_hook]: List of hook objects that have all the information about the layer(s).
+    """
     # Used in ThiNet
     i = 0
     hooks = []
@@ -57,21 +69,37 @@ def collect_module_is(model: "BaseDetectionModel", paramNumbers: list, batch: to
 
 
 def run_thinet_on_layer(model: "BaseDetectionModel", layerIndex: int, training_data, config):
+    """
+    Runs the thinet method on one specific layer.
+
+    Args:
+        model (BaseDetectionModel): Model to prune.
+        layerIndex (int): Layer to prune by index.
+        training_data (_type_): The data to use to prune the model
+        config (_type_): Config to use
+
+    Raises:
+        e: It sometimes throws a numpy linear algebra error about the inverse of a matrix not existing.
+        I think this happens due to the training data not having the correct samples, so I just upped the count for training data.
+    """
     module_results: list[forward_hook] = collect_module_is(model, [layerIndex, layerIndex+1], training_data)
     x = torch.stack(run_one_channel_module(module_results[0].modu, module_results[0].inp.detach())).detach().cpu().T
     y = module_results[1].out_no_bias.detach().cpu()
 
+    # Flattening data (the algorithm expects one dimensional data)
     if (y.ndim > 2):
         y = torch.sum(y, dim=-1)
     elif y.shape[1] == 1:
         y = torch.flatten(y, start_dim=1)
 
+    # catch for an edge case
     if x.shape[1] == 1:
         print("Thinet does not make sense on layers with a single input channel")
         remove_layers(model, layerIndex, keepint_tensor=torch.ones_like(x[0], dtype=torch.bool))
         return
 
     try:
+        # This is actually running the thinet algorithm code and getting out the indexes.
         indexes, weight_mod = value_sum(x, y, config("WeightPrunePercent")[layerIndex])
     except LinAlgError as e:
         if not ("Singular matrix" in e.args[0]):
@@ -88,6 +116,7 @@ def run_thinet_on_layer(model: "BaseDetectionModel", layerIndex: int, training_d
 
         weight_mod = torch.Tensor(weight_mod).to(model.cfg("Device"))
 
+        # Apply the extra weight modification to compensate for the removed nodes.
         if module_results[1].modu.weight.data.ndim == 3:
             # This is for CNN layers
             module_results[1].modu.weight.data[:, keep_tensor, :] *= weight_mod.T[:, :, None]
@@ -107,4 +136,5 @@ def run_thinet_on_layer(model: "BaseDetectionModel", layerIndex: int, training_d
             else:
                 module_results[1].modu.weight.data[:, keep_tensor] *= weight_mod.T
 
+        # Apply the removal of the layers
         remove_layers(model, layerIndex, keepint_tensor=keep_tensor)

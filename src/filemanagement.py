@@ -35,7 +35,7 @@ class ExperimentLineManager():
 
         # Attach the history
         if os.path.exists(self.pth):
-            # File locking so that data is not overriden: https://www.geeksforgeeks.org/file-locking-in-python/
+            # File locking so that data is not overridden: https://www.geeksforgeeks.org/file-locking-in-python/
             with open(self.pth, "r") as f:
                 fcntl.flock(f.fileno(), fcntl.LOCK_EX)
 
@@ -70,9 +70,9 @@ class ExperimentLineManager():
             if hist.at[self.row_id, "ProcessID"] != self.pid:
                 raise FileChangedError()
 
-            # Check if that space is empty, if it is not an error may have occured
+            # Check if that space is empty, if it is not an error may have occurred
             if (measure_name in hist and not pd.isnull(hist.at[self.row_id, measure_name])) and not kwargs.get("can_overwrite", False):
-                hist.at[self.row_id, "Notes"] = hist.at[self.row_id, "Notes"] | 4  # Bit 4 of notes is that an overwrite has occured
+                hist.at[self.row_id, "Notes"] = hist.at[self.row_id, "Notes"] | 4  # Bit 4 of notes is that an overwrite has occurred
 
             if isinstance(val, list):
                 val = str(val)

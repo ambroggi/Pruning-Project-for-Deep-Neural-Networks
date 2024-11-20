@@ -82,7 +82,7 @@ class Theseus_Replacement(torch.nn.Module):
                 for i in name_path[:-1]:
                     if isinstance(current_look, Nothing_Module):
                         # This should not happen but if the container has already been replaced and there is still more of the path,
-                        # Then end the replacemnt because the rest has been replaced already.
+                        # Then end the replacement because the rest has been replaced already.
                         break
                     # Traversing the model to find the container module
                     current_look = current_look.__getattr__(i)
@@ -94,7 +94,7 @@ class Theseus_Replacement(torch.nn.Module):
                 elif isinstance(current_look, Nothing_Module):
                     pass
                 else:
-                    # Replace the modules in the predicessor with a module that does nothing
+                    # Replace the modules in the predecessor with a module that does nothing
                     current_look.__setattr__(name_path[-1], Nothing_Module(current_look.__getattr__(name_path[-1])))
 
         # print(model.state_dict())

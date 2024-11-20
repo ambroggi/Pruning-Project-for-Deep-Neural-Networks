@@ -10,4 +10,4 @@
 
 
 source .venv/bin/activate
-python ./main.py --PruningSelection "0" --NumberOfWorkers 3 --NumberOfEpochs 150 --MaxSamples 0
+python ./main.py --PruningSelection "0" --NumberOfWorkers 3 --NumberOfEpochs 150 --MaxSamples 0 --ResultsPath "$1"

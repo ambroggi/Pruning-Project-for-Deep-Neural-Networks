@@ -7,7 +7,7 @@ if TYPE_CHECKING:
 from ..extramodules import PostMutablePruningLayer
 
 
-def add_addm_v_layers(model: "BaseDetectionModel"):
+def add_admm_v_layers(model: "BaseDetectionModel"):
     count = 1
     for module in model.get_important_modules():
         print(module)
@@ -19,7 +19,7 @@ def add_addm_v_layers(model: "BaseDetectionModel"):
             count += 1
 
 
-def remove_addm_v_layers(model: "BaseDetectionModel"):
+def remove_admm_v_layers(model: "BaseDetectionModel"):
     count = 1
     # test = [x.para.data for x in model.pruning_layers]
     while len(model.pruning_layers) > 0:
@@ -30,7 +30,7 @@ def remove_addm_v_layers(model: "BaseDetectionModel"):
 
 
 if __name__ == "__main__":
-    # Test that the method of using v layers does not change the graident from the original version
+    # Test that the method of using v layers does not change the gradient from the original version
 
     # Testing input tensor
     t = torch.Tensor([
@@ -46,7 +46,7 @@ if __name__ == "__main__":
     # Testing V values
     v = torch.Tensor([0, 1, 0, 1, 0, 1])
 
-    # Check that the diagonlization works and what it does.
+    # Check that the diagonalization works and what it does.
     print(torch.diag(v).mm(t))
 
     # Create a model with the added v layers
@@ -86,7 +86,7 @@ if __name__ == "__main__":
     module.zero_grad()
     print(module.state_dict())  # This should be the same as the last print.
 
-    # Sanity check method 1 again (We originally had diffrences between the two methods but that was due to non-zeroed gradients)
+    # Sanity check method 1 again (We originally had differences between the two methods but that was due to non-zeroed gradients)
     module.load_state_dict(state)
     torch.random.manual_seed(1)
     opt = torch.optim.SGD(module.parameters(), lr=1, momentum=0)
