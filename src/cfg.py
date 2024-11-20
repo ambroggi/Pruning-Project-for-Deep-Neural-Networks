@@ -31,7 +31,7 @@ class ConfigObject():
                           "Device": {"cpu": torch.device("cpu"), "cuda": torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"), torch.device("cpu"): torch.device("cpu"), torch.device("cuda"): torch.device("cuda")}
                           }
 
-        self.readOnly = ["Version", "NumberWeightsplits", "ResultsPath"]
+        self.readOnly = ["Version"]
         self.structuralOnly = ["ModelStructure", "HiddenDim", "HiddenDimSize", "DatasetName", "NumClasses", "NumFeatures", "SaveLocation", "FromSaveLocation"]
 
         self.parameters: dict[str, list[any, str, str]] = {
@@ -238,7 +238,7 @@ class ConfigObject():
             parser = argparse.ArgumentParser()
 
             for p in self_.parameters.keys():
-                if p not in ["Notes"] and p not in self_.readOnly:
+                if p not in ["Notes", "Version"]:
                     if p in self_.typechart.keys():
                         t = self_.typechart[""][self_.parameters[p][2]]
                         t = t[0] if isinstance(t, (list, tuple)) else t
