@@ -350,7 +350,7 @@ def DAIS_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, l
     # This is just adding things to the log
     model.epoch_callbacks.append(lambda x: ([logger(a, b, can_overwrite=True) for a, b in x.items()]))
 
-    Imported_Code.DAIS_fit(model, alphas, epochs=10)
+    Imported_Code.DAIS_fit(model, alphas, epochs=config("NumberOfEpochs"))
 
     for a in alphas:
         a.remove()
@@ -498,7 +498,7 @@ def Recreation_run(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObje
         state_dict = model.state_dict_of_layer_i(i)  # get the state dict of current layer
         weights_path = [x for x in state_dict.keys() if "weight" in x][0]  # find what the weights are called (it is in the form "x.weight")
         path_for_layer.append(weights_path)  # save the path to weights so we dont need to calculate it again
-        targets.append(math.ceil(len(state_dict[weights_path])*(1-(1-config("WeightPrunePercent")[i])/2)))  # find how small it should be pruned to
+        targets.append(math.ceil(len(state_dict[weights_path])*config("WeightPrunePercent")[i]))  # find how small it should be pruned to
         currents.append(len(state_dict[weights_path]))  # save the shape it currently is
 
     # This is so inefficient, it loops until the layer sizes are at least as small as the targets
