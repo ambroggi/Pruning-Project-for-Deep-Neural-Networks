@@ -24,7 +24,11 @@ readability = {
     "TOFD": "TOFD",
     "iterative_full_theseus": "Iterative Theseus",
     "iteritive_full_theseus": "Iterative Theseus",
-    "thinet": "Thinet"
+    "thinet": "Thinet",
+    "F1 score in validation": "F1 Score",
+    "Time for pruning the model": "Pruning Time, Scaled",
+    "Number of non-zero parameters": "Parameters",
+    "PruningSelection": "Algorithm"
 }
 
 extra_readability = {
@@ -110,10 +114,10 @@ def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.Dat
     df_scaled = df_scaled[(df_scaled["Notes"] == 0) | (df["Notes"] == 8)]
     df_scaled = df_scaled[df_scaled["PruningSelection"] != "TOFD"]  # Removing support for TOFD since it does not seem to be working despite efforts
 
-    pt = df.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune", "Memory", "CudaMemory", "GarbageCollectionSizeTotal", "TimeForPruneAndRetrain"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc=["mean", lambda x: np.std(x)/(len(x)**0.5)])
-    pt_scaled = df_scaled.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune", "TimeForPruneAndRetrain"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc=["mean", lambda x: np.std(x)/(len(x)**0.5)])
-    print(df.head())
-    print(pt)
+    pt = df.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune", "Memory", "CudaMemory", "GarbageCollectionSizeTotal", "TimeForPruneAndRetrain"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc=["mean", lambda x: np.std(x)/(len(x)**0.5)]).sort_index(level=0, sort_remaining=False, key=lambda x: x.map(lambda y: y if y != "Original Run" else "AAAA"))
+    pt_scaled = df_scaled.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune", "TimeForPruneAndRetrain"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc=["mean", lambda x: np.std(x)/(len(x)**0.5)]).sort_index(level=0, sort_remaining=False, key=lambda x: x.map(lambda y: y if y != "Original Run" else "AAAA"))
+    # print(df.head())
+    df.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune", "Memory", "CudaMemory", "GarbageCollectionSizeTotal", "TimeForPruneAndRetrain"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc="count").sort_index(level=0, sort_remaining=False, key=lambda x: x.map(lambda y: y if y != "Original Run" else "AAAA")).to_csv(f"results/images/debug_{os.path.basename(path)}")
     return df, pt, pt_scaled
 
 
@@ -175,14 +179,19 @@ if __name__ == "__main__":
     combined.loc[:, (["small", "big"], "actual_parameters")] = combined.loc[:, (["small", "big"], "actual_parameters")].map(lambda x: "N/A" if pd.isna(float(x)) else (str(int(float(x)//1000))+"k"))
     combined.rename(index=lambda x: str.replace(x, "_", " ") if "[" not in x else x[1:5], inplace=True)
     combined.rename(columns=readability, inplace=True)
+    combined.rename(columns=readability, inplace=True)
     combined = combined.convert_dtypes()
-    combined.sort_index(inplace=True, level=0, sort_remaining=False)
+    # All this is just to get the algorithms sorted alphabetically but with the Original Run first (Basically sorts it assuming 'Original Run' means 'AAAA')
+    combined.sort_index(inplace=True, level=0, sort_remaining=False, key=lambda x: x.map(lambda y: y if y != "Original Run" else "AAAA"))
 
     # https://pandas.pydata.org/docs/reference/api/pandas.io.formats.style.Styler.to_latex.html
-    styler = combined.style.highlight_max([("small", "F1 score in validation"), ("big", "F1 score in validation")], props='cellcolor:{red}')
-    styler.format(subset=[("small", "F1 score in validation"), ("big", "F1 score in validation")], precision=5)
+    styler = combined.style.highlight_max([("small", "F1 Score"), ("big", "F1 Score")], props='bfseries: ;')
+    styler.format(subset=[("small", "F1 Score"), ("big", "F1 Score")], precision=3, na_rep="¬")
+    styler.format(subset=[("small", "Pruning Time, Scaled"), ("big", "Pruning Time, Scaled")], precision=3, na_rep="¬")
+    # https://stackoverflow.com/a/57152529
+    # styler.background_gradient(cmap=matplotlib.colormaps['Greys'], axis=1)
 
-    styler.to_latex("results/images/table.txt", environment="longtable")  # , longtable=True
+    styler.to_latex("results/images/table.txt", environment="longtable", clines="skip-last;data", hrules=True)  # , longtable=True
 
     if not False:  # Just for fun, every time I disable this I am just going to add another "not" here
         for x in scatterpairs_scaled:
