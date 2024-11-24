@@ -55,8 +55,23 @@ class ExperimentLineManager():
 
         self.row_id = df.last_valid_index()
         self.pid = os.getpid()
+        print(f"Started row {self.row_id} of file {self.pth}, in process {self.pid}")
 
     def add_measure(self, measure_name: str, val, **kwargs):
+        """
+        Adds a value to the history log for the row. It uses flock to lock the file while writing.
+        Notably the use of flock means that this function hangs if the file is open with Excel.
+        If that cell has already been written to, "Notes" is added and the third bit is set to mark that an overwrite has occurred.
+
+        Args:
+            measure_name (str): The name of the column to add the value to. This creates the column if it does not exist.
+            val (_type_): Value to add to the table cell.
+            can_overwrite (bool): This added measure can overwrite an existing measure without triggering notes to change.
+
+        Raises:
+            FileChangedError: The file changed so that the processid for the row no longer matches with this process's pid.
+            This indicates that the flock did not work and that the values are not necessarily correctly correlated.
+        """
         if isinstance(val, list):
             for n, a in enumerate(val):
                 self.add_measure(f"{measure_name}_{n}", a)
@@ -94,6 +109,19 @@ class ExperimentLineManager():
 
 
 def load_cfg(pth: str | os.PathLike = "results/record.csv", row_number=-1, config: ConfigObject | None = None, structure_only=True) -> ConfigObject:
+    """
+    Loads the config from a given history row. This sets the config up so that the specific model can be loaded back.
+    If structure_only is true, it only loads the structure config values leaving the rest unchanged, otherwise it tries to overwrite the whole config
+
+    Args:
+        pth (str | os.PathLike, optional): Path to load from, should be a history/log csv. Defaults to "results/record.csv".
+        row_number (int, optional): Row number to load, if -1 then the last row of the table is loaded. Defaults to -1.
+        config (ConfigObject | None, optional): Config object to overwrite, if None, a config is generated. Defaults to None.
+        structure_only (bool, optional): If true, only loads the necessarily config values and leaves the rest alone. Defaults to True.
+
+    Returns:
+        ConfigObject: This should be the same config object that was passed in, but with overridden values to match the selected config line.
+    """
     config = ConfigObject() if config is None else config
 
     single_row, row_number = history_row(pth, row_number)
@@ -112,6 +140,17 @@ def load_cfg(pth: str | os.PathLike = "results/record.csv", row_number=-1, confi
 
 
 def history_row(pth: str | os.PathLike = "results/record.csv", row_number=-1) -> tuple[pd.Series, int]:
+    """
+    Reads a given row from the history/log file and returns it as a tuple of a pandas series and an integer where the integer is the row index number.
+    Note that this is a slow function because it both uses flock to make sure the file is not being edited at the time and it reads in the whole file before selecting the specific row.
+
+    Args:
+        pth (str | os.PathLike, optional): Path to the log file. Defaults to "results/record.csv".
+        row_number (int, optional): Row that is going to be loaded, if -1 it loads the last row of the file. Defaults to -1.
+
+    Returns:
+        tuple[pd.Series, int]: row values in a pandas series as well as row number. The row number is returned for when row_number == -1
+    """
     with open(pth, "r") as f:
         fcntl.flock(f.fileno(), fcntl.LOCK_EX)
 

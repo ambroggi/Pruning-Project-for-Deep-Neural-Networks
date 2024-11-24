@@ -32,6 +32,7 @@ class ConfigObject():
                           }
 
         self.readOnly = ["Version"]
+        writeOnce = ["NumberWeightsplits", "ResultsPath"]  # These are command line args
         self.structuralOnly = ["ModelStructure", "HiddenDim", "HiddenDimSize", "DatasetName", "NumClasses", "NumFeatures", "SaveLocation", "FromSaveLocation"]
 
         self.parameters: dict[str, list[any, str, str]] = {
@@ -82,10 +83,15 @@ class ConfigObject():
             "ResultsPath": [None, "Path to put the results csv", "strn"]
         }
 
+        self.writeOnce = []
+
         # This is for initial setup
         for name, values in self.parameters.items():
             if name not in self.readOnly:
                 self(name, values[0])
+
+        # Set the values that can only be written once (for reading from args)
+        self.writeOnce = writeOnce
 
     def __call__(self, paramName: str | CONFIG_OPTIONS, paramVal: str | float | int | None = None, getString: bool = False) -> str | float | int | object | None:
         """
@@ -169,6 +175,10 @@ class ConfigObject():
             if paramName in self.readOnly:  # Some items should not be able to be modified.
                 print(f"Attempted to change config {paramName}, which is Read-Only")
                 return
+
+            if paramName in self.writeOnce:  # If they are only allowed to be written to once
+                self.writeOnce.remove(paramName)
+                self.readOnly.append(paramName)
 
             # Set the value
             self.parameters[paramName][0] = paramVal

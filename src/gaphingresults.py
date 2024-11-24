@@ -176,7 +176,7 @@ if __name__ == "__main__":
                           #   pt_scaled["mean"][["actual_parameters", "val_f1_score_macro"]]
                           ], axis=1, keys=["small", "big"]).astype(object)
     combined.sort_index(ascending=False, inplace=True, level=1)
-    combined.loc[:, (["small", "big"], "actual_parameters")] = combined.loc[:, (["small", "big"], "actual_parameters")].map(lambda x: "N/A" if pd.isna(float(x)) else (str(int(float(x)//1000))+"k"))
+    combined.loc[:, (["small", "big"], "actual_parameters")] = combined.loc[:, (["small", "big"], "actual_parameters")].map(lambda x: pd.NA if pd.isna(float(x)) else (str(int(float(x)//1000))+"k"))
     combined.rename(index=lambda x: str.replace(x, "_", " ") if "[" not in x else x[1:5], inplace=True)
     combined.rename(columns=readability, inplace=True)
     combined.rename(columns=readability, inplace=True)
