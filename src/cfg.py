@@ -325,8 +325,8 @@ def get_version() -> str:
 
         best_tag = (0, 0)
         for tag in repo.tags:
-            commit_num = tag.path.split(sep=": ")[1]
-            if commit_num > best_tag[1] and commit_num < commit_count:
+            commit_num = tag.commit.count()
+            if commit_num > best_tag[1] and commit_num <= commit_count:
                 best_tag = (best_tag[0] + 1, commit_num)
                 # TODO: Make sure this works, I want it so that the version is Vx.y - z,
                 # where x is a tagged commit, and y is the number of commits after that, and z is the actual number
@@ -338,7 +338,7 @@ def get_version() -> str:
 
 def make_versiontag(message: str):
     """
-    Unused function that tags the current version in the git history
+    Unused and not working; function that tags the current version in the git history
 
     Args:
         message (str): Message to use for the git commit.
