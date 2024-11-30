@@ -184,7 +184,7 @@ def admm_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, *
 
     model.eval()
 
-    config("PruningSelection", "admm_Joint")
+    config("PruningSelection", "ADMM_Joint")
     logger = filemanagement.ExperimentLineManager(cfg=config)
 
     return kwargs | {"model": model, "logger": logger, "config": config}

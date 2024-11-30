@@ -16,6 +16,7 @@ readability = {
     "TimeForPruneAndRetrain": "Time for pruning the model",
     "ADDM_Joint": "ADMM Joint",
     "ADMM_Joint": "ADMM Joint",
+    "admm_Joint": "ADMM Joint",
     "BERT_theseus": "BERT Theseus",
     "DAIS": "DAIS",
     "Normal_Run": "Original Run",
@@ -68,6 +69,11 @@ scatterpairs_true = [
 ]
 
 
+def error_bar(x: list[float]) -> float:
+    # 1.960 is for 95% confidence interval
+    return 1.960*np.std(x)/(len(x)**0.5)
+
+
 def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.DataFrame, pd.DataFrame]:
     df = pd.read_csv(path, index_col=0)
 
@@ -108,14 +114,14 @@ def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.Dat
     # Get only the current version (Done this late just so the scaling is not indexing into a Null)
     # df = df[df["Version"] >= df["Version"].max()]
     # df = df[df["LengthOfTrainingData"] > 1000]
-    df = df[(df["Notes"] == 0) | (df["Notes"] == 8)]
+    df = df[(df["Notes"] == 0) | (df["Notes"] == 8) | (df["Notes"] == 32)]
     df = df[df["PruningSelection"] != "TOFD"]  # Removing support for TOFD since it does not seem to be working despite efforts
     # df_scaled = df_scaled[df_scaled["LengthOfTrainingData"] > 1000]
-    df_scaled = df_scaled[(df_scaled["Notes"] == 0) | (df["Notes"] == 8)]
+    df_scaled = df_scaled[(df_scaled["Notes"] == 0) | (df["Notes"] == 8) | (df["Notes"] == 32)]
     df_scaled = df_scaled[df_scaled["PruningSelection"] != "TOFD"]  # Removing support for TOFD since it does not seem to be working despite efforts
 
-    pt = df.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune", "Memory", "CudaMemory", "GarbageCollectionSizeTotal", "TimeForPruneAndRetrain"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc=["mean", lambda x: np.std(x)/(len(x)**0.5)]).sort_index(level=0, sort_remaining=False, key=lambda x: x.map(lambda y: y if y != "Original Run" else "AAAA"))
-    pt_scaled = df_scaled.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune", "TimeForPruneAndRetrain"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc=["mean", lambda x: np.std(x)/(len(x)**0.5)]).sort_index(level=0, sort_remaining=False, key=lambda x: x.map(lambda y: y if y != "Original Run" else "AAAA"))
+    pt = df.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune", "Memory", "CudaMemory", "GarbageCollectionSizeTotal", "TimeForPruneAndRetrain"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc=["mean", error_bar, "std"]).sort_index(level=0, sort_remaining=False, key=lambda x: x.map(lambda y: y if y != "Original Run" else "AAAA"))
+    pt_scaled = df_scaled.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune", "TimeForPruneAndRetrain"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc=["mean", error_bar, "std"]).sort_index(level=0, sort_remaining=False, key=lambda x: x.map(lambda y: y if y != "Original Run" else "AAAA"))
     # print(df.head())
     df.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune", "Memory", "CudaMemory", "GarbageCollectionSizeTotal", "TimeForPruneAndRetrain"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc="count").sort_index(level=0, sort_remaining=False, key=lambda x: x.map(lambda y: y if y != "Original Run" else "AAAA")).to_csv(f"results/images/debug_{os.path.basename(path)}")
     return df, pt, pt_scaled
@@ -124,7 +130,7 @@ def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.Dat
 def graph_pt(pt: pd.DataFrame, pair: tuple[str, str] = ("actual_parameters", "val_f1_score_macro"), file: None | os.PathLike = None):
     plot = plotly.graph_objects.Figure()
     x_name, y_name = pair
-    pt_err = pt["<lambda>"].T
+    pt_err = pt["error_bar"].T
     pt = pt["mean"].T
 
     sizes = {x: 2*(i) for i, x in enumerate({weight_prune_group for _, weight_prune_group in pt.keys()})}
@@ -166,15 +172,15 @@ def graph_pt(pt: pd.DataFrame, pair: tuple[str, str] = ("actual_parameters", "va
         plot.show()
 
 
-if __name__ == "__main__":
-    df_small, pt_small, pt_scaled_small = read_results("results/SmallModel(v0.131).csv")
-    df, pt, pt_scaled = read_results("results/BigModel(v0.131).csv")
+def make_table(pt1, pt2):
+    combined = pd.concat([pt1["mean"][["actual_parameters", "val_f1_score_macro"]],
+                          pt1["std"]["val_f1_score_macro"].rename("Standard Deviation"),
+                          pt1["mean"][["TimeForPruneAndRetrain"]],
+                          pt2["mean"][["actual_parameters", "val_f1_score_macro"]],
+                          pt2["std"]["val_f1_score_macro"].rename("Standard Deviation"),
+                          pt2["mean"][["TimeForPruneAndRetrain"]],
+                          ], axis=1, keys=["small", "small", "small", "big", "big", "big"]).astype(object)
 
-    combined = pd.concat([pt_small["mean"][["actual_parameters", "val_f1_score_macro", "TimeForPruneAndRetrain"]],
-                          pt["mean"][["actual_parameters", "val_f1_score_macro", "TimeForPruneAndRetrain"]],
-                          #   pt_scaled_small["mean"][["actual_parameters", "val_f1_score_macro"]],
-                          #   pt_scaled["mean"][["actual_parameters", "val_f1_score_macro"]]
-                          ], axis=1, keys=["small", "big"]).astype(object)
     combined.sort_index(ascending=False, inplace=True, level=1)
     combined.loc[:, (["small", "big"], "actual_parameters")] = combined.loc[:, (["small", "big"], "actual_parameters")].map(lambda x: pd.NA if pd.isna(float(x)) else (str(int(float(x)//1000))+"k"))
     combined.rename(index=lambda x: str.replace(x, "_", " ") if "[" not in x else x[1:5], inplace=True)
@@ -188,10 +194,18 @@ if __name__ == "__main__":
     styler = combined.style.highlight_max([("small", "F1 Score"), ("big", "F1 Score")], props='bfseries: ;')
     styler.format(subset=[("small", "F1 Score"), ("big", "F1 Score")], precision=3, na_rep="¬")
     styler.format(subset=[("small", "Pruning Time, Scaled"), ("big", "Pruning Time, Scaled")], precision=3, na_rep="¬")
+    styler.format("±{:0.2f}", subset=[("small", "Standard Deviation"), ("big", "Standard Deviation")], precision=2)
     # https://stackoverflow.com/a/57152529
     # styler.background_gradient(cmap=matplotlib.colormaps['Greys'], axis=1)
 
     styler.to_latex("results/images/table.txt", environment="longtable", clines="skip-last;data", hrules=True)  # , longtable=True
+
+
+if __name__ == "__main__":
+    df_small, pt_small, pt_scaled_small = read_results("results/SmallModel(v0.131).csv")
+    df, pt, pt_scaled = read_results("results/BigModel(v0.131).csv")
+
+    make_table(pt_small, pt)
 
     if not False:  # Just for fun, every time I disable this I am just going to add another "not" here
         for x in scatterpairs_scaled:
