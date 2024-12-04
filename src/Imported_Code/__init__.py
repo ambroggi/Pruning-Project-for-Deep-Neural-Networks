@@ -16,13 +16,17 @@ if TYPE_CHECKING:
 from .helperFunctions import remove_layers, get_layer_by_state, set_layer_by_state, forward_hook, ConfigCompatibilityWrapper
 remove_layers, get_layer_by_state, set_layer_by_state, forward_hook, ConfigCompatibilityWrapper
 
-sys.path.append("src/Imported_Code/admm_joint_pruning/joint_pruning")
-from .admm_joint_pruning.joint_pruning.main import prune_admm, apply_filter, apply_prune, apply_l1_prune
-prune_admm, apply_filter, apply_prune, apply_l1_prune
-sys.path.remove("src/Imported_Code/admm_joint_pruning/joint_pruning")
+try:
+    sys.path.append("src/Imported_Code/admm_joint_pruning/joint_pruning")
+    from .admm_joint_pruning.joint_pruning.main import prune_admm, apply_filter, apply_prune, apply_l1_prune
+    prune_admm, apply_filter, apply_prune, apply_l1_prune
+    sys.path.remove("src/Imported_Code/admm_joint_pruning/joint_pruning")
 
-from .ADMM_extra import add_admm_v_layers, remove_admm_v_layers
-add_admm_v_layers, remove_admm_v_layers
+    from .ADMM_extra import add_admm_v_layers, remove_admm_v_layers
+    add_admm_v_layers, remove_admm_v_layers
+    ADMM_EXISTS = True
+except ModuleNotFoundError:
+    ADMM_EXISTS = False
 
 from .ThiNet_From_Paper import thinet_pruning
 thinet_pruning
@@ -36,9 +40,12 @@ Theseus_Replacement
 from .DAIS_From_Paper import add_alpha, DAIS_fit
 add_alpha, DAIS_fit
 
-from .Task_Oriented_Feature_Distillation_implementation import task_oriented_feature_wrapper, TOFD_name_main
-task_oriented_feature_wrapper, TOFD_name_main
-
+try:
+    from .Task_Oriented_Feature_Distillation_implementation import task_oriented_feature_wrapper, TOFD_name_main
+    task_oriented_feature_wrapper, TOFD_name_main
+    TOFD_EXISTS = True
+except ModuleNotFoundError:
+    TOFD_EXISTS = False
 
 if torch.utils.data.get_worker_info() is None:
     print(f"Imported code __init__ file loaded as {__name__}.")

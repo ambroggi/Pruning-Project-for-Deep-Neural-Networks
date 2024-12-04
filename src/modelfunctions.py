@@ -22,7 +22,7 @@ class ModelFunctions():
         assert isinstance(self, torch.nn.Module)
         # Non-Overridden values (These actually store things)
         self.epoch_callbacks: list[Callable[[dict], None]] = []  # Called at the end of each epoch with a dictionary of results. Is reset when the last epoch ends
-        self.dataloader: None | DataLoader = None  # The labled data to load
+        self.dataloader: None | DataLoader = None  # The labeled data to load
         self.validation_dataloader: None | DataLoader = None  # The data that is to be used to verify the model performance
         self.optimizer: torch.optim.Optimizer | None = None  # Method of applying backpropigation
         self.loss_fn: torch.nn.Module | None = None  # This is the specific loss function that the model is using
@@ -115,7 +115,7 @@ class ModelFunctions():
         Returns:
             str: String such as "Ran model with 2.4% or 7.1% F1 on with number of epochs 100" Where the first percentage is the macro f1 score and the second is weighted f1 score.
         """
-        assert isinstance(self, torch.nn.Module)
+        assert isinstance(self, torch.nn.Module)  # <- Literally just here for the IDE to know that this should have Module functions
         self: torch.nn.Module | ModelFunctions  # More typehint
 
         if dataloader is None:
@@ -125,19 +125,18 @@ class ModelFunctions():
         else:
             dl = dataloader
 
-        # TODO: Configure the optimizer with optimizer specific kwargs
         if self.optimizer is None:
             self.optimizer = self.cfg("Optimizer")(self.parameters(), lr=self.cfg("LearningRate"))
 
         if self.loss_fn is None:
             self.loss_fn = self.cfg("LossFunction")()
 
-        # If no epochs, assume no training
+        # If no epochs, assume no training (just doing a validation run)
         if epochs == 0 or (epochs != 1 and not self.training):
             self.train(False)
-            self.num_epochs_trained -= 1  # Just to account for the repeat
+            self.num_epochs_trained -= 1  # Just to account for the repeat for validation, so that it does not increase the training epoch count
             with torch.no_grad():
-                resultsmessage = self.fit(epochs=1, dataloader=dataloader, keep_callbacks=keep_callbacks)  # Run model to collect data still.
+                resultsmessage = self.fit(epochs=1, dataloader=dataloader, keep_callbacks=keep_callbacks)  # Run model to collect data
             return resultsmessage
 
         self = self.to(self.cfg("Device"))  # Move things to the active device
@@ -147,6 +146,7 @@ class ModelFunctions():
         for incorrect_frozen in frozen_bad:
             self.frozen.pop(incorrect_frozen)
 
+        # Create a nice looking tqdm progress bar, unless there is some reason not to.
         progress_bar = self.get_progress_bar(epochs)
 
         # Get the scheduler
@@ -170,22 +170,22 @@ class ModelFunctions():
             # Combine the two dictionaries
             epoch_results = epoch_results | val_epoch_results
 
-            # Set current epoch number
+            # Set current epoch number so that it appears in the log/be available for callbacks
             epoch_results["epoch"] = e
 
             scheduler.step() if (scheduler is not None) and self.training else None
 
             self.num_epochs_trained += 1
 
-            # Run all of the callbacks
+            # Run all of the callbacks, all data is collected from these.
             for call in self.epoch_callbacks:
                 call(epoch_results)
 
         if progress_bar is not None:
-            # Clear out the tqdm callback
+            # Clear out the tqdm callback (not sure what it would do if it was left, but it can't be a good idea)
             self.remove_progress_bar()
 
-        # Clear out old callbacks unless specified.
+        # Clear out all old callbacks unless specified.
         if not keep_callbacks:
             self.epoch_callbacks = []
 

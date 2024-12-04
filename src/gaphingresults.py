@@ -127,9 +127,9 @@ def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.Dat
     return df, pt, pt_scaled
 
 
-def graph_pt(pt: pd.DataFrame, pair: tuple[str, str] = ("actual_parameters", "val_f1_score_macro"), file: None | os.PathLike = None):
+def graph_pt(pt: pd.DataFrame, XYpair: tuple[str, str] = ("actual_parameters", "val_f1_score_macro"), file: None | os.PathLike = None):
     plot = plotly.graph_objects.Figure()
-    x_name, y_name = pair
+    x_name, y_name = XYpair
     pt_err = pt["error_bar"].T
     pt = pt["mean"].T
 
@@ -157,7 +157,7 @@ def graph_pt(pt: pd.DataFrame, pair: tuple[str, str] = ("actual_parameters", "va
                    "xaxis": {"type": "linear", "autorange": "reversed"}}
         })
 
-    if "f1" in pair[1]:
+    if "f1" in XYpair[1]:
         plot.update({"layout": {"yaxis": {"range": [-0.1, None]}}})
 
     if "Time" in y_name or y_name in []:

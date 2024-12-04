@@ -75,7 +75,11 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
     if PruningSelection is not None:
         model.train(True)
         model.to(model.cfg("Device"))
-        kwargs = types_of_tests[PruningSelection](**kwargs)
+        try:
+            kwargs = types_of_tests[PruningSelection](**kwargs)
+        except RuntimeError as e:
+            print(f"An error has occurred with trying to run {PruningSelection}:\n\t{e}")
+            return {"config": kwargs["config"], "data": kwargs["data"]}
         assert "PruningSelection" not in kwargs  # Just a test to make sure I didn't accidentally add this anywhere
         model = kwargs["model"]
         logger = kwargs["logger"]

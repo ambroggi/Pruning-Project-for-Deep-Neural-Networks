@@ -13,7 +13,18 @@ def loopAll(config: src.cfg.ConfigObject):
     kwargs = src.standard_run(save_epoch_waypoints=True, config=config)
     kwargs["model"].save_model_state_dict(logger=kwargs["logger"])
 
-    for weight_prune_percent in [[round(x*((num_variation + 1)/config("NumberWeightsplits")) if x < 1 else 1, ndigits=2) if isinstance(x, (float)) else x for x in kwargs["config"]("WeightPrunePercent", getString=True)] for num_variation in range(config("NumberWeightsplits")-1, -1, -1)]:
+    weightsOrdering = range(config("NumberWeightSplits")-1, -1, -1)
+    weights = [[                                                    # This builds all of the possible weights percentages
+                round(x*((num_variation + 1)/config("NumberWeightSplits"))
+                      if x < 1 else 1,                              # Check that the weight should be reduced at all, or if pruning was disabled
+                      ndigits=2)                                    # To avoid dealing with large floats, we just round to two decimal places
+                if isinstance(x, (float)) else x                    # Sometimes weights are stored as strings, which cannot be rounded
+                for x in kwargs["config"]("WeightPrunePercent", getString=True)
+                ]
+               for num_variation in weightsOrdering
+               ]
+
+    for weight_prune_percent in weights:
         kwargs["config"]("WeightPrunePercent", weight_prune_percent)
 
         src.standard_run(PruningSelection="RandomStructured", **kwargs)
@@ -48,7 +59,19 @@ def loopAlgSpecific(config: src.cfg.ConfigObject, selected: str):
     else:
         print(f"Starting run of {src.algorithmruns.types_of_tests[selected].__name__}")
         load = src.standardLoad(existing_config=config, index=0)
-        for weight_prune_percent in [[round(x*((num_variation + 1)/config("NumberWeightsplits")) if x < 1 else 1, ndigits=2) if isinstance(x, (float)) else x for x in load["config"]("WeightPrunePercent", getString=True)] for num_variation in range(config("NumberWeightsplits")-1, -1, -1)]:
+
+        weightsOrdering = range(config("NumberWeightSplits")-1, -1, -1)
+        weights = [[                                                    # This builds all of the possible weights percentages
+                    round(x*((num_variation + 1)/config("NumberWeightSplits"))
+                          if x < 1 else 1,                              # Check that the weight should be reduced at all, or if pruning was disabled
+                          ndigits=2)                                    # To avoid dealing with large floats, we just round to two decimal places
+                    if isinstance(x, (float)) else x                    # Sometimes weights are stored as strings, which cannot be rounded
+                    for x in load["config"]("WeightPrunePercent", getString=True)
+                    ]
+                   for num_variation in weightsOrdering
+                   ]
+
+        for weight_prune_percent in weights:
             load["config"]("WeightPrunePercent", weight_prune_percent)
             test = src.standard_run(PruningSelection=selected, **load)
             test

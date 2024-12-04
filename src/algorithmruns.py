@@ -139,6 +139,8 @@ def admm_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, *
     Returns:
         dict[str, object]:  An updated version of the initial arguments given to the function, so that the pruning methods can be stacked.
     """
+    if not Imported_Code.ADMM_EXISTS:
+        raise NotImplementedError("ADMM code does not exist and needs to be retrieved from Github by submodules")  # ADMM was not imported, look up git install submodules
     model.optimizer = model.cfg("Optimizer")(model.parameters(), lr=model.cfg("LearningRate"))
 
     # Adds the compatibility to the model that is needed
@@ -381,6 +383,9 @@ def TOFD_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, l
     Returns:
         dict[str, object]: An updated version of the initial arguments given to the function, so that the pruning methods can be stacked.
     """
+    if not Imported_Code.TOFD_EXISTS:
+        print("Tried to run TOFD but the base code does not exist.")
+        raise NotImplementedError("TOFD code does not exist and needs to be retrieved from Github by submodules")  # TOFD was not imported, look up git install submodules
     wrap = Imported_Code.task_oriented_feature_wrapper(model)
 
     optimizer = config("Optimizer")(wrap.parameters(), lr=config("LearningRate"))
