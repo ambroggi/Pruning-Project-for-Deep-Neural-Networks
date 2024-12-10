@@ -3,20 +3,21 @@
 # https://www.reddit.com/r/learnpython/comments/vupzfa/comment/iffaj95/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button
 import sys
 from pathlib import Path
-sys.path.append(str(Path(__file__).parent.parent))
 
-from src import cfg
-from src import modelstruct
-from src import getdata
-# from src import filemanagement
+sys.path.append(str(Path(__file__).parent.parent))
 
 import os
 
 # from functools import partial
-from ray import tune
-from ray import train
+from ray import train, tune
 # from ray.train import Checkpoint, get_checkpoint
 from ray.tune.schedulers import ASHAScheduler
+
+from src import cfg, getdata, modelstruct
+
+# from src import filemanagement
+
+
 # import ray.cloudpickle as pickle
 
 
@@ -73,6 +74,7 @@ def raytrain(config: cfg.ConfigObject | bool | None = None, **kwargs) -> dict[st
 
 
 def singleraytrain(conf_dict, **kwargs):
+    modelstruct.torch.autograd.set_detect_anomaly(True)
     cwdpath = conf_dict.pop("DatafolderPath")
     config = cfg.ConfigObject.from_dict(conf_dict)
 

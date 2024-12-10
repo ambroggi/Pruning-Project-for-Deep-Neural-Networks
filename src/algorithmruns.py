@@ -7,8 +7,7 @@ import torch.utils
 import torch.utils.hooks
 from tqdm import tqdm
 
-from . import (Imported_Code, cfg, extramodules, filemanagement,
-               modelstruct)
+from . import Imported_Code, cfg, extramodules, filemanagement, modelstruct
 
 
 def swapping_run(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel, layers: list[int] | None = None, **kwargs) -> dict[str, object]:
@@ -237,6 +236,7 @@ def thinet_test(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel,
         layers = [layernum for layernum, layerpercent in enumerate(config("WeightPrunePercent")) if layerpercent < 1]
 
     # Create sample of dataset, Fancy load_kwargs is just there to load the collate_fn
+    # This is the train-test split version of the dataset, the original data would be model.dataloader.dataset.base
     training_data: torch.Tensor = iter(torch.utils.data.DataLoader(model.dataloader.dataset, 100000, **(model.dataloader.base.load_kwargs if hasattr(model.dataloader, "base") else {}))).__next__()[0]
     training_data = training_data.to(model.cfg("Device"))
 

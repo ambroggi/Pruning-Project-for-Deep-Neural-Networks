@@ -1,7 +1,9 @@
 import sys
+from typing import TYPE_CHECKING
+
 import torch
 import torch.utils.data
-from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from src.modelstruct import BaseDetectionModel
     BaseDetectionModel
@@ -13,12 +15,18 @@ if TYPE_CHECKING:
 #     print(f"Adding \'{subpackage}\' to system path")
 #     sys.path.append(subpackage)
 
-from .helperFunctions import remove_layers, get_layer_by_state, set_layer_by_state, forward_hook, ConfigCompatibilityWrapper
+from .helperFunctions import (ConfigCompatibilityWrapper, forward_hook,
+                              get_layer_by_state, remove_layers,
+                              set_layer_by_state)
+
 remove_layers, get_layer_by_state, set_layer_by_state, forward_hook, ConfigCompatibilityWrapper
 
 try:
     sys.path.append("src/Imported_Code/admm_joint_pruning/joint_pruning")
-    from .admm_joint_pruning.joint_pruning.main import prune_admm, apply_filter, apply_prune, apply_l1_prune
+    from .admm_joint_pruning.joint_pruning.main import (apply_filter,
+                                                        apply_l1_prune,
+                                                        apply_prune,
+                                                        prune_admm)
     prune_admm, apply_filter, apply_prune, apply_l1_prune
     sys.path.remove("src/Imported_Code/admm_joint_pruning/joint_pruning")
 
@@ -29,19 +37,24 @@ except ModuleNotFoundError:
     ADMM_EXISTS = False
 
 from .ThiNet_From_Paper import thinet_pruning
+
 thinet_pruning
 
 from .ThiNet_extra import run_thinet_on_layer
+
 run_thinet_on_layer
 
 from .BERT_Theseus_From_Paper import Theseus_Replacement
+
 Theseus_Replacement
 
-from .DAIS_From_Paper import add_alpha, DAIS_fit
+from .DAIS_From_Paper import DAIS_fit, add_alpha
+
 add_alpha, DAIS_fit
 
 try:
-    from .Task_Oriented_Feature_Distillation_implementation import task_oriented_feature_wrapper, TOFD_name_main
+    from .Task_Oriented_Feature_Distillation_implementation import (
+        TOFD_name_main, task_oriented_feature_wrapper)
     task_oriented_feature_wrapper, TOFD_name_main
     TOFD_EXISTS = True
 except ModuleNotFoundError:

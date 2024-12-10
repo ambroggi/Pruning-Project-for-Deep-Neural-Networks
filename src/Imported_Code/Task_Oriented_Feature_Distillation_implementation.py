@@ -5,18 +5,20 @@
 # Changes will be marked with "CHANGE"
 
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from src.Imported_Code import ConfigCompatibilityWrapper
     from src.modelstruct import BaseDetectionModel
-
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data
 import torch.utils.hooks
-from .TaskOrientedFeatureDistillation.utils import CrossEntropy
+
 from .helperFunctions import forward_hook
+from .TaskOrientedFeatureDistillation.utils import CrossEntropy
+
 # from TaskOrientedFeatureDistillation.utils import get_orth_loss
 
 

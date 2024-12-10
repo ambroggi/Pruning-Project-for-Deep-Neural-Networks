@@ -9,33 +9,49 @@ import torch
 import torch.optim
 
 # Printed out by print(config.parameters.keys()) and just copied here
-CONFIG_OPTIONS = Literal['Version', 'Notes', 'LossFunction', 'Optimizer', 'LearningRate', 'SchedulerLR', 'NumberOfEpochs', 'ModelStructure', 'Dropout', 'HiddenDim', 'HiddenDimSize', 'DatasetName', 'BatchSize', 'TrainTest', 'MaxSamples', 'Dataparallel', 'NumberOfWorkers', 'Device', 'AlphaForADMM', 'RhoForADMM', 'LayerPruneTargets', 'WeightPrunePercent', 'PruningSelection', 'BERTTheseusStartingLearningRate', 'BERTTheseusLearningRateModifier', 'AlphaForTOFD', 'BetaForTOFD', 'tForTOFD', 'DAISRegularizerScale', 'LassoForDAIS', 'LayerIteration', 'TheseusRequiredGrads', 'SaveLocation', 'FromSaveLocation', 'NumClasses', 'NumFeatures', 'NumberWeightsplits', 'ResultsPath']
+CONFIG_OPTIONS = Literal['Version', 'Notes', 'LossFunction', 'Optimizer', 'LearningRate', 'SchedulerLR', 'NumberOfEpochs', 'ModelStructure', 'Dropout', 'HiddenDim', 'HiddenDimSize', 'DatasetName', 'BatchSize', 'TrainTest', 'MaxSamples', 'Dataparallel', 'NumberOfWorkers', 'Device', 'AlphaForADMM', 'RhoForADMM', 'LayerPruneTargets', 'WeightPrunePercent', 'PruningSelection', 'BERTTheseusStartingLearningRate', 'BERTTheseusLearningRateModifier', 'AlphaForTOFD', 'BetaForTOFD', 'tForTOFD', 'DAISRegularizerScale', 'LassoForDAIS', 'LayerIteration', 'TheseusRequiredGrads', 'SaveLocation', 'FromSaveLocation', 'NumClasses', 'NumFeatures', 'NumberWeightSplits', 'ResultsPath']
+
+
+def get_version() -> str:
+    """
+    This function just tries to estimate the version from the git history. Tags are considered to be releases and commits are version numbers.
+
+    Returns:
+        str: The version number in the form "A.B - C" Where A is the version number, B is the commits since that version, and C is the total commits.
+    """
+    try:
+        repo = git.Repo(os.getcwd())
+        # print(f"Tags: {repo.tags}")
+        commit_count = len([1 for _ in repo.iter_commits()])
+
+        best_tag = (0, 0)
+        for tag in repo.tags:
+            commit_num = tag.commit.count()
+            if commit_num > best_tag[1] and commit_num <= commit_count:
+                best_tag = (best_tag[0] + 1, commit_num)
+                # The version is Vx.y - z,
+                # where x is a tagged commit, and y is the number of commits after that, and z is the actual number
+
+        return f"v{best_tag[0]}.{commit_count-best_tag[1]} - {commit_count}"
+    except git.InvalidGitRepositoryError:
+        "0.0 - 0"
 
 
 class ConfigObject():
-
-    def __init__(self):
-        """
-        Creates an maintains the current parameters of the model/run.
-        """
-        # the typechart is supposed to define the possible values of a row
-        # Typechart[""] is supposed to convert the type (3rd item in self.parameters) into an actual type.
-        # The rest are supposed to list out the possible values of the associated parameter, and any translations from strings that are needed
-        self.typechart: dict[str, dict[str, object | str]] = {
-                          "": {"str": str, "int": int, "float": float, "strl": (str, list), "strdevice": (str, torch.device), "strn": (str, None)},
-                          "Optimizer": {"Adam": torch.optim.Adam, "SGD": torch.optim.SGD, "RMS": torch.optim.RMSprop},
-                          "LossFunction": {"MSE": torch.nn.MSELoss, "CrossEntropy": torch.nn.CrossEntropyLoss},
-                          "ModelStructure": {"BasicTest": "BasicTest", "SwappingTest": "SwappingTest", "SimpleCNN": "SimpleCNN", "MainLinear": "MainLinear"},
-                          "DatasetName": {"RandomDummy": "RandomDummy", "Vulnerability": "Vulnerability", "ACI": "ACI", "ACI_grouped": "ACI_grouped", "ACI_grouped_fullbalance": "ACI_grouped_fullbalance", "ACI_flows": "ACI_flows"},
-                          "TheseusRequiredGrads": {"All": "All", "Nearby": "Nearby", "New": "New"},
-                          "Device": {"cpu": torch.device("cpu"), "cuda": torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"), torch.device("cpu"): torch.device("cpu"), torch.device("cuda"): torch.device("cuda")}
-                          }
-
-        self.readOnly = ["Version"]
-        writeOnce = ["NumberWeightsplits", "ResultsPath"]  # These are command line args
-        self.structuralOnly = ["ModelStructure", "HiddenDim", "HiddenDimSize", "DatasetName", "NumClasses", "NumFeatures", "SaveLocation", "FromSaveLocation"]
-
-        self.parameters: dict[str, list[any, str, str]] = {
+    _command_line_args = False
+    # The typeChart is supposed to define the possible values of a row
+    # typeChart[""] is supposed to convert the type (3rd item in self.parameters) into an actual type.
+    # The rest are supposed to list out the possible values of the associated parameter, and any translations from strings that are needed
+    _typeChart: dict[str, dict[str, object | str]] = {
+        "": {"str": str, "int": int, "float": float, "strl": (str, list), "strdevice": (str, torch.device), "strn": (str, None)},
+        "Optimizer": {"Adam": torch.optim.Adam, "SGD": torch.optim.SGD, "RMS": torch.optim.RMSprop},
+        "LossFunction": {"MSE": torch.nn.MSELoss, "CrossEntropy": torch.nn.CrossEntropyLoss},
+        "ModelStructure": {"BasicTest": "BasicTest", "SwappingTest": "SwappingTest", "SimpleCNN": "SimpleCNN", "MainLinear": "MainLinear"},
+        "DatasetName": {"RandomDummy": "RandomDummy", "Vulnerability": "Vulnerability", "ACI": "ACI", "ACI_grouped": "ACI_grouped", "ACI_grouped_fullbalance": "ACI_grouped_fullbalance", "ACI_flows": "ACI_flows"},
+        "TheseusRequiredGrads": {"All": "All", "Nearby": "Nearby", "New": "New"},
+        "Device": {"cpu": torch.device("cpu"), "cuda": torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"), torch.device("cpu"): torch.device("cpu"), torch.device("cuda"): torch.device("cuda")}
+        }
+    _parameters: dict[str, list[any, str, str]] = {
             "Version": [get_version(), "Version Number", "str"],
             "Notes": [0, "This is supposed to store a integer associated with specific notes for this config."
                       "\n0 is no Notes,"
@@ -79,16 +95,31 @@ class ConfigObject():
                                  "Or you can load a specific row by putting an input in the form of 'csv x' where x can be any row number. ex 'csv 5'", "strn"],
             "NumClasses": [-1, "How many classes the model is distinguishing between, -1 is to calculate default", "int"],
             "NumFeatures": [-1, "How many features the model is using, -1 is to calculate default", "int"],
-            "NumberWeightsplits": [8, "Purely meta config that determines how many tests to run", "int"],
+            "NumberWeightSplits": [8, "Purely meta config that determines how many tests to run", "int"],
             "ResultsPath": [None, "Path to put the results csv", "strn"]
         }
+
+    def __init__(self, forceSetParams: dict = {}):
+        """
+        Creates an maintains the current parameters of the model/run.
+        forceSetParams currently does nothing, the plan was to have it override the default parameters, but be different from the From_dict version in that it can also write any values.
+        """
+        self.readOnly = ["Version", "NumberWeightSplits", "ResultsPath"]
+        writeOnce = []  # These are command line args or other things that should only be changed once
+        self.structuralOnly = ["ModelStructure", "HiddenDim", "HiddenDimSize", "DatasetName", "NumClasses", "NumFeatures", "SaveLocation", "FromSaveLocation"]
+
+        # Annoying check for mutability to make sure that we don't modify the default values.
+        self.parameters = {x: y[0].copy() if isinstance(y[0], list) else y[0] for x, y in self._parameters.items()}
+
+        for paramName, paramValue in forceSetParams.items():
+            self.parameters[paramName] = paramValue
 
         self.writeOnce = []
 
         # This is for initial setup
         for name, values in self.parameters.items():
             if name not in self.readOnly:
-                self(name, values[0])
+                self(name, values)
 
         # Set the values that can only be written once (for reading from args)
         self.writeOnce = writeOnce
@@ -131,25 +162,25 @@ class ConfigObject():
         if isinstance(paramVal, numpy.generic):
             paramVal = paramVal.item()
         if paramVal == "None":
-            paramVal = "" if "str" in self.parameters[paramName][2] else None
+            paramVal = "" if "str" in self._parameters[paramName][2] else None
 
         # These arguments assume None is default
         if paramName in ["NumClasses", "NumFeatures"]:
             if paramVal is None:
                 paramVal = self.get_param(paramName)
 
-        # Check if the type is valid by querying typechart
+        # Check if the type is valid by querying typeChart
         if isinstance(paramVal, self.get_param_type(paramName)):
             # Add extra conditionals here:
 
-            if paramName in self.typechart.keys():  # Check that the value is valid (if applicable)
-                if paramVal not in self.typechart[paramName].keys():
+            if paramName in self._typeChart.keys():  # Check that the value is valid (if applicable)
+                if paramVal not in self._typeChart[paramName].keys():
                     raise ValueError(f"{paramName} does not have an option for '{paramVal}'")
 
             if paramName == "Device":  # Device is translated into a torch.device
-                paramVal = self.typechart["Device"][paramVal]
+                paramVal = self._typeChart["Device"][paramVal]
 
-            if self.parameters[paramName][2] == "strn" and (paramVal == "" or paramVal == "None"):
+            if self._parameters[paramName][2] == "strn" and (paramVal == "" or paramVal == "None"):
                 paramVal = None
 
             if paramName in ["LayerPruneTargets", "LayerIteration"]:  # This is a list, so we need to do  a little formatting (ints)
@@ -181,7 +212,7 @@ class ConfigObject():
                 self.readOnly.append(paramName)
 
             # Set the value
-            self.parameters[paramName][0] = paramVal
+            self.parameters[paramName] = paramVal
         else:
             if type(paramVal) is float and int(paramVal) == paramVal:
                 return self.set_param(paramName=paramName, paramVal=int(paramVal))
@@ -198,15 +229,15 @@ class ConfigObject():
         Returns:
             str | float | int | object: The value of the parameter
         """
-        if (paramName in self.typechart.keys()) and not getString:
-            return self.typechart[paramName][self.parameters[paramName][0]]
+        if (paramName in self._typeChart.keys()) and not getString:
+            return self._typeChart[paramName][self.parameters[paramName]]
 
         if paramName in ["LayerPruneTargets", "LayerIteration", "WeightPrunePercent"] and not getString:
-            if "*" in self.parameters[paramName][0]:
-                i = self.parameters[paramName][0].index("*")
-                return self.parameters[paramName][0][:i] + [self.parameters[paramName][0][i-1] for _ in range(self("HiddenDim") - 1)] + self.parameters[paramName][0][i+1:]
+            if "*" in self.parameters[paramName]:
+                i = self.parameters[paramName].index("*")
+                return self.parameters[paramName][:i] + [self.parameters[paramName][i-1] for _ in range(self("HiddenDim") - 1)] + self.parameters[paramName][i+1:]
 
-        return self.parameters[paramName][0]
+        return self.parameters[paramName]
 
     def get_param_description(self, paramName: str | CONFIG_OPTIONS) -> str:
         """
@@ -218,7 +249,7 @@ class ConfigObject():
         Returns:
             str: A text description of what the parameter is.
         """
-        return self.parameters[paramName][1]
+        return self._parameters[paramName][1]
 
     def get_param_type(self, paramName: str | CONFIG_OPTIONS) -> object:
         """
@@ -230,42 +261,52 @@ class ConfigObject():
         Returns:
             object: type object or tuple of types. (made for passing to isinstance())
         """
-        return self.typechart[""][self.parameters[paramName][2]]
+        return self._typeChart[""][self._parameters[paramName][2]]
 
-    @staticmethod
-    def get_param_from_args() -> "ConfigObject":
+    @classmethod
+    def get_param_from_args(cls) -> "ConfigObject":
         """
-        This is the project argument parsing method. It reads the arguments and passes the results back in the form of a config object. Unknown arguments are lost.
+        This is the project argument parsing method. It reads the arguments and sets those as the defaults for the config object, it also generates a new config object to return back. Unknown arguments are lost.
         Note: does not work with pytest, I think the parsing library has some kind of conflict so this just does not run if pytest is imported, it passes a default ConfigObject.
+        Another Note: It only actually parses the arguments on the first run. All future runs it uses the saved value.
 
         Returns:
             ConfigObject: The ConfigObject generated by the command line arguments of this python program.
         """
-        self_ = ConfigObject()
+        if not cls._command_line_args:
+            if "pytest" not in sys.modules:  # The argument parser appears to have issues with the pytest tests. I have no idea why.
+                # Argparse tutorial: https://docs.python.org/3/howto/argparse.html
+                parser = argparse.ArgumentParser()
 
-        if "pytest" not in sys.modules:  # The argument parser appears to have issues with the pytest tests. I have no idea why.
-            # Argparse tutorial: https://docs.python.org/3/howto/argparse.html
-            parser = argparse.ArgumentParser()
+                for p in cls._parameters.keys():
+                    if p not in ["Notes", "Version"]:
+                        if p in cls._typeChart.keys():
+                            t = cls._typeChart[""][cls._parameters[p][2]]
+                            t = t[0] if isinstance(t, (list, tuple)) else t
+                            parser.add_argument(f"--{p}", choices=cls._typeChart[p].keys(), type=t, default=cls._parameters[p][0], help=cls._parameters[p][1], required=False)
+                        else:
+                            t = cls._typeChart[""][cls._parameters[p][2]]
+                            t = t[0] if isinstance(t, (list, tuple)) else t
+                            parser.add_argument(f"--{p}", type=t, default=cls._parameters[p][0], help=cls._parameters[p][1], required=False)
 
-            for p in self_.parameters.keys():
-                if p not in ["Notes", "Version"]:
-                    if p in self_.typechart.keys():
-                        t = self_.typechart[""][self_.parameters[p][2]]
-                        t = t[0] if isinstance(t, (list, tuple)) else t
-                        parser.add_argument(f"--{p}", choices=self_.typechart[p].keys(), type=t, default=self_.parameters[p][0], help=self_.parameters[p][1], required=False)
-                    else:
-                        t = self_.typechart[""][self_.parameters[p][2]]
-                        t = t[0] if isinstance(t, (list, tuple)) else t
-                        parser.add_argument(f"--{p}", type=t, default=self_.parameters[p][0], help=self_.parameters[p][1], required=False)
+                # Parse the args
+                args, unknown_args = parser.parse_known_args()
+                # args = parser.parse_args()
 
-            # Parse the args
-            args, unknown_args = parser.parse_known_args()
-            # args = parser.parse_args()
+                # Set the defaults
+                for paramName, paramValue in args._get_kwargs():
+                    cls._parameters[paramName][0] = paramValue
+
+                cls._command_line_args = True
+            else:
+                print("Pytest has problems with ArgumentParser")
+                assert False, "Should not be using get_param_from_args with pytest"
+
+        self_ = cls()
+
+        if args:
             for paramName, paramValue in args._get_kwargs():
-                self_(paramName, paramValue)
-        else:
-            print("Pytest has problems with ArgumentParser")
-            assert False, "Should not be using get_param_from_args with pytest"
+                assert self_(paramName, getString=True) == paramValue or paramName in ["Device", "LayerPruneTargets", "WeightPrunePercent", "LayerIteration"]
 
         return self_
 
@@ -291,8 +332,8 @@ class ConfigObject():
         """
         return {x: self.get_param(x, getString=True) for x in self.parameters.keys()}
 
-    @staticmethod
-    def from_dict(dictionary: dict[str, str]) -> "ConfigObject":
+    @classmethod
+    def from_dict(cls, dictionary: dict[str, str]) -> "ConfigObject":
         """
         Turns a dictionary back into a ConfigObject. This is used to unpack from serialization.
 
@@ -302,38 +343,13 @@ class ConfigObject():
         Returns:
             ConfigObject: The created ConfigObject.
         """
-        self_ = ConfigObject()
+        self_ = cls()
         # This is for initial setup
         for name, value in dictionary.items():
             if name not in self_.readOnly:
                 self_(name, value)
 
         return self_
-
-
-def get_version() -> str:
-    """
-    This function just tries to estimate the version from the git history. Tags are considered to be releases and commits are version numbers.
-
-    Returns:
-        str: The version number in the form "A.B - C" Where A is the version number, B is the commits since that version, and C is the total commits.
-    """
-    try:
-        repo = git.Repo(os.getcwd())
-        # print(f"Tags: {repo.tags}")
-        commit_count = len([1 for _ in repo.iter_commits()])
-
-        best_tag = (0, 0)
-        for tag in repo.tags:
-            commit_num = tag.commit.count()
-            if commit_num > best_tag[1] and commit_num <= commit_count:
-                best_tag = (best_tag[0] + 1, commit_num)
-                # TODO: Make sure this works, I want it so that the version is Vx.y - z,
-                # where x is a tagged commit, and y is the number of commits after that, and z is the actual number
-
-        return f"v{best_tag[0]}.{commit_count-best_tag[1]} - {commit_count}"
-    except git.InvalidGitRepositoryError:
-        "0.0 - 0"
 
 
 def make_versiontag(message: str):

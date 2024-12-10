@@ -1,9 +1,12 @@
 # This is just some extra adaptation code for ADMM that I had made that does not fit elsewhere so I just made it its own file.
 
-import torch
 from typing import TYPE_CHECKING
+
+import torch
+
 if TYPE_CHECKING:
     from src.modelstruct import BaseDetectionModel
+
 from ..extramodules import PostMutablePruningLayer
 
 

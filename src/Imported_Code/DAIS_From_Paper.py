@@ -2,8 +2,9 @@
 # Implementation made by Alexandre Broggi 2024, I hope I am not making any big mistakes
 import torch
 import torch.utils.data
-from torch.utils.data import DataLoader
 import torch.utils.data.dataloader
+from torch.utils.data import DataLoader
+
 from ..extramodules import PostMutablePruningLayer
 from ..modelstruct import BaseDetectionModel
 

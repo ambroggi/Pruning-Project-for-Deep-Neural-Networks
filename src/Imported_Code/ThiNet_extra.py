@@ -1,12 +1,16 @@
 # This is just some code to specifically run ThiNet, I did not want it in the ThiNet_From_Code file because it is not from the original code
 # This just handles most of the adaptation between the systems.
+from typing import TYPE_CHECKING
+
 import torch
 from numpy.linalg import LinAlgError
-from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from src.modelstruct import BaseDetectionModel
+
 from .helperFunctions import forward_hook, remove_layers
 from .ThiNet_From_Code import value_sum, value_sum_another
+
 value_sum, value_sum_another
 
 

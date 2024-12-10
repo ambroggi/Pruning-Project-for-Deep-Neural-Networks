@@ -2,6 +2,7 @@
 # Implementation made by Alexandre Broggi 2024, I hope I am not making any big mistakes
 # Most of this is just to get things into the format that I want it to be in, only a few lines are actually directly related to the paper
 import torch
+
 from ..extramodules import Nothing_Module
 
 
