@@ -47,7 +47,7 @@ class ConfigObject():
         "Optimizer": {"Adam": torch.optim.Adam, "SGD": torch.optim.SGD, "RMS": torch.optim.RMSprop},
         "LossFunction": {"MSE": torch.nn.MSELoss, "CrossEntropy": torch.nn.CrossEntropyLoss},
         "ModelStructure": {"BasicTest": "BasicTest", "SwappingTest": "SwappingTest", "SimpleCNN": "SimpleCNN", "MainLinear": "MainLinear"},
-        "DatasetName": {"RandomDummy": "RandomDummy", "Vulnerability": "Vulnerability", "ACI": "ACI", "ACI_grouped": "ACI_grouped", "ACI_grouped_fullbalance": "ACI_grouped_fullbalance", "ACI_flows": "ACI_flows"},
+        "DatasetName": {"RandomDummy": "RandomDummy", "Vulnerability": "Vulnerability", "ACI": "ACI", "ACI_grouped": "ACI_grouped", "ACI_grouped_full_balance": "ACI_grouped_full_balance", "ACI_flows": "ACI_flows"},
         "TheseusRequiredGrads": {"All": "All", "Nearby": "Nearby", "New": "New"},
         "Device": {"cpu": torch.device("cpu"), "cuda": torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"), torch.device("cpu"): torch.device("cpu"), torch.device("cuda"): torch.device("cuda")}
         }
@@ -74,7 +74,7 @@ class ConfigObject():
             "TrainTest": [0.2, "Fraction of data used in the validation set. Also used for splitting Test from validation.", "float"],
             "MaxSamples": [0, "Maximum number of samples in the data, 0 is no limit. Note that the data is random split", "int"],
             "Dataparallel": [-2, "To use distributed data parallel and if it failed. 0 is off, 1 is active, -1 is failed, -2 is not implemented", "int"],
-            "NumberOfWorkers": [0, "Number of worker processes or dataparallel processes if Dataparallel is 1", "int"],
+            "NumberOfWorkers": [0, "Number of worker processes or data-parallel processes if Data-parallel is 1", "int"],
             "Device": ["cuda", "Use CPU or CUDA", "strdevice"],
             "AlphaForADMM": [5e-4, "Alpha value for ADMM model", "float"],
             "RhoForADMM": [1.5e-3, "Rho value for ADMM model", "float"],
@@ -90,8 +90,8 @@ class ConfigObject():
             "LassoForDAIS": [False, "Wether to use Lasso or not for DIAS, note that the paper describes the lasso loss but appears to not use it", "int"],
             "LayerIteration": ["10, 30, *, 30", "iterative_full_theseus amount each layer is reduced by in each iteration", "strl"],
             "TheseusRequiredGrads": ["All", "What layers to train with the layer replacement style", "str"],
-            "SaveLocation": [None, "What filename the statedict was saved as, if it was saved at all.", "strn"],
-            "FromSaveLocation": [None, "What filename the statedict was loaded as, if it was loaded at all. "
+            "SaveLocation": [None, "What filename the state_dict was saved as, if it was saved at all.", "strn"],
+            "FromSaveLocation": [None, "What filename the state_dict was loaded as, if it was loaded at all. "
                                  "Or you can load a specific row by putting an input in the form of 'csv x' where x can be any row number. ex 'csv 5'", "strn"],
             "NumClasses": [-1, "How many classes the model is distinguishing between, -1 is to calculate default", "int"],
             "NumFeatures": [-1, "How many features the model is using, -1 is to calculate default", "int"],
@@ -352,7 +352,7 @@ class ConfigObject():
         return self_
 
 
-def make_versiontag(message: str):
+def make_version_tag(message: str):
     """
     Unused and not working; function that tags the current version in the git history
 

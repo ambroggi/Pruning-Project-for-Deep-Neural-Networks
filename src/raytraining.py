@@ -21,7 +21,7 @@ from src import cfg, getdata, modelstruct
 # import ray.cloudpickle as pickle
 
 
-def searchspaceconfig(config: cfg.ConfigObject):
+def search_space_config(config: cfg.ConfigObject):
     modifications = {
         "LearningRate": tune.loguniform(1e-4, 1e-1),
         "BatchSize": tune.choice(10**x for x in range(1, 8)),
@@ -42,7 +42,7 @@ def raytrain(config: cfg.ConfigObject | bool | None = None, **kwargs) -> dict[st
     else:
         config = config.clone()
 
-    conf = searchspaceconfig(config) | {"DatafolderPath": os.path.join(os.getcwd(), "datasets")}
+    conf = search_space_config(config) | {"DatafolderPath": os.path.join(os.getcwd(), "datasets")}
 
     scheduler = ASHAScheduler(
         metric="val_f1_score_macro",

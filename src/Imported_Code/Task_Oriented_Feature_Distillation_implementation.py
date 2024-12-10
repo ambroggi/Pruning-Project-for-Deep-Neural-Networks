@@ -94,7 +94,7 @@ class task_oriented_feature_wrapper(torch.nn.Module):
 class auxiliary_module(torch.nn.Module):
     def __init__(self, wrapped_module: torch.nn.Module, expected_tensor_example: torch.Tensor, number_of_classes: int, features_len: int):
         super().__init__()
-        # NOTE: this auxiliary module is as accurate as I think I could make it given that we have a diffrent model structure.
+        # NOTE: this auxiliary module is as accurate as I think I could make it given that we have a different model structure.
         # self.wrapped = wrapped_module
         if len(expected_tensor_example.shape) < 3:
             self.expand = True

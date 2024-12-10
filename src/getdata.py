@@ -36,7 +36,7 @@ class BaseDataset(torch.utils.data.Dataset):
     """This is the base abstract dataset type that is for all datasets for this code base.
     """
     def __init__(self):
-        self.base = self  # Find the original dataset even after splitting (this is purely to apply the scaler)
+        self.base = self  # Find the original dataset even after splitting (this is to apply the scaler and find the original after splits)
         self.scaler = StandardScaler()
         self.number_of_classes = 100
         self.number_of_features = 100
@@ -67,6 +67,11 @@ class BaseDataset(torch.utils.data.Dataset):
         self.scaler.fit(df)
         self.scale(self.scaler)
 
+    def target_to_one_hot(self, targets: torch.Tensor):
+        if self.format in ["MSE"]:
+            targets = torch.nn.functional.one_hot(targets, num_classes=self.number_of_classes).to(torch.float)
+        return targets
+
 
 class VulnerabilityDataset(BaseDataset):
     def __init__(self, target_format: str = "CrossEntropy"):
@@ -82,15 +87,13 @@ class VulnerabilityDataset(BaseDataset):
     def __getitem__(self, index: int) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
         features = torch.randint(0, 256, [self.number_of_classes], requires_grad=False, dtype=torch.float32)
         target = torch.randint(0, self.number_of_classes, [1], requires_grad=False, dtype=torch.long)
-        if self.format in ["MSE"]:
-            target = torch.nn.functional.one_hot(target, num_classes=self.number_of_classes).to(torch.float)
+        target = self.target_to_one_hot(target)
         return features, target
 
     def __getitems__(self, indexes: list[int]) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
         features = torch.randint(0, 256, [len(indexes), self.number_of_classes], requires_grad=False, dtype=torch.float32)
         targets = torch.randint(0, self.number_of_classes, [len(indexes)], requires_grad=False, dtype=torch.long)
-        if self.format in ["MSE"]:
-            targets = torch.nn.functional.one_hot(targets, num_classes=self.number_of_classes).to(torch.float)
+        targets = self.target_to_one_hot(targets)
         return features, targets
 
 
@@ -127,14 +130,13 @@ class RandomDummyDataset(BaseDataset):
             index (int): Value to get specifically from the dataset
 
         Returns:
-            tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]: a tuple containing input features and a target value (target is either a tensor or a vector depening on how the dataloader was set up)
+            tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]: a tuple containing input features and a target value (target is either a tensor or a vector depending on how the dataloader was set up)
         """
         torch.random.manual_seed(self.rand_seed)
         features = torch.randint(0, 256, [self.number_of_features], requires_grad=False, dtype=torch.float32)
         # features.apply_(lambda x: self.scale.transform(x))
         target = torch.randint(0, self.number_of_classes, [1], requires_grad=False, dtype=torch.long)
-        if self.format in ["MSE"]:
-            target = torch.nn.functional.one_hot(target, num_classes=self.number_of_classes).to(torch.float)
+        target = self.target_to_one_hot(target)
         return features, target
 
     def __getitems__(self, indexes: list[int]) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
@@ -150,8 +152,7 @@ class RandomDummyDataset(BaseDataset):
         features = torch.randint(0, 256, [len(indexes), self.number_of_features], requires_grad=False, dtype=torch.float32)
         # features.apply_(lambda x: self.scale.transform(x))
         targets = torch.randint(0, self.number_of_classes, [len(indexes)], requires_grad=False, dtype=torch.long)
-        if self.format in ["MSE"]:
-            targets = torch.nn.functional.one_hot(targets, num_classes=self.number_of_classes).to(torch.float)
+        targets = self.target_to_one_hot(targets)
         return features, targets
 
 
@@ -200,7 +201,7 @@ class ACIIOT2023(BaseDataset):
             # self.original_vals = self.original_vals.groupby("label").sample(n=int(100*min([x for x in self.original_vals.value_counts("label")])), replace=True)
             # It looks like the geeks for geeks article is more of the way to go though, because I need to select a varying number of samples
             if grouped:
-                self.original_vals["label"] = self.original_vals["label"].apply(self.grouplabels)
+                self.original_vals["label"] = self.original_vals["label"].apply(self.group_labels)
                 max_samples = difference_multiplier * min(self.original_vals.value_counts("label"))
             else:
                 max_samples = difference_multiplier * min(self.original_vals.value_counts("label"))
@@ -220,9 +221,9 @@ class ACIIOT2023(BaseDataset):
 
             # test = self.vals["payload"].apply(self.from_bytestring)
             # print(test)
-            # This whole splitting thing is just because my computer ran out of RAM and using virutal memory slowed this down a lot
-            chunk_spliter = [2000*x for x in range(len(self.original_vals)//2000)] + [len(self.original_vals)]
-            byte_arrays = pd.concat([self.original_vals["payload"][x1:x2].apply(self.from_bytestring) for x1, x2 in zip(chunk_spliter, chunk_spliter[1:])])
+            # This whole splitting thing is just because my computer ran out of RAM and using virtual memory slowed this down a lot
+            chunk_splitter = [2000*x for x in range(len(self.original_vals)//2000)] + [len(self.original_vals)]
+            byte_arrays = pd.concat([self.original_vals["payload"][x1:x2].apply(self.from_bytestring) for x1, x2 in zip(chunk_splitter, chunk_splitter[1:])])
             self.original_vals = pd.concat((self.original_vals, byte_arrays), axis=1)
             self.original_vals.drop(["payload"], inplace=True, axis=1)
 
@@ -265,8 +266,7 @@ class ACIIOT2023(BaseDataset):
         target = torch.Tensor(tar)
         target = target.long()
         target.requires_grad = False
-        if self.format in ["MSE"]:
-            target = torch.nn.functional.one_hot(target, num_classes=self.number_of_classes).to(torch.float)
+        target = self.target_to_one_hot(target)
         return features, target
 
     def __getitems__(self, indexes: list[int]) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
@@ -281,19 +281,18 @@ class ACIIOT2023(BaseDataset):
         targets = torch.Tensor(tar.astype(int).to_numpy())
         targets = targets.long()
         targets.requires_grad = False
-        if self.format in ["MSE"]:
-            targets = torch.nn.functional.one_hot(targets, num_classes=self.number_of_classes).to(torch.float)
+        targets = self.target_to_one_hot(targets)
         return features, targets
 
     def from_bytestring(self, x):
-        # small implementation based on payloadbyte things, https://github.com/Yasir-ali-farrukh/Payload-Byte/blob/main/Pipeline.ipynb
+        # small implementation based on payloadByte things, https://github.com/Yasir-ali-farrukh/Payload-Byte/blob/main/Pipeline.ipynb
         np_x = np.array(bytearray.fromhex(x), dtype=np.dtype('u1'))
         np_x.resize(1500, refcheck=False)
         series = pd.Series(np_x, index=[f"Byte_{x}" for x in range(1500)], dtype='uint8')
         return series
 
     @staticmethod
-    def grouplabels(old_label):
+    def group_labels(old_label):
         if "Flood" in old_label:
             return "Flood"
         if "Scan" in old_label:
@@ -347,7 +346,7 @@ class ACIPayloadless(BaseDataset):
             # self.original_vals = self.original_vals.groupby("label").sample(n=int(100*min([x for x in self.original_vals.value_counts("label")])), replace=True)
             # It looks like the geeks for geeks article is more of the way to go though, because I need to select a varying number of samples
             if grouped:
-                self.original_vals["Label"] = self.original_vals["Label"].apply(self.grouplabels)
+                self.original_vals["Label"] = self.original_vals["Label"].apply(self.group_labels)
                 max_samples = difference_multiplier * min(self.original_vals.value_counts("Label"))
             else:
                 max_samples = difference_multiplier * min(self.original_vals.value_counts("Label"))
@@ -358,8 +357,8 @@ class ACIPayloadless(BaseDataset):
             self.original_vals.drop(["Flow ID", "Timestamp", "Connection Type"], inplace=True, axis=1)
 
             # Set infinity "Flow Bytes/s" and "Flow Packets/s"
-            self.original_vals["Flow Bytes/s"] = self.original_vals["Flow Bytes/s"].map(lambda x: 0 if np.isinf(x) else x)
-            self.original_vals["Flow Packets/s"] = self.original_vals["Flow Packets/s"].map(lambda x: 0 if np.isinf(x) else x)
+            self.original_vals["Flow Bytes/s"] = self.original_vals["Flow Bytes/s"].map(lambda x: -1 if np.isinf(x) or np.isnan(x) else x)
+            self.original_vals["Flow Packets/s"] = self.original_vals["Flow Packets/s"].map(lambda x: -1 if np.isinf(x) or np.isnan(x) else x)
 
             # got how to split the ip columns from: https://stackoverflow.com/a/39358924
             self.original_vals[["src_ip_3", "src_ip_2", "src_ip_1", "src_ip_0"]] = self.original_vals["Src IP"].str.split(".", n=3, expand=True).astype(int)
@@ -413,8 +412,7 @@ class ACIPayloadless(BaseDataset):
         target = torch.Tensor(tar)
         target = target.long()
         target.requires_grad = False
-        if self.format in ["MSE"]:
-            target = torch.nn.functional.one_hot(target, num_classes=self.number_of_classes).to(torch.float)
+        target = self.target_to_one_hot(target)
         return features, target
 
     def __getitems__(self, indexes: list[int]) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
@@ -430,12 +428,11 @@ class ACIPayloadless(BaseDataset):
         targets = torch.Tensor(tar.astype(int).to_numpy())
         targets = targets.long()
         targets.requires_grad = False
-        if self.format in ["MSE"]:
-            targets = torch.nn.functional.one_hot(targets, num_classes=self.number_of_classes).to(torch.float)
+        targets = self.target_to_one_hot(targets)
         return features, targets
 
     @staticmethod
-    def grouplabels(old_label):
+    def group_labels(old_label):
         if "Flood" in old_label:
             return "Flood"
         if "Scan" in old_label:
@@ -491,7 +488,7 @@ def get_dataset(config: ConfigObject) -> BaseDataset:
     Returns:
         BaseDataset: The dataset retrieved from the config.
     """
-    datasets: dict[str, torch.utils.data.Dataset] = {"Vulnerability": VulnerabilityDataset, "RandomDummy": RandomDummyDataset, "ACI": ACIIOT2023, "ACI_grouped": partial(ACIIOT2023, grouped=True), "ACI_grouped_fullbalance": partial(ACIIOT2023, grouped=True, difference_multiplier=1), "ACI_flows": ACIPayloadless}
+    datasets: dict[str, torch.utils.data.Dataset] = {"Vulnerability": VulnerabilityDataset, "RandomDummy": RandomDummyDataset, "ACI": ACIIOT2023, "ACI_grouped": partial(ACIIOT2023, grouped=True), "ACI_grouped_full_balance": partial(ACIIOT2023, grouped=True, difference_multiplier=1), "ACI_flows": ACIPayloadless}
     data: BaseDataset = datasets[config("DatasetName")](target_format=config("LossFunction", getString=True))
     config("NumClasses", data.number_of_classes)
     config("NumFeatures", data.number_of_features)

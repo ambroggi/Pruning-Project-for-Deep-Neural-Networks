@@ -52,6 +52,19 @@ colors = {
 }
 
 
+shapes = {
+    "ADMM Joint": "x",
+    "BERT Theseus": "cross",
+    "DAIS": "square",
+    "Original Run": "circle",
+    "Random Structured": "triangle-up",
+    "Recreation": "circle",
+    "TOFD": "bowtie",
+    "Iterative Theseus": "diamond",
+    "Thinet": "star"
+}
+
+
 scatterpairs_scaled = [
     ("actual_parameters", "val_f1_score_macro"),
     ("actual_parameters", "val_f1_score_weight"),
@@ -67,6 +80,12 @@ scatterpairs_true = [
     ("actual_parameters", "CudaMemory"),
     ("actual_parameters", "GarbageCollectionSizeTotal")
 ]
+
+
+def original_run_top_sort_func(x):
+    # This is a function used in a .map expression so that "Original Run" is sorted to the top, for visualization.
+    # I just noticed that I was using this as a lambda a lot so just made it into a function
+    return x if x != "Original Run" else "AAAA"
 
 
 def error_bar(x: list[float]) -> float:
@@ -120,10 +139,10 @@ def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.Dat
     df_scaled = df_scaled[(df_scaled["Notes"] == 0) | (df["Notes"] == 8) | (df["Notes"] == 32)]
     df_scaled = df_scaled[df_scaled["PruningSelection"] != "TOFD"]  # Removing support for TOFD since it does not seem to be working despite efforts
 
-    pt = df.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune", "Memory", "CudaMemory", "GarbageCollectionSizeTotal", "TimeForPruneAndRetrain"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc=["mean", error_bar, "std"]).sort_index(level=0, sort_remaining=False, key=lambda x: x.map(lambda y: y if y != "Original Run" else "AAAA"))
-    pt_scaled = df_scaled.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune", "TimeForPruneAndRetrain"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc=["mean", error_bar, "std"]).sort_index(level=0, sort_remaining=False, key=lambda x: x.map(lambda y: y if y != "Original Run" else "AAAA"))
+    pt = df.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune", "Memory", "CudaMemory", "GarbageCollectionSizeTotal", "TimeForPruneAndRetrain"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc=["mean", error_bar, "std"]).sort_index(level=0, sort_remaining=False, key=lambda x: x.map(original_run_top_sort_func))
+    pt_scaled = df_scaled.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune", "TimeForPruneAndRetrain"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc=["mean", error_bar, "std"]).sort_index(level=0, sort_remaining=False, key=lambda x: x.map(original_run_top_sort_func))
     # print(df.head())
-    df.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune", "Memory", "CudaMemory", "GarbageCollectionSizeTotal", "TimeForPruneAndRetrain"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc="count").sort_index(level=0, sort_remaining=False, key=lambda x: x.map(lambda y: y if y != "Original Run" else "AAAA")).to_csv(f"results/images/debug_{os.path.basename(path)}")
+    df.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune", "Memory", "CudaMemory", "GarbageCollectionSizeTotal", "TimeForPruneAndRetrain"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc="count").sort_index(level=0, sort_remaining=False, key=lambda x: x.map(original_run_top_sort_func)).to_csv(f"results/images/debug_{os.path.basename(path)}")
     return df, pt, pt_scaled
 
 
@@ -142,7 +161,7 @@ def graph_pt(pt: pd.DataFrame, XYpair: tuple[str, str] = ("actual_parameters", "
             size = sizes[weight_prune_group] * 0 + 10
             # print(pt[pruning_selection])
             plot.add_trace(plotly.graph_objects.Scatter(x=pt[pruning_selection].T[x_name], y=pt[pruning_selection].T[y_name],
-                                                        name=pruning_selection, marker={"size": size, "color": colors.get(pruning_selection, "Gray")}, text=pt[pruning_selection].keys(),
+                                                        name=pruning_selection, marker={"size": size, "color": colors.get(pruning_selection, "Gray"), "symbol": shapes.get(pruning_selection, "circle-open")}, text=pt[pruning_selection].keys(),
                                                         error_x=dict(type="data", array=list(pt_err[pruning_selection].T[x_name]), visible=True, color="rgba(0, 0, 0, 0.1)"),
                                                         error_y=dict(type="data", array=list(pt_err[pruning_selection].T[y_name]), visible=True, color="rgba(0, 0, 0, 0.1)")))  # ref: https://plotly.com/python/error-bars/
 
@@ -188,7 +207,7 @@ def make_table(pt1, pt2):
     combined.rename(columns=readability, inplace=True)
     combined = combined.convert_dtypes()
     # All this is just to get the algorithms sorted alphabetically but with the Original Run first (Basically sorts it assuming 'Original Run' means 'AAAA')
-    combined.sort_index(inplace=True, level=0, sort_remaining=False, key=lambda x: x.map(lambda y: y if y != "Original Run" else "AAAA"))
+    combined.sort_index(inplace=True, level=0, sort_remaining=False, key=lambda x: x.map(original_run_top_sort_func))
 
     # https://pandas.pydata.org/docs/reference/api/pandas.io.formats.style.Styler.to_latex.html
     styler = combined.style.highlight_max([("small", "F1 Score"), ("big", "F1 Score")], props='bfseries: ;')

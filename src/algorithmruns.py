@@ -29,7 +29,7 @@ def swapping_run(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel
         dict[str, object]: This is an updated version of the initial arguments given to the function, so that the pruning methods can be stacked.
     """
     if layers is None:
-        layers = [layernum for layernum, layerpercent in enumerate(config("WeightPrunePercent")) if layerpercent < 1]
+        layers = [layer_num for layer_num, layer_percent in enumerate(config("WeightPrunePercent")) if layer_percent < 1]
 
     targets = []
     currents = []
@@ -204,7 +204,7 @@ def thinet_test_old(config: cfg.ConfigObject, model: modelstruct.BaseDetectionMo
         dict[str, object]: An updated version of the initial arguments given to the function, so that the pruning methods can be stacked.
     """
     if layers is None:
-        layers = [layernum for layernum, layerpercent in enumerate(config("WeightPrunePercent")) if layerpercent < 1]
+        layers = [layer_num for layer_num, layer_percent in enumerate(config("WeightPrunePercent")) if layer_percent < 1]
 
     for i in layers:
         Imported_Code.thinet_pruning(model, i, config=config)
@@ -233,7 +233,7 @@ def thinet_test(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel,
         dict[str, object]:  An updated version of the initial arguments given to the function, so that the pruning methods can be stacked.
     """
     if layers is None:
-        layers = [layernum for layernum, layerpercent in enumerate(config("WeightPrunePercent")) if layerpercent < 1]
+        layers = [layer_num for layer_num, layer_percent in enumerate(config("WeightPrunePercent")) if layer_percent < 1]
 
     # Create sample of dataset, Fancy load_kwargs is just there to load the collate_fn
     # This is the train-test split version of the dataset, the original data would be model.dataloader.dataset.base
@@ -337,7 +337,7 @@ def DAIS_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, l
     """
     # Find the layers to apply it to
     if layers is None:
-        layers = [layernum for layernum, layerpercent in enumerate(config("WeightPrunePercent")) if layerpercent < 1]
+        layers = [layer_num for layer_num, layer_percent in enumerate(config("WeightPrunePercent")) if layer_percent < 1]
 
     alphas = []
     for layer, module in enumerate(model.get_important_modules()):
@@ -492,7 +492,7 @@ def Recreation_run(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObje
     """
     # This just makes a new model with the specified size
     if layers is None:
-        layers = [layernum for layernum, layerpercent in enumerate(config("WeightPrunePercent")) if layerpercent < 1]
+        layers = [layer_num for layer_num, layer_percent in enumerate(config("WeightPrunePercent")) if layer_percent < 1]
 
     targets = []
     currents = []

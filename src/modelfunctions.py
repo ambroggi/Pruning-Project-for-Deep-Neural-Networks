@@ -24,7 +24,7 @@ class ModelFunctions():
         self.epoch_callbacks: list[Callable[[dict], None]] = []  # Called at the end of each epoch with a dictionary of results. Is reset when the last epoch ends
         self.dataloader: None | DataLoader = None  # The labeled data to load
         self.validation_dataloader: None | DataLoader = None  # The data that is to be used to verify the model performance
-        self.optimizer: torch.optim.Optimizer | None = None  # Method of applying backpropigation
+        self.optimizer: torch.optim.Optimizer | None = None  # Method of applying back-propagation
         self.loss_fn: torch.nn.Module | None = None  # This is the specific loss function that the model is using
         self.loss_additive_info: tuple[Callable, tuple] = torch.tensor, (0, )  # This is a space for any additional loss functions the model might have. Used with DAIS
         self.frozen: dict[str, torch.Tensor] = {}  # This is supposed to be a state dictionary for the current modules that are done with pruning. but it does not work that well
@@ -136,8 +136,8 @@ class ModelFunctions():
             self.train(False)
             self.num_epochs_trained -= 1  # Just to account for the repeat for validation, so that it does not increase the training epoch count
             with torch.no_grad():
-                resultsmessage = self.fit(epochs=1, dataloader=dataloader, keep_callbacks=keep_callbacks)  # Run model to collect data
-            return resultsmessage
+                results_message = self.fit(epochs=1, dataloader=dataloader, keep_callbacks=keep_callbacks)  # Run model to collect data
+            return results_message
 
         self = self.to(self.cfg("Device"))  # Move things to the active device
 
@@ -464,23 +464,23 @@ class ModelFunctions():
         """
         assert isinstance(self, torch.nn.Module)
         if logger_column is None:
-            loggercolumn = "SaveLocation"
+            logger_column_ = "SaveLocation"
         else:
-            loggercolumn = logger_column
+            logger_column_ = logger_column
 
         if update_config:
             if logger_column is not None:
                 print("Savepoint is being changed in the config but not in the log, are you sure you want to do this?")
-            # this is the default, where it saves the name as the config savelocation value
+            # this is the default, where it saves the name as the config SaveLocation value
             if name is None:
                 if self.cfg("SaveLocation") is None:
                     self.cfg("SaveLocation", f"ModelStateDict{time.time()}.pt")
             else:
                 self.cfg("SaveLocation", name if ".pt" in name else f"{name}.pt")
-            logger(loggercolumn, self.cfg("SaveLocation"))
+            logger(logger_column_, self.cfg("SaveLocation"))
             torch.save(self.state_dict(), "savedModels/"+self.cfg("SaveLocation"))
         else:
             # This is if you want an extra save (making it for waypoints)
             name = f"ModelStateDict{logger_column if logger_column is not None else ''}{time.time()}.pt" if name is None else (name if ".pt" in name else f"{name}.pt")
-            logger(loggercolumn, name)
+            logger(logger_column_, name)
             torch.save(self.state_dict(), "savedModels/"+name)
