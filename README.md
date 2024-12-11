@@ -5,18 +5,26 @@ This is a pipeline for testing various different pruning methods on an arbitrary
 ## Algorithms used
 
 ADMM [Link] (https://github.com/leegs52/admm_joint_pruning) *Code Used and Slightly Modified*
+
 BERT_Theseus [Link] (https://arxiv.org/pdf/2002.02925)
+
 DAIS [Link] (https://arxiv.org/pdf/2011.02166)
+
 IterativeTheseus *Created brute force technique*
+
 ThiNet [Link] (https://github.com/Roll920/ThiNet_Code/tree/master)
+
 TOFD [Link] (https://github.com/ArchipLab-LinfengZhang/Task-Oriented-Feature-Distillation/commit/fcfd4be5ff773d2d27adccdc7df206cdf502800e) *Code Used and Slightly Modified*
+
 Random Pruning *Standard Method*
+
 Complete replacement *Baseline training new model*
 
 
 ## Structure of Repository
 
 This repository is structured into several folders and some running code.
+
 Folders:
 - datasets: The dataset files must be placed here in order to allow the model to run.
 - results: The logging files that store all run information.
@@ -36,7 +44,7 @@ Files:
 
 ## How to run
 
-There are several meanings to the phrase "running our program" as there are three python files that are set up to be run directly and several shell files that will run batches.
+There are several meanings to the phrase "running our program" as there are three python files that are set up to be run directly and several shell files that will run batches of tests.
 
 ### Dependencies
 
@@ -60,6 +68,7 @@ The results we got from our original runs can be re-graphed by running the `src/
 You can easily generate your own data by using `python main.py`. This has several options for each run. You can use `python main.py -h` to see the full options list with explanations but the main ones are:
 
 - PruningSelection: If PruningSelection is set, then only that one algorithm will be run. As follows (see bottom of `src/algorithmruns.py` file):
+
     0. Train the original model.
     1. ADMM
     2. TOFD
