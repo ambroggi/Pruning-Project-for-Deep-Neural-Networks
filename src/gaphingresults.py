@@ -9,7 +9,7 @@ import plotly.graph_objects
 readability = {
     "parameters": "Total number of parameters",
     "val_f1_score_macro": "F1 score in validation",
-    "val_f1_score_weight": "F1 score (weighted by occurrences)",
+    "val_f1_score_weight": "F1 score, weighted",
     "actual_parameters": "Number of non-zero parameters",
     "TimeForRun": "Time for normal fit after pruning",
     "TimeForPrune": "Time for pruning the model",
@@ -27,10 +27,13 @@ readability = {
     "iteritive_full_theseus": "Iterative Theseus",
     "thinet": "Thinet",
     "F1 score in validation": "F1 Score",
-    "Time for pruning the model": "Pruning Time, Scaled",
+    "(Normalized)-F1 score in validation": "F1 Score",
+    "Time for pruning the model": "Pruning Time, Log",
     "Number of non-zero parameters": "Parameters",
     "PruningSelection": "Algorithm"
 }
+
+readability |= {"(Normalized)-"+x: "(Normalized)-"+y for x, y in readability.items()}
 
 extra_readability = {
     "BERT_theseus_training|": "",
@@ -66,12 +69,12 @@ shapes = {
 
 
 scatterpairs_scaled = [
-    ("actual_parameters", "val_f1_score_macro"),
-    ("actual_parameters", "val_f1_score_weight"),
-    ("parameters", "val_f1_score_macro"),
-    ("actual_parameters", "TimeForRun"),
-    ("actual_parameters", "TimeForPruneAndRetrain"),
-    ("val_f1_score_weight", "val_f1_score_macro")
+    ("(Normalized)-actual_parameters", "(Normalized)-val_f1_score_macro"),
+    ("(Normalized)-actual_parameters", "(Normalized)-val_f1_score_weight"),
+    ("(Normalized)-parameters", "(Normalized)-val_f1_score_macro"),
+    ("(Normalized)-actual_parameters", "(Normalized)-TimeForRun"),
+    ("(Normalized)-actual_parameters", "(Normalized)-TimeForPruneAndRetrain"),
+    ("(Normalized)-val_f1_score_weight", "(Normalized)-val_f1_score_macro")
 ]
 
 scatterpairs_true = [
@@ -120,11 +123,10 @@ def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.Dat
     df_pre = df.iloc[row_numbers]
 
     # Create scaled version of dataframe based on the pretrained values
-    df_scaled = df.copy()
     numerical = ["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune", "TimeForPruneAndRetrain"]
     for x in numerical:
-        df_scaled[x] = df[x].values/df_pre[x].values
-        df_scaled[x].fillna(-1)
+        df["(Normalized)-"+x] = df[x].values/df_pre[x].values
+        df["(Normalized)-"+x].fillna(-1)
 
     # Remove runs that did not finish.
     df = df[~df["parameters"].isna()]
@@ -135,15 +137,28 @@ def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.Dat
     # df = df[df["LengthOfTrainingData"] > 1000]
     df = df[(df["Notes"] == 0) | (df["Notes"] == 8) | (df["Notes"] == 32)]
     df = df[df["PruningSelection"] != "TOFD"]  # Removing support for TOFD since it does not seem to be working despite efforts
-    # df_scaled = df_scaled[df_scaled["LengthOfTrainingData"] > 1000]
-    df_scaled = df_scaled[(df_scaled["Notes"] == 0) | (df["Notes"] == 8) | (df["Notes"] == 32)]
-    df_scaled = df_scaled[df_scaled["PruningSelection"] != "TOFD"]  # Removing support for TOFD since it does not seem to be working despite efforts
 
-    pt = df.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune", "Memory", "CudaMemory", "GarbageCollectionSizeTotal", "TimeForPruneAndRetrain"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc=["mean", error_bar, "std"]).sort_index(level=0, sort_remaining=False, key=lambda x: x.map(original_run_top_sort_func))
-    pt_scaled = df_scaled.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune", "TimeForPruneAndRetrain"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc=["mean", error_bar, "std"]).sort_index(level=0, sort_remaining=False, key=lambda x: x.map(original_run_top_sort_func))
+    pivot_table_rows = [
+        "val_f1_score_macro",
+        "val_f1_score_weight",
+        "parameters", "actual_parameters",
+        "TimeForRun", "TimeForPrune",
+        "Memory", "CudaMemory",
+        "GarbageCollectionSizeTotal",
+        "TimeForPruneAndRetrain",
+        "(Normalized)-val_f1_score_macro",
+        "(Normalized)-val_f1_score_weight",
+        "(Normalized)-parameters",
+        "(Normalized)-actual_parameters",
+        "(Normalized)-TimeForRun",
+        "(Normalized)-TimeForPrune",
+        "(Normalized)-TimeForPruneAndRetrain"
+    ]
+
+    pt = df.pivot_table(values=pivot_table_rows, index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc=["mean", error_bar, "std"]).sort_index(level=0, sort_remaining=False, key=lambda x: x.map(original_run_top_sort_func))
     # print(df.head())
     df.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune", "Memory", "CudaMemory", "GarbageCollectionSizeTotal", "TimeForPruneAndRetrain"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc="count").sort_index(level=0, sort_remaining=False, key=lambda x: x.map(original_run_top_sort_func)).to_csv(f"results/images/debug_{os.path.basename(path)}")
-    return df, pt, pt_scaled
+    return df, pt
 
 
 def graph_pt(pt: pd.DataFrame, XYpair: tuple[str, str] = ("actual_parameters", "val_f1_score_macro"), file: None | os.PathLike = None):
@@ -168,8 +183,9 @@ def graph_pt(pt: pd.DataFrame, XYpair: tuple[str, str] = ("actual_parameters", "
     plot.update({
         "layout": {"title": {
                         "text": f"{readability.get(y_name, y_name)} vs {readability.get(x_name, x_name)}",
-                        "xanchor": "center",
-                        'x': 0.5},
+                        "xanchor": "left",
+                        'x': 0.3,
+                        "font": {"size": 13}},
                    "xaxis_title": f"{readability.get(x_name, x_name)}",
                    "yaxis_title": f"{readability.get(y_name, y_name)}",
                    "legend_title": "Method of Pruning",
@@ -212,7 +228,7 @@ def make_table(pt1, pt2):
     # https://pandas.pydata.org/docs/reference/api/pandas.io.formats.style.Styler.to_latex.html
     styler = combined.style.highlight_max([("small", "F1 Score"), ("big", "F1 Score")], props='bfseries: ;')
     styler.format(subset=[("small", "F1 Score"), ("big", "F1 Score")], precision=3, na_rep="¬")
-    styler.format(subset=[("small", "Pruning Time, Scaled"), ("big", "Pruning Time, Scaled")], precision=3, na_rep="¬")
+    styler.format(subset=[("small", "Pruning Time, Log"), ("big", "Pruning Time, Log")], precision=3, na_rep="¬")
     styler.format("±{:0.2f}", subset=[("small", "Standard Deviation"), ("big", "Standard Deviation")], precision=2)
     # https://stackoverflow.com/a/57152529
     # styler.background_gradient(cmap=matplotlib.colormaps['Greys'], axis=1)
@@ -221,15 +237,15 @@ def make_table(pt1, pt2):
 
 
 if __name__ == "__main__":
-    df_small, pt_small, pt_scaled_small = read_results("results/SmallModel(v0.131).csv")
-    df, pt, pt_scaled = read_results("results/BigModel(v0.131).csv")
+    df_small, pt_small = read_results("results/SmallModel(v0.131).csv")
+    df, pt = read_results("results/BigModel(v0.131).csv")
 
     make_table(pt_small, pt)
 
     if not False:  # Just for fun, every time I disable this I am just going to add another "not" here
         for x in scatterpairs_scaled:
-            graph_pt(pt_scaled, x, file=f"results/images/Big-scaled-{x[0]}-{x[1]}.png")
-            graph_pt(pt_scaled_small, x, file=f"results/images/Small-scaled-{x[0]}-{x[1]}.png")
+            graph_pt(pt, x, file=f"results/images/Big-scaled-{x[0]}-{x[1]}.png")
+            graph_pt(pt_small, x, file=f"results/images/Small-scaled-{x[0]}-{x[1]}.png")
             # graph_pt(pt, x)
         for x in scatterpairs_true:
             graph_pt(pt, x, file=f"results/images/Big-{x[0]}-{x[1]}.png")
