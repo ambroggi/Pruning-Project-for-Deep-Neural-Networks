@@ -3,4 +3,4 @@
 	url = https://github.com/ambroggi/admm_joint_pruning
 [submodule "Task-Oriented-Feature-Distillation"]
 	path = src/Imported_Code/TaskOrientedFeatureDistillation
-	url = https://github.com/ambroggi/Task-Oriented-Feature-Distillation
+	url = https://github.com/ArchipLab-LinfengZhang/Task-Oriented-Feature-Distillation
