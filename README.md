@@ -12,7 +12,7 @@ DAIS [link](https://arxiv.org/pdf/2011.02166)
 
 Iterative Theseus (*Created brute force technique*)
 
-ThiNet [link](https://github.com/Roll920/ThiNet_Code/tree/master)
+ThiNet [link](https://github.com/Roll920/ThiNet_Code/tree/master) (*Code Used, Adapting code also made but kept separate*)
 
 TOFD [link](https://github.com/ArchipLab-LinfengZhang/Task-Oriented-Feature-Distillation/commit/fcfd4be5ff773d2d27adccdc7df206cdf502800e) *Code Used and Slightly Modified*
 
@@ -83,7 +83,7 @@ You can easily generate your own data by using `python main.py`. This has severa
 
 ### SLURM
 
-We had access to a High Performance Computing (HPC) cluster, which made our tests run faster. If you also have access to a HPC that runs SLURM for batching jobs, you may be able to just run our batch job shell files. Note that this is not necessary to run our code, it is available if you want to and are able to use it. We recommend just using `fullrun.sh` but you may need to run specific tests if the time limits run out.
+We had access to a High Performance Computing (HPC) cluster, which made our tests run faster. If you also have access to a HPC that runs SLURM for batching jobs, you may be able to just run our batch job shell files, with modifications to the running directory as that is an absolute path. Note that using these batch files is not necessary to run our code, they are available if you want to and are able to use them. We recommend just using `fullrun.sh` but you may need to run specific tests if the time limits run out.
 
 ### Hyperparameter Tuning
 

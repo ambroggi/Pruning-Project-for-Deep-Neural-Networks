@@ -242,7 +242,7 @@ if __name__ == "__main__":
 
     make_table(pt_small, pt)
 
-    if not False:  # Just for fun, every time I disable this I am just going to add another "not" here
+    if not False:  # Just for fun, every time I disable this I am just going to add another "not" here (And then I never edited it again)
         for x in scatterpairs_scaled:
             graph_pt(pt, x, file=f"results/images/Big-scaled-{x[0]}-{x[1]}.png")
             graph_pt(pt_small, x, file=f"results/images/Small-scaled-{x[0]}-{x[1]}.png")

@@ -8,7 +8,7 @@ import numpy
 import torch
 import torch.optim
 
-# Printed out by print(config.parameters.keys()) and just copied here
+# Printed out by print(config.parameters.keys()) and just copied here, just used for type hints.
 CONFIG_OPTIONS = Literal['Version', 'Notes', 'LossFunction', 'Optimizer', 'LearningRate', 'SchedulerLR', 'NumberOfEpochs', 'ModelStructure', 'Dropout', 'HiddenDim', 'HiddenDimSize', 'DatasetName', 'BatchSize', 'TrainTest', 'MaxSamples', 'Dataparallel', 'NumberOfWorkers', 'Device', 'AlphaForADMM', 'RhoForADMM', 'LayerPruneTargets', 'WeightPrunePercent', 'PruningSelection', 'BERTTheseusStartingLearningRate', 'BERTTheseusLearningRateModifier', 'AlphaForTOFD', 'BetaForTOFD', 'tForTOFD', 'DAISRegularizerScale', 'LassoForDAIS', 'LayerIteration', 'TheseusRequiredGrads', 'SaveLocation', 'FromSaveLocation', 'NumClasses', 'NumFeatures', 'NumberWeightSplits', 'ResultsPath']
 
 
