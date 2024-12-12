@@ -562,3 +562,21 @@ types_of_tests = {
     "7": Random_test,
     "8": Recreation_run
 }
+
+# These are just so that people don't get confused with the README names, just accepting everything.
+types_of_tests.update({
+    "ADMM": admm_test,
+    "ThiNet": thinet_test,
+    "IterativeTheseus": swapping_run,
+    "BERT_Theseus": bert_of_theseus_test,
+    "Random Pruning": Random_test,
+    "Complete replacement": Recreation_run,
+    "i": admm_test,
+    "ii": TOFD_test,
+    "iii": swapping_run,
+    "iv": bert_of_theseus_test,
+    "v": DAIS_test,
+    "vi": thinet_test,
+    "vii": Random_test,
+    "viii": Recreation_run
+})
