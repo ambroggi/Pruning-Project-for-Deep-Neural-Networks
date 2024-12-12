@@ -24,10 +24,10 @@ from src import cfg, getdata, modelstruct
 def search_space_config(config: cfg.ConfigObject):
     modifications = {
         "LearningRate": tune.loguniform(1e-4, 1e-1),
-        "BatchSize": tune.choice(10**x for x in range(1, 8)),
+        "BatchSize": tune.choice(10**x for x in range(1, 5)),
         "Dropout": tune.loguniform(1e-4, 1e-1),
-        "HiddenDim": tune.randint(0, 100),
-        "HiddenDimSize": tune.randint(10, 1000),
+        "HiddenDim": tune.randint(0, 50),
+        "HiddenDimSize": tune.randint(10, 400),
         "MaxSamples": 0,
         "NumberOfEpochs": 100
     }

@@ -118,6 +118,9 @@ class ConfigObject():
 
         # This is for initial setup
         for name, values in self.parameters.items():
+            if name in ["PruningSelection"]:
+                # Pruning selection is an appending value, so this would not reset it, it would append the same value, which is incorrect.
+                self(name, "Reset")
             if name not in self.readOnly:
                 self(name, values)
 
@@ -306,7 +309,7 @@ class ConfigObject():
 
         if args:
             for paramName, paramValue in args._get_kwargs():
-                assert self_(paramName, getString=True) == paramValue or paramName in ["Device", "LayerPruneTargets", "WeightPrunePercent", "LayerIteration"]
+                assert str(self_(paramName, getString=True)) == str(paramValue) or paramName in ["Device", "LayerPruneTargets", "WeightPrunePercent", "LayerIteration"]
 
         return self_
 
@@ -319,6 +322,8 @@ class ConfigObject():
         """
         new = ConfigObject()
         for x in self.parameters:
+            if x in ["PruningSelection"]:
+                new(x, "Reset")
             if x not in self.readOnly:
                 new(x, self(x, getString=True))
         return new
@@ -346,6 +351,8 @@ class ConfigObject():
         self_ = cls()
         # This is for initial setup
         for name, value in dictionary.items():
+            if name in ["PruningSelection"]:
+                self_(name, "Reset")
             if name not in self_.readOnly:
                 self_(name, value)
 
