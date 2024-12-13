@@ -25,7 +25,7 @@ class ExperimentLineManager():
             self.cfg = cfg
 
         # Create the dataframe
-        df = pd.DataFrame(self.cfg.parameters, columns=self.cfg.parameters.keys())[:1]
+        df = pd.DataFrame({x: [y] if isinstance(y, list) else y for x, y in self.cfg.parameters.items()})
         df["ProcessID"] = [os.getpid()]
         df["StartTime"] = datetime.datetime.now()
         df["cpuModel"] = platform.processor()

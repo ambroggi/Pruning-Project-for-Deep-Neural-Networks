@@ -84,7 +84,7 @@ class Nothing_Module(torch.nn.Module):
             old (torch.nn.Module): The module that this is replacing. It is stored as self.old[0] so that it cannot be found by torch autograd
         """
         super().__init__()
-        self.old = [old]  # Making it a list so torch cannot find it
+        self.old = [old]  # Making it a list so torch cannot find it. (Torch cannot find things in default lists, that is why the module list exists)
 
     def forward(self, args, **kwargs):
         return args

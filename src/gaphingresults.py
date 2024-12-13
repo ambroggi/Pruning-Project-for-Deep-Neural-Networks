@@ -24,7 +24,7 @@ readability = {
     "Recreation_Run": "Recreation",
     "TOFD": "TOFD",
     "iterative_full_theseus": "Iterative Theseus",
-    "iteritive_full_theseus": "Iterative Theseus",
+    "iteritive_full_theseus": "Iterative Theseus",  # Backwards compatibility with misspelled version.
     "thinet": "Thinet",
     "F1 score in validation": "F1 Score",
     "(Normalized)-F1 score in validation": "F1 Score",
@@ -68,6 +68,7 @@ shapes = {
 }
 
 
+#  These are the X-Y pairs for the scatter line plots. The first value will be used as the X-axis and the second for the Y-axis
 scatterpairs_scaled = [
     ("(Normalized)-actual_parameters", "(Normalized)-val_f1_score_macro"),
     ("(Normalized)-actual_parameters", "(Normalized)-val_f1_score_weight"),
@@ -180,6 +181,7 @@ def graph_pt(pt: pd.DataFrame, XYpair: tuple[str, str] = ("actual_parameters", "
                                                         error_x=dict(type="data", array=list(pt_err[pruning_selection].T[x_name]), visible=True, color="rgba(0, 0, 0, 0.1)"),
                                                         error_y=dict(type="data", array=list(pt_err[pruning_selection].T[y_name]), visible=True, color="rgba(0, 0, 0, 0.1)")))  # ref: https://plotly.com/python/error-bars/
 
+    # Just noting that looking up all of the possible plotly codes is quite annoying. The documentation is difficult to parse.
     plot.update({
         "layout": {"title": {
                         "text": f"{readability.get(y_name, y_name)} vs {readability.get(x_name, x_name)}",
