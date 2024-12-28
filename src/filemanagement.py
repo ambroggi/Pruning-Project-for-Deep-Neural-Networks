@@ -25,6 +25,7 @@ class ExperimentLineManager():
             self.cfg = cfg
 
         # Create the dataframe
+        # https://stackoverflow.com/a/76401234 fix for a problem we had
         df = pd.DataFrame({x: [y] if isinstance(y, list) else y for x, y in self.cfg.parameters.items()})
         df["ProcessID"] = [os.getpid()]
         df["StartTime"] = datetime.datetime.now()

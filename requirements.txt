@@ -17,13 +17,13 @@ pandas==2.2.3
 pillow==11.0.0
 plotly==5.24.1
 psutil==6.1.0
-pyarrow==18.0.0
+pyarrow==18.1.0
 python-dateutil==2.9.0.post0
 pytz==2024.2
 qdldl==0.1.7.post4
-scikit-learn==1.5.2
+scikit-learn==1.6.0
 scipy==1.14.1
-six==1.16.0
+six==1.17.0
 smmap==5.0.1
 sympy==1.13.3
 tenacity==9.0.0
@@ -31,11 +31,11 @@ thop==0.1.1.post2209072238
 threadpoolctl==3.5.0
 torch==2.2.2
 torchvision==0.17.2
-tqdm==4.67.0
+tqdm==4.67.1
 typing_extensions==4.12.2
 tzdata==2024.2
 
-
+# Less restrictive version: (Above is pip freeze output)
 numpy < 2 # Because of pytorch 2.2.2
 pandas
 torch == 2.2.2 # Pytorch has stopped support of mac https://github.com/pytorch/pytorch/issues/114602
@@ -46,6 +46,7 @@ tqdm
 plotly
 pyarrow
 openpyxl
+psutil
 
 # for ADMM:
 osqp
