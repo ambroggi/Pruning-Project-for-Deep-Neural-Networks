@@ -1,0 +1,90 @@
+@prefix ns1: <http://example.org/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix dc: <http://purl.org/dc/elements/1.1/> .
+# I hope comments work
+# Most of this is based on https://www.w3.org/2000/01/rdf-schema#
+# I will change things from <http://example.org/> to an actual URI eventually
+
+<http://example.org/> a owl:Ontology ;
+    dc:title "An ontology for defining linear Artificial Neural Networks" .
+
+ns1:layer a rdfs:Class ;
+	rdfs:isDefinedBy <http://example.org/> ;
+	rdfs:label "layer" ;
+	rdfs:comment "A single fully connected layer in a model." .
+
+ns1:node a rdfs:Class ;
+	rdfs:isDefinedBy <http://example.org/> ;
+	rdfs:label "node" ;
+	rdfs:comment "A single row of weights in a layer." .
+
+ns1:input_node a rdfs:Class ;
+	rdfs:isDefinedBy <http://example.org/> ;
+	rdfs:label "input_node" ;
+	rdfs:comment "A single row of in the input vector." ;
+	rdfs:subClassOf ns1:node .
+
+ns1:connection a rdfs:Class ;
+	rdfs:isDefinedBy <http://example.org/> ;
+	rdfs:label "connection" ;
+	rdfs:comment "A connection between two nodes of different layers." ;
+	rdfs:subClassOf ns1:node .
+
+
+ns1:layer_index a rdfs:Property ;
+	rdfs:isDefinedBy <http://example.org/> ;
+	rdfs:label "layer_index" ;
+	rdfs:comment "A an index stating how many layers deep in the model this object is." ;
+	rdfs:domain ns1:layer ;
+	rdfs:range xsd:integer .
+
+ns1:num_nodes a rdfs:Property ;
+	rdfs:isDefinedBy <http://example.org/> ;
+	rdfs:label "num_nodes" ;
+	rdfs:comment "The number of nodes in this Layer." ;
+	rdfs:domain ns1:layer ;
+	rdfs:range xsd:integer .
+
+ns1:node_index a rdfs:Property ;
+	rdfs:isDefinedBy <http://example.org/> ;
+	rdfs:label "node_index" ;
+	rdfs:comment "An identifying number for the specific node in a layer." ;
+	rdfs:domain ns1:node ;
+	rdfs:range xsd:integer .
+
+ns1:layer a rdfs:Property ;
+	rdfs:isDefinedBy <http://example.org/> ;
+	rdfs:label "layer" ;
+	rdfs:comment "The layer that this node can be found." ;
+	rdfs:domain ns1:node ;
+	rdfs:range ns1:layer .
+
+ns1:weight a rdfs:Property ;
+	rdfs:isDefinedBy <http://example.org/> ;
+	rdfs:label "weight" ;
+	rdfs:comment "The weight of the connection from one node to another." ;
+	rdfs:domain ns1:connection ;
+	rdfs:range xsd:double .
+
+ns1:node a rdfs:Property ;
+	rdfs:isDefinedBy <http://example.org/> ;
+	rdfs:label "node" ;
+	rdfs:comment "The node that this connection leads to. This should have a higher layer number index than connected_to." ;
+	rdfs:domain ns1:connection ;
+	rdfs:range ns1:node .
+
+ns1:connected_to a rdfs:Property ;
+	rdfs:isDefinedBy <http://example.org/> ;
+	rdfs:label "connected_to" ;
+	rdfs:comment "The node that this connection leads from. This should have a lower layer number index than node." ;
+	rdfs:domain ns1:connection ;
+	rdfs:range ns1:node .
+
+ns1:primary_contributor a rdfs:Property ;
+	rdfs:isDefinedBy <http://example.org/> ;
+	rdfs:label "primary_contributor" ;
+	rdfs:comment "The node with the highest absolute weight from the last layer that leads to this node." ;
+	rdfs:domain ns1:node ;
+	rdfs:range ns1:node .

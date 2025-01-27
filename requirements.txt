@@ -56,3 +56,5 @@ torchvision
 # tensorflow
 # tensorboard_logger
 # torchvision
+
+rdflib
