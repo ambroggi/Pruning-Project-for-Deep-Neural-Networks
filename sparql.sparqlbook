@@ -1,0 +1,116 @@
+[
+  {
+    "kind": 2,
+    "language": "sparql",
+    "value": "PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\nSELECT ?layer ?name ?idx WHERE {\n    ?layer ns1:layer_index ?idx .\n    ?layer rdfs:label ?name .\n}\n",
+    "metadata": {}
+  },
+  {
+    "kind": 2,
+    "language": "sparql",
+    "value": "PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\nSELECT ?layer ?name WHERE {\n    ?layer ns1:layer_index ?idx .\n    ?layer rdfs:label ?name .\n}\nORDER BY DESC(?idx)\nLIMIT 1",
+    "metadata": {}
+  },
+  {
+    "kind": 2,
+    "language": "sparql",
+    "value": "PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\n# https://stackoverflow.com/a/17025426\nSELECT ?n_idx (COUNT(?node) as ?count) WHERE {\n    ?node a ns1:node .\n    ?node ns1:node_index ?n_idx .\n} GROUP BY ?n_idx\n",
+    "metadata": {}
+  },
+  {
+    "kind": 2,
+    "language": "sparql",
+    "value": "PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\nSELECT ?l_idx ?n_idx (MAX(ABS(?weight)) as ?max) WHERE {\n    ?node a ns1:node .\n    ?connections ns1:node ?node .\n    ?connections ns1:weight ?weight .\n    ?node ns1:node_index ?n_idx .\n    ?node ns1:layer ?layer .\n    ?layer ns1:layer_index ?l_idx .\n} GROUP BY ?l_idx ?n_idx\nORDER BY ?l_idx ?n_idx\n",
+    "metadata": {}
+  },
+  {
+    "kind": 2,
+    "language": "sparql",
+    "value": "PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\nSELECT ?l_idx ?n_idx ?to WHERE {\n    ?node a ns1:node .\n    ?connections ns1:node ?node .\n    ?connections ns1:weight ?max .\n    ?node ns1:node_index ?n_idx .\n    ?node ns1:layer ?layer .\n    ?layer ns1:layer_index ?l_idx .\n    ?connections ns1:connected_to ?to .\n    SELECT ?l_idx ?n_idx (MAX(ABS(?weight)) as ?max) WHERE {\n        ?node a ns1:node .\n        ?connections ns1:node ?node .\n        ?connections ns1:weight ?weight .\n        ?node ns1:node_index ?n_idx .\n        ?node ns1:layer ?layer .\n        ?layer ns1:layer_index ?l_idx .\n    } GROUP BY ?l_idx ?n_idx\n} GROUP BY ?l_idx ?n_idx\nORDER BY ?l_idx ?n_idx",
+    "metadata": {}
+  },
+  {
+    "kind": 2,
+    "language": "sparql",
+    "value": "PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\nSELECT ?l_idx ?n_idx (MAX(ABS(?weight)) as ?max) WHERE {\n    ?node a ns1:node .\n    ?connections ns1:node ?node .\n    ?connections ns1:weight ?max .\n    ?node ns1:node_index ?n_idx .\n    ?node ns1:layer ?layer .\n    ?layer ns1:layer_index ?l_idx .\n} GROUP BY ?l_idx ?n_idx",
+    "metadata": {}
+  },
+  {
+    "kind": 2,
+    "language": "sparql",
+    "value": "PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\nSELECT ?connection ?node ?weight WHERE {\n    ?node a ns1:node .\n    ?connections ns1:node ?node .\n    ?connections ns1:weight ?weight .\n    BIND (ABS(?weight) as ?absweight)\n} ORDER BY DESC(?absweight)\nLIMIT 1",
+    "metadata": {}
+  },
+  {
+    "kind": 2,
+    "language": "sparql",
+    "value": "PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\nSELECT ?connection ?node ?weight WHERE {\n    ?node a ns1:node .\n    SELECT ?connection ?weight WHERE {\n        ?connection ns1:node ?node .\n        ?connection ns1:weight ?weight .\n        BIND (ABS(?weight) as ?absweight) .\n    } ORDER BY DESC(?absweight)\n    LIMIT 1\n}",
+    "metadata": {}
+  },
+  {
+    "kind": 2,
+    "language": "sparql",
+    "value": "PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\nSELECT ?connection ?weight WHERE {\n    ?connection ns1:node ?node .\n    ?connection ns1:weight ?weight .\n    BIND (ABS(?weight) as ?absweight) .\n} ORDER BY DESC(?absweight) ?node\nLIMIT 1\n",
+    "metadata": {}
+  },
+  {
+    "kind": 2,
+    "language": "sparql",
+    "value": "PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\nSELECT ?connection ?weight ?node ?n_idx ?l_idx WHERE {\n    ?connection ns1:node ?node .\n    ?connection ns1:weight ?weight .\n    ?node ns1:node_index ?n_idx .\n    ?node ns1:layer ?layer .\n    ?layer ns1:layer_index ?l_idx .\n    BIND (ABS(?weight) as ?m_weight) .\n    {\n        SELECT ?node (MAX(?absweight) as ?m_weight)\n        WHERE {\n            ?connection ns1:node ?node .\n            ?connection ns1:weight ?weight .\n            BIND (ABS(?weight) as ?absweight) .\n        }\n        GROUP BY ?node\n    }\n} \n",
+    "metadata": {}
+  },
+  {
+    "kind": 2,
+    "language": "sparql",
+    "value": "PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\nSELECT (COUNT(?connection) as ?num_conns) (SAMPLE(?pr_n_idx) as ?primary_n) (SAMPLE(?pr_l_idx) as ?primary_l) ?n_idx ?l_idx (COUNT(distinct ?pr_n_idx) as ?count_primary_n) (COUNT(distinct ?pr_l_idx) as ?count_primary_l) WHERE {\n    ?connection ns1:node ?node .\n    ?node ns1:node_index ?n_idx .\n    FILTER (?n_idx < 3)\n    ?node ns1:layer ?layer .\n    ?layer ns1:layer_index ?l_idx .\n    OPTIONAL {\n        ?node ns1:primary_contributor ?pr_con .\n        ?pr_con ns1:node_index ?pr_n_idx .\n        ?pr_con ns1:layer ?pr_layer .\n        ?pr_layer ns1:layer_index ?pr_l_idx .\n    }\n} GROUP BY ?node ?n_idx ?l_idx\nORDER BY ?l_idx ?n_idx",
+    "metadata": {}
+  },
+  {
+    "kind": 2,
+    "language": "sparql",
+    "value": "PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\n# Count the number of nodes that are pointed to by at least one node of the next layer\nSELECT (COUNT(distinct ?node) as ?num_nodes) ?l_idx\nWHERE {\n    ?from ns1:primary_contributor ?node .\n    ?node ns1:layer ?layer .\n    ?layer ns1:layer_index ?l_idx .\n} GROUP BY ?l_idx\nORDER BY ?l_idx",
+    "metadata": {}
+  },
+  {
+    "kind": 2,
+    "language": "sparql",
+    "value": "PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\n# Follow path of most important inputs\nSELECT (COUNT(distinct ?node) as ?num_nodes) ?l_idx\nWHERE {\n    ?node ns1:layer ?layer .\n    ?layer ns1:layer_index ?l_idx .\n    ?meaning ns1:associated_node/ns1:primary_contributor* ?node .\n} GROUP BY ?l_idx\nORDER BY ?l_idx",
+    "metadata": {}
+  },
+  {
+    "kind": 2,
+    "language": "sparql",
+    "value": "PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\n# Get \"most important\" input numbers\nSELECT ?node ?nidx ?mean\nWHERE {\n    ?node ns1:layer ?layer .\n    ?layer ns1:layer_index -1 .\n    ?node ns1:node_index ?nidx .\n    ?meaning ns1:associated_node/ns1:primary_contributor+ ?node .\n    ?meaning ns1:name ?mean\n}",
+    "metadata": {}
+  },
+  {
+    "kind": 1,
+    "language": "markdown",
+    "value": "Huh, the classes did not stay separate or converge to a single most important node. I think that is a bit strange. I am going to see if the same thing happens to the second most important node as well.\nPossible cases:\n1. Things converge, this could happen if there is a single important initial condition that has major effects on the outcome\n2. Things converge but with a few outliers, this could mean that a subset of classes depend on a set of specific input conditions and all the rest do not, so the classes split on that node.\n3. The classes group together the same as above, this implies that all of the classes that are grouped are extremely similar to each other and only vary by minute details\n4. The classes remain separated, this implies that the initial clustering is more likely to just be random chance\n\n\nAlso, it will be important to check if the second most important nodes are related to the results of the first as well as checking the results of taking a secondary step followed by primary steps.",
+    "metadata": {}
+  },
+  {
+    "kind": 2,
+    "language": "sparql",
+    "value": "PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\n# Get \"most important\" input numbers\nSELECT ?nidx ?input_meaning ?mean\nWHERE {\n    ?node ns1:layer ?layer .\n    ?layer ns1:layer_index -1 .\n    ?node ns1:node_index ?nidx .\n    ?meaning ns1:associated_node/(ns1:secondary_contributor | ns1:primary_contributor)+ ?node .\n    ?meaning ns1:name ?mean .\n    ?node ns1:meaning ?in_meaning .\n    ?in_meaning ns1:name ?input_meaning .\n}",
+    "metadata": {}
+  },
+  {
+    "kind": 2,
+    "language": "sparql",
+    "value": "PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\n# Get \"most important\" input numbers counts\nSELECT (SAMPLE(?input_meaning) as ?input) (COUNT(DISTINCT ?mean) as ?num_paths)\nWHERE {\n    ?node ns1:layer ?layer .\n    ?layer ns1:layer_index -1 .\n    ?node ns1:node_index ?nidx .\n    ?meaning ns1:associated_node/(ns1:secondary_contributor | ns1:primary_contributor)+ ?node .\n    ?meaning ns1:name ?mean .\n    ?node ns1:meaning ?in_meaning .\n    ?in_meaning ns1:name ?input_meaning .\n} GROUP BY ?nidx\nORDER BY ?nidx",
+    "metadata": {}
+  },
+  {
+    "kind": 2,
+    "language": "sparql",
+    "value": "PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\n# Get \"most important\" input numbers counts\nSELECT (SAMPLE(?input_meaning) as ?input) (COUNT(DISTINCT ?mean) as ?num_paths)\nWHERE {\n    ?node ns1:layer ?layer .\n    ?layer ns1:layer_index -1 .\n    ?node ns1:node_index ?nidx .\n    ?meaning ns1:associated_node ?a_node .\n    # ?a_node ((ns1:secondary_contributor)+ | (ns1:primary_contributor)+) ?node .\n    VALUES ?contributor {ns1:primary_contributor ns1:secondary_contributor}\n    ?a_node ((?contributor)+) ?node .\n    ?meaning ns1:name ?mean .\n    ?node ns1:meaning ?in_meaning .\n    ?in_meaning ns1:name ?input_meaning .\n} GROUP BY ?nidx\nORDER BY ?nidx",
+    "metadata": {}
+  },
+  {
+    "kind": 2,
+    "language": "sparql",
+    "value": "PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\n# Get \"most important\" input numbers counts\nSELECT ?l_idx (SAMPLE(?input_meaning) as ?input) (COUNT(DISTINCT ?mean) as ?num_paths)\nWHERE {\n    ?node ns1:layer ?layer .\n    ?layer ns1:layer_index ?l_idx .\n    ?node ns1:node_index ?nidx .\n    ?meaning ns1:associated_node/(ns1:secondary_contributor | ns1:primary_contributor)+ ?node .\n    ?meaning ns1:name ?mean .\n    OPTIONAL {\n        ?node ns1:meaning ?in_meaning .\n        ?in_meaning ns1:name ?input_meaning .\n    }\n} GROUP BY ?nidx ?l_idx\nORDER BY desc(?l_idx) ?nidx",
+    "metadata": {}
+  }
+]
