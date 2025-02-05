@@ -1,7 +1,7 @@
 # from random import randint
 import rdflib
 from rdflib.namespace import RDF, RDFS
-import src
+import __init__ as src
 
 RDFS
 NNC = rdflib.Namespace("https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks")   # Neural Network Connections (I guess I should have a location that is not example.org?)
