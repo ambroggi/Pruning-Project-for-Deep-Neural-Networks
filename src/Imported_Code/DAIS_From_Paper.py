@@ -5,8 +5,15 @@ import torch.utils.data
 import torch.utils.data.dataloader
 from torch.utils.data import DataLoader
 
-from ..extramodules import PostMutablePruningLayer
-from ..modelstruct import BaseDetectionModel
+try:
+    from ..extramodules import PostMutablePruningLayer
+    from ..modelstruct import BaseDetectionModel
+except ImportError as e:
+    if "attempted relative import beyond top-level package" == e.args[0]:
+        from extramodules import PostMutablePruningLayer
+        from modelstruct import BaseDetectionModel
+    else:
+        raise
 
 
 class add_alpha(PostMutablePruningLayer):

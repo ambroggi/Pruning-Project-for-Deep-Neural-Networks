@@ -9,9 +9,17 @@ from sklearn.metrics import f1_score
 from thop import profile
 from torch.utils.data import DataLoader
 
-from . import cfg
-from .extramodules import (Nothing_Module, PostMutablePruningLayer,
-                           PreMutablePruningLayer)
+try:
+    from . import cfg
+    from .extramodules import (Nothing_Module, PostMutablePruningLayer,
+                               PreMutablePruningLayer)
+except ImportError as e:
+    if "no known parent package" in e.args[0]:
+        import cfg
+        from extramodules import (Nothing_Module, PostMutablePruningLayer,
+                                  PreMutablePruningLayer)
+    else:
+        raise
 
 
 class ModelFunctions():

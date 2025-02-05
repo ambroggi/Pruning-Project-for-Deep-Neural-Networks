@@ -1,7 +1,13 @@
 import torch
 import torch.nn.utils.prune
 
-from . import modelfunctions
+try:
+    from . import modelfunctions
+except ImportError as e:
+    if "no known parent package" in e.args[0]:
+        import modelfunctions
+    else:
+        raise
 
 
 class BaseDetectionModel(torch.nn.Module, modelfunctions.ModelFunctions):

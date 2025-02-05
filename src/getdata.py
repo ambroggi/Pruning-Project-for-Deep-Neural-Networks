@@ -7,7 +7,13 @@ import torch
 import torch.utils.data
 from sklearn.preprocessing import StandardScaler
 
-from .cfg import ConfigObject
+try:
+    from .cfg import ConfigObject
+except ImportError as e:
+    if "no known parent package" in e.args[0]:
+        from cfg import ConfigObject
+    else:
+        raise
 
 datasets_folder_path = "datasets"
 

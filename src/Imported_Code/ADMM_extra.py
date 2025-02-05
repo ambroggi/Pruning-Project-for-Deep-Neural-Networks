@@ -7,7 +7,13 @@ import torch
 if TYPE_CHECKING:
     from src.modelstruct import BaseDetectionModel
 
-from ..extramodules import PostMutablePruningLayer
+try:
+    from ..extramodules import PostMutablePruningLayer
+except ImportError as e:
+    if "attempted relative import beyond top-level package" == e.args[0]:
+        from extramodules import PostMutablePruningLayer
+    else:
+        raise
 
 
 def add_admm_v_layers(model: "BaseDetectionModel"):

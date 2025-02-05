@@ -5,8 +5,18 @@ import time
 import psutil
 import torch
 
-from . import cfg, filemanagement, getdata, modelstruct
-from .algorithmruns import types_of_tests
+try:
+    from . import cfg, filemanagement, getdata, modelstruct
+    from .algorithmruns import types_of_tests
+except ImportError as e:
+    if "no known parent package" in e.args[0]:
+        import cfg
+        import filemanagement
+        import getdata
+        import modelstruct
+        from algorithmruns import types_of_tests
+    else:
+        raise
 
 # This may be useful: https://stackoverflow.com/a/53593326
 

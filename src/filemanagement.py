@@ -7,7 +7,13 @@ import time
 import pandas as pd
 import torch
 
-from .cfg import ConfigObject
+try:
+    from .cfg import ConfigObject
+except ImportError as e:
+    if "no known parent package" in e.args[0]:
+        from cfg import ConfigObject
+    else:
+        raise
 
 
 class ExperimentLineManager():
