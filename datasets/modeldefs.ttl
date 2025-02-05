@@ -88,3 +88,36 @@ ns1:primary_contributor a rdfs:Property ;
 	rdfs:comment "The node with the highest absolute weight from the last layer that leads to this node." ;
 	rdfs:domain ns1:node ;
 	rdfs:range ns1:node .
+
+ns1:secondary_contributor a rdfs:Property ;
+	rdfs:isDefinedBy <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks> ;
+	rdfs:label "secondary_contributor" ;
+	rdfs:comment "The node with the second highest absolute weight from the last layer that leads to this node." ;
+	rdfs:domain ns1:node ;
+	rdfs:range ns1:node .
+
+ns1:meaning a rdfs:Class ;
+	rdfs:isDefinedBy <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks> ;
+	rdfs:label "meaning" ;
+	rdfs:comment "A meaning that can be attached to a single node of a network." .
+
+ns1:associated_node a rdfs:Property ;
+	rdfs:isDefinedBy <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks> ;
+	rdfs:label "associated_node" ;
+	rdfs:comment "The node associated with a particular meaning." ;
+	rdfs:domain ns1:meaning ;
+	rdfs:range ns1:node .
+
+ns1:meaning a rdfs:Property ;
+	rdfs:isDefinedBy <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks> ;
+	rdfs:label "meaning" ;
+	rdfs:comment "The meaning associated with a particular node." ;
+	rdfs:domain ns1:node ;
+	rdfs:range ns1:meaning .
+
+ns1:name a rdfs:Property ;
+	rdfs:isDefinedBy <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks> ;
+	rdfs:label "name" ;
+	rdfs:comment "The name of the meaning." ;
+	rdfs:domain ns1:meaning ;
+	rdfs:range xsd:string .

@@ -1,5 +1,6 @@
 import os
 from functools import partial
+from itertools import groupby
 
 import numpy as np
 import pandas as pd
@@ -49,6 +50,10 @@ class BaseDataset(torch.utils.data.Dataset):
         self.load_kwargs = {"collate_fn": collate_fn_}
         self.scaler_status = 0
 
+        self.classes = {}
+        self.feature_labels = {}
+        self.format = None
+
     def scale(self, scaler: StandardScaler | None = None):
         """Scale the dataset into a normalized form. This new dataset is saved as self.dat
 
@@ -77,6 +82,32 @@ class BaseDataset(torch.utils.data.Dataset):
         if self.format in ["MSE"]:
             targets = torch.nn.functional.one_hot(targets, num_classes=self.number_of_classes).to(torch.float)
         return targets
+
+
+class SingleClass(BaseDataset):
+    def __init__(self, items: list[torch.Tensor], class_idx: int, original_dataset: BaseDataset):
+        self.base = self  # reset the base, because scaling should have already been applied.
+        self.number_of_features = original_dataset.number_of_features
+        self.load_kwargs = original_dataset.load_kwargs
+
+        self.classes = original_dataset.classes
+        self.number_of_classes = len(self.classes)
+        self.dat = items
+        self.target = torch.tensor(class_idx)
+        self.format = original_dataset.format
+
+    def __len__(self) -> int:
+        return len(self.dat)
+
+    def __getitem__(self, index: int) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
+        features = self.dat[index]
+        target = self.target_to_one_hot(self.target)
+        return features, target
+
+    def __getitems__(self, indexes: list[int]) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
+        features = self.dat[indexes]
+        targets = self.target_to_one_hot(self.target.expand(len(indexes)))
+        return features, targets
 
 
 class VulnerabilityDataset(BaseDataset):
@@ -255,6 +286,7 @@ class ACIIOT2023(BaseDataset):
         self.dat["label"] = self.original_vals["label"]
 
         self.number_of_features = len(self.original_vals.columns) - 2  # -1 extra for index
+        self.feature_labels = {feature_num: column_name for feature_num, column_name in enumerate(filter(lambda x: x not in {"label", "index"}, self.original_vals.columns))}
 
         pass
 
@@ -397,6 +429,7 @@ class ACIPayloadless(BaseDataset):
         self.dat["label"] = self.original_vals["label"]
 
         self.number_of_features = len(self.original_vals.columns) - 2  # -1 extra for index
+        self.feature_labels = {feature_num: column_name for feature_num, column_name in enumerate(filter(lambda x: x not in {"label", "index"}, self.original_vals.columns))}
 
         assert True not in pd.isna(self.original_vals)
         assert True not in pd.isna(self.dat)
@@ -536,3 +569,22 @@ def get_train_test(config: ConfigObject | None = None, dataset: None | BaseDatas
         return get_dataloader(config=config, dataset=train_ds), get_dataloader(config=config, dataset=test_ds)
     else:
         return get_train_test(config, get_dataset(config))
+
+
+def split_by_class(dataloader: torch.utils.data.DataLoader, classes_to_use: list[int]):
+    data_lists = {x: list() for x in classes_to_use}
+    for (X, y) in dataloader:
+        pairs = zip(X, y)
+        sorted_pairs = sorted(pairs, key=lambda x: x[1])
+        groups = groupby(sorted_pairs, key=lambda x: x[1])
+        for g_name, g in groups:
+            if g_name.item() in data_lists.keys():
+                (grouped_X, grouped_y) = zip(*g)
+                data_lists[g_name.item()].extend(grouped_X)
+
+    for item in classes_to_use:
+        data_lists[item] = SingleClass(data_lists[item], item, dataloader.base)
+
+    dl = torch.utils.data.DataLoader(torch.utils.data.ConcatDataset(data_lists.values()))
+    dl.base = data_lists[list(data_lists.keys())[0]].base
+    return dl

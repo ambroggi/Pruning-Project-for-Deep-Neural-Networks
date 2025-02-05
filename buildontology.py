@@ -1,3 +1,4 @@
+# from random import randint
 import rdflib
 from rdflib.namespace import RDF, RDFS
 import src
@@ -8,6 +9,7 @@ NNC = rdflib.Namespace("https://github.com/ambroggi/Pruning-Project-for-Deep-Neu
 
 def build_base_facts():
     config = src.cfg.ConfigObject.get_param_from_args()
+    config("FromSaveLocation", "csv 0")
     config("PruningSelection", "Reset")
     load = src.standardLoad(existing_config=config, index=0)
     dataset = src.getdata.get_dataset(load["config"]).base
@@ -45,9 +47,7 @@ def build_base_facts():
 
                 # setup for the initial input values to relate the first layer to the input vector
                 if len(last_layer) == 0:
-                    dataset_columns = list(dataset.dat.columns).copy()
-                    dataset_columns.remove("index")
-                    dataset_columns.remove("label")
+                    dataset_columns = list(dataset.feature_labels.values())
                     for inputNum, _ in enumerate(node):
                         # Defining the 'node'
                         i = rdflib.BNode()
@@ -91,9 +91,11 @@ def build_base_facts():
 
                 if max_connection and len(last_layer) > max_connection[1]:
                     g.add((n, NNC.primary_contributor, last_layer[max_connection[1]]))
+                    # g.add((n, NNC.primary_contributor, last_layer[randint(0, len(last_layer)-1)]))
                 if second_max and len(last_layer) > second_max[1]:
                     assert last_layer[max_connection[1]] != last_layer[second_max[1]]
                     g.add((n, NNC.secondary_contributor, last_layer[second_max[1]]))
+                    # g.add((n, NNC.secondary_contributor, last_layer[randint(0, len(last_layer)-1)]))
 
             last_layer = this_layer
             this_layer = []
@@ -107,6 +109,7 @@ def build_base_facts():
         g.add((atk, NNC.name, rdflib.Literal(dataset.classes[attack_type])))
 
     g.serialize("datasets/model.ttl", encoding="UTF-8")
+    # g.serialize("datasets/random_model.ttl", encoding="UTF-8")
 
 
 def build_pruned_graph():
@@ -138,13 +141,39 @@ def run_really_long_query():
         """
 
     a = g.query(q)
-    with open("out.txt", mode="w") as f:
+    with open("out.csv", mode="w") as f:
+        for row in a:
+            print(f"{row.l_idx}, {row.input}, {row.num_paths}", file=f)
+
+    q = """
+        PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+        # Get "most important" input numbers counts
+        SELECT ?l_idx (SAMPLE(?input_meaning) as ?input) (COUNT(DISTINCT ?mean) as ?num_paths)
+        WHERE {
+            ?node ns1:layer ?layer .
+            ?layer ns1:layer_index ?l_idx .
+            ?node ns1:node_index ?nidx .
+            ?meaning ns1:associated_node ?start .
+            ?node (ns1:secondary_contributor | ns1:primary_contributor)+ ?start .
+            ?meaning ns1:name ?mean .
+            OPTIONAL {
+                ?node ns1:meaning ?in_meaning .
+                ?in_meaning ns1:name ?input_meaning .
+            }
+        } GROUP BY ?nidx ?l_idx
+        ORDER BY desc(?l_idx) ?nidx
+        """
+
+    a = g.query(q)
+    with open("out2.csv", mode="w") as f:
         for row in a:
             print(f"{row.l_idx}, {row.input}, {row.num_paths}", file=f)
 
 
 if __name__ == "__main__":
-    # build_base_facts()
+    build_base_facts()
     run_really_long_query()
 
 # PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>
