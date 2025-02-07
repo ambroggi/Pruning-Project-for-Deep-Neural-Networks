@@ -80,7 +80,7 @@
   {
     "kind": 2,
     "language": "sparql",
-    "value": "PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\n# Get \"most important\" input numbers\nSELECT ?node ?nidx ?mean\nWHERE {\n    ?node ns1:layer ?layer .\n    ?layer ns1:layer_index -1 .\n    ?node ns1:node_index ?nidx .\n    ?meaning ns1:associated_node/ns1:primary_contributor+ ?node .\n    ?meaning ns1:name ?mean\n}",
+    "value": "PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\n# Get \"most important\" input numbers\nSELECT ?node ?input_meaning ?nidx ?mean\nWHERE {\n    ?node ns1:layer ?layer .\n    ?layer ns1:layer_index -1 .\n    ?node ns1:node_index ?nidx .\n    ?meaning ns1:associated_node/ns1:primary_contributor+ ?node .\n    ?meaning ns1:name ?mean .\n    OPTIONAL {\n        ?node ns1:meaning ?in_meaning .\n        ?in_meaning ns1:name ?input_meaning .\n    }\n}",
     "metadata": {}
   },
   {
@@ -111,6 +111,42 @@
     "kind": 2,
     "language": "sparql",
     "value": "PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\n# Get \"most important\" input numbers counts\nSELECT ?l_idx (SAMPLE(?input_meaning) as ?input) (COUNT(DISTINCT ?mean) as ?num_paths)\nWHERE {\n    ?node ns1:layer ?layer .\n    ?layer ns1:layer_index ?l_idx .\n    ?node ns1:node_index ?nidx .\n    ?meaning ns1:associated_node/(ns1:secondary_contributor | ns1:primary_contributor)+ ?node .\n    ?meaning ns1:name ?mean .\n    OPTIONAL {\n        ?node ns1:meaning ?in_meaning .\n        ?in_meaning ns1:name ?input_meaning .\n    }\n} GROUP BY ?nidx ?l_idx\nORDER BY desc(?l_idx) ?nidx",
+    "metadata": {}
+  },
+  {
+    "kind": 2,
+    "language": "sparql",
+    "value": "PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\n# Get \"most important\" input numbers counts\nSELECT ?l_idx (SAMPLE(?input_meaning) as ?input) (COUNT(DISTINCT ?mean) as ?num_paths)\nWHERE {\n    ?node ns1:layer ?layer .\n    ?layer ns1:layer_index ?l_idx .\n    ?node ns1:node_index ?nidx .\n    ?meaning ns1:associated_node ?start . \n    ?start (ns1:secondary_contributor | ns1:primary_contributor)+ ?node .\n    ?meaning ns1:name ?mean .\n    OPTIONAL {\n        ?node ns1:meaning ?in_meaning .\n        ?in_meaning ns1:name ?input_meaning .\n    }\n} GROUP BY ?nidx ?l_idx\nORDER BY desc(?l_idx) ?nidx",
+    "metadata": {}
+  },
+  {
+    "kind": 2,
+    "language": "sparql",
+    "value": "PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\n# Get \"most important\" input numbers counts\nSELECT ?input_meaning ?mean\nWHERE {\n    ?node ns1:layer ?layer .\n    ?layer ns1:layer_index 28 .\n    ?node ns1:node_index ?nidx .\n    ?meaning ns1:associated_node ?start .\n    ?node (ns1:secondary_contributor | ns1:primary_contributor)+ ?start .\n    ?meaning ns1:name ?mean .\n    OPTIONAL {\n        ?node ns1:meaning ?in_meaning .\n        ?in_meaning ns1:name ?input_meaning .\n    }\n}",
+    "metadata": {}
+  },
+  {
+    "kind": 2,
+    "language": "sparql",
+    "value": "PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\n# Get \"most important\" input numbers counts\nSELECT ?input_meaning ?mean ?nidx\nWHERE {\n    ?node ns1:layer ?layer .\n    ?layer ns1:layer_index 0 .\n    ?node ns1:node_index ?nidx .\n    ?meaning ns1:associated_node ?start .\n    ?node (ns1:secondary_contributor | ns1:primary_contributor)+ ?start .\n    ?meaning ns1:name ?mean .\n    OPTIONAL {\n        ?node ns1:meaning ?in_meaning .\n        ?in_meaning ns1:name ?input_meaning .\n    }\n}",
+    "metadata": {}
+  },
+  {
+    "kind": 2,
+    "language": "sparql",
+    "value": "PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\n# Get \"most important\" input numbers counts\nSELECT ?input_meaning ?mean ?nidx\nWHERE {\n    ?node ns1:layer ?layer .\n    ?layer ns1:layer_index 0 .\n    ?node ns1:node_index ?nidx .\n    ?meaning ns1:associated_node ?start .\n    ?node (ns1:secondary_contributor | ns1:primary_contributor)+ ?start .\n    ?meaning ns1:name ?mean .\n    OPTIONAL {\n        ?node ns1:meaning ?in_meaning .\n        ?in_meaning ns1:name ?input_meaning .\n    }\n}",
+    "metadata": {}
+  },
+  {
+    "kind": 2,
+    "language": "sparql",
+    "value": "PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\n# Get the new highest value tags\nSELECT ?lidx (COUNT(distinct ?nidx) as ?number_nodes) (COUNT(?nidx) as ?number_nodes_total) (COUNT(distinct ?mean) as ?n_mean)\nWHERE {\n    ?node ns1:layer ?layer .\n    ?layer ns1:layer_index ?lidx .\n    ?node ns1:node_index ?nidx .\n    ?meaning ns1:associated_node ?node .\n    ?meaning ns1:name ?mean .\n    ?meaning ns1:tag ?tag .\n    ?end (ns1:secondary_contributor | ns1:primary_contributor)+ ?node .\n    ?end ns1:meaning ?class\n} GROUP BY ?lidx\nORDER BY ?lidx",
+    "metadata": {}
+  },
+  {
+    "kind": 2,
+    "language": "sparql",
+    "value": "PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\n# Get the new highest value tags on the primary paths\nSELECT ?lidx ?nidx (COUNT(distinct ?tag) as ?number_related_classes) (COUNT(distinct ?mean) as ?n_mean)\nWHERE {\n    ?node ns1:layer ?layer .\n    ?layer ns1:layer_index ?lidx .\n    ?node ns1:node_index ?nidx .\n    ?meaning ns1:associated_node ?node .\n    ?meaning ns1:name ?mean .\n    ?meaning ns1:tag ?tag .\n    ?end (ns1:secondary_contributor | ns1:primary_contributor)+ ?node .\n    ?end ns1:meaning ?class\n} GROUP BY ?lidx ?nidx\nORDER BY ?lidx ?nidx",
     "metadata": {}
   }
 ]

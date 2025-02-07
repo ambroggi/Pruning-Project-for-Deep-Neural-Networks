@@ -89,6 +89,7 @@ class SingleClass(BaseDataset):
         self.base = self  # reset the base, because scaling should have already been applied.
         self.number_of_features = original_dataset.number_of_features
         self.load_kwargs = original_dataset.load_kwargs
+        self.feature_labels = original_dataset.feature_labels
 
         self.classes = original_dataset.classes
         self.number_of_classes = len(self.classes)
@@ -105,7 +106,7 @@ class SingleClass(BaseDataset):
         return features, target
 
     def __getitems__(self, indexes: list[int]) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
-        features = self.dat[indexes]
+        features = torch.stack([self.dat[x] for x in indexes])
         targets = self.target_to_one_hot(self.target.expand(len(indexes)))
         return features, targets
 
@@ -571,7 +572,7 @@ def get_train_test(config: ConfigObject | None = None, dataset: None | BaseDatas
         return get_train_test(config, get_dataset(config))
 
 
-def split_by_class(dataloader: torch.utils.data.DataLoader, classes_to_use: list[int]):
+def split_by_class(dataloader: torch.utils.data.DataLoader, classes_to_use: list[int], config: ConfigObject, individual=False):
     data_lists = {x: list() for x in classes_to_use}
     for (X, y) in dataloader:
         pairs = zip(X, y)
@@ -585,6 +586,12 @@ def split_by_class(dataloader: torch.utils.data.DataLoader, classes_to_use: list
     for item in classes_to_use:
         data_lists[item] = SingleClass(data_lists[item], item, dataloader.base)
 
-    dl = torch.utils.data.DataLoader(torch.utils.data.ConcatDataset(data_lists.values()))
+    if individual:
+        dls = [get_dataloader(config, data_lists[x]) for x in sorted(list(data_lists.keys()))]
+        for num, dl in enumerate(dls):
+            dl.base = data_lists[num].base
+        return dls
+
+    dl = get_dataloader(config, torch.utils.data.ConcatDataset(data_lists.values()))
     dl.base = data_lists[list(data_lists.keys())[0]].base
     return dl

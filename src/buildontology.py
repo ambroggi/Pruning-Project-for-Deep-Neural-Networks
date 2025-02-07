@@ -1,22 +1,40 @@
-# from random import randint
+from random import random
 import rdflib
 from rdflib.namespace import RDF, RDFS
+import pandas as pd
+import torch.nn
+
 import __init__ as src
+import extramodules
+
 
 RDFS
 NNC = rdflib.Namespace("https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks")   # Neural Network Connections (I guess I should have a location that is not example.org?)
 
 
-def build_base_facts():
+def build_base_facts(csv_row: str | int = "0", csv_file: str = "results/BigModel(v0.131).csv", random_=False):
     config = src.cfg.ConfigObject.get_param_from_args()
-    config("FromSaveLocation", "csv 0")
+    csv_row = str(csv_row)
+    config("FromSaveLocation", f"csv {csv_row}" if csv_row.isdigit() else csv_row)
+    config.readOnly.remove("ResultsPath")
+    config.writeOnce.append("ResultsPath")
+    config("ResultsPath", csv_file)
     config("PruningSelection", "Reset")
-    load = src.standardLoad(existing_config=config, index=0)
-    dataset = src.getdata.get_dataset(load["config"]).base
+    load = src.standardLoad(existing_config=config, index=0, structure_only=False)
+    train, dataset = src.getdata.get_train_test(load["config"])
+    dataset = dataset.base
+    datasets = src.getdata.split_by_class(src.getdata.get_dataloader(load["config"], train), [x for x in range(dataset.number_of_classes)], individual=True, config=load["config"])
     model = src.modelstruct.getModel(load["config"])
     layer = None
     last_layer = []
     this_layer = []
+
+    # Just testing:
+    # for class_num, dl in enumerate(datasets):
+    #     avghook = extramodules.Get_Average_Hook()
+    #     torch.nn.modules.module.register_module_forward_hook(avghook)
+    #     for batch in dl:
+    #         model(batch[0])
 
     g = rdflib.Graph()
     g.bind("", NNC)
@@ -69,6 +87,8 @@ def build_base_facts():
                 max_connection = None
                 second_max = None
                 for connected_to, connec in enumerate(node):
+                    if random_:
+                        connec = src.torch.tensor((2*random()) - 1)
                     if abs(connec.item()) > 0.001:
                         # if connec.item() > 0.001:
                         c = rdflib.BNode()
@@ -91,12 +111,11 @@ def build_base_facts():
 
                 if max_connection and len(last_layer) > max_connection[1]:
                     g.add((n, NNC.primary_contributor, last_layer[max_connection[1]]))
-                    # g.add((n, NNC.primary_contributor, last_layer[randint(0, len(last_layer)-1)]))
                 if second_max and len(last_layer) > second_max[1]:
                     assert last_layer[max_connection[1]] != last_layer[second_max[1]]
                     g.add((n, NNC.secondary_contributor, last_layer[second_max[1]]))
-                    # g.add((n, NNC.secondary_contributor, last_layer[randint(0, len(last_layer)-1)]))
 
+            module.graph_nodes = this_layer
             last_layer = this_layer
             this_layer = []
             count += 1
@@ -108,20 +127,42 @@ def build_base_facts():
         g.add((associated_final_node, NNC.meaning, atk))
         g.add((atk, NNC.name, rdflib.Literal(dataset.classes[attack_type])))
 
-    g.serialize("datasets/model.ttl", encoding="UTF-8")
+    for class_num, dl in enumerate(datasets):
+        avghook = extramodules.Get_Average_Hook()
+        remover = torch.nn.modules.module.register_module_forward_hook(avghook)
+        for batch in dl:
+            model(batch[0])
+        for mod_name, module in model.named_modules():
+            if "fc" in mod_name:
+                _, avg = avghook.dict[module]
+                if random_:
+                    avg = torch.rand_like(avg)
+                connection = rdflib.BNode()
+                g.add((connection, RDF.type, NNC.meaning))
+                g.add((connection, NNC.associated_node, module.graph_nodes[torch.argmax(avg)]))
+                g.add((connection, NNC.name, rdflib.Literal("Highest " + dataset.classes[class_num])))
+                g.add((connection, NNC.tag, rdflib.Literal(dataset.classes[class_num])))
+                avg[torch.argmax(avg)] = torch.min(avg)
+                connection = rdflib.BNode()
+                g.add((connection, RDF.type, NNC.meaning))
+                g.add((connection, NNC.associated_node, module.graph_nodes[torch.argmax(avg)]))
+                g.add((connection, NNC.name, rdflib.Literal("Second  " + dataset.classes[class_num])))
+                g.add((connection, NNC.tag, rdflib.Literal(dataset.classes[class_num])))
+        remover.remove()
+        del avghook
+
+    if not random_:
+        g.serialize(f"datasets/model({csv_file.split('/')[-1]} {csv_row}).ttl", encoding="UTF-8")
+        return f"datasets/model({csv_file.split('/')[-1]} {csv_row}).ttl", g
+    else:
+        g.serialize(f"datasets/random_model ({csv_row}).ttl", encoding="UTF-8")
+        return f"datasets/random_model ({csv_row}).ttl", g
     # g.serialize("datasets/random_model.ttl", encoding="UTF-8")
 
 
-def build_pruned_graph():
+def run_really_long_query(file: str = "datasets/model.ttl"):
     g = rdflib.Graph()
-    g.parse("datasets/model.ttl")
-
-    g.bind("", NNC)
-
-
-def run_really_long_query():
-    g = rdflib.Graph()
-    g.parse("datasets/model.ttl")
+    g.parse(file)
     q = """
         PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>
         PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
@@ -141,7 +182,7 @@ def run_really_long_query():
         """
 
     a = g.query(q)
-    with open("out.csv", mode="w") as f:
+    with open("top_down_connections.csv", mode="w") as f:
         for row in a:
             print(f"{row.l_idx}, {row.input}, {row.num_paths}", file=f)
 
@@ -167,14 +208,23 @@ def run_really_long_query():
         """
 
     a = g.query(q)
-    with open("out2.csv", mode="w") as f:
+    with open("bottom_up_connections.csv", mode="w") as f:
         for row in a:
             print(f"{row.l_idx}, {row.input}, {row.num_paths}", file=f)
 
 
+def make_pivot_table_from_top_down_connections():
+    df: pd.DataFrame = pd.read_csv("top_down_connections.csv", header=False, columns=["Layer", "Extra_info", "Num_connections"])
+
+    table = df.pivot_table(values="Num_connections", index="Layer", columns="Num_connections", aggfunc="count")
+
+    table.to_latex("results/layer_connections.txt")
+    return table
+
+
 if __name__ == "__main__":
-    build_base_facts()
-    run_really_long_query()
+    path, g = build_base_facts(random_=False, csv_row="0")
+    run_really_long_query(path)
 
 # PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>
 # PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>

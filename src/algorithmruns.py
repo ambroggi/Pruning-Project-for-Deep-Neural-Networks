@@ -11,10 +11,10 @@ try:
     from . import Imported_Code, cfg, extramodules, filemanagement, modelstruct
 except ImportError as e:
     if "no known parent package" in e.args[0]:
-        import Imported_Code
         import cfg
         import extramodules
         import filemanagement
+        import Imported_Code
         import modelstruct
     else:
         raise

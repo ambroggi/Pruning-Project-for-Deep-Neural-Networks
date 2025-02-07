@@ -173,7 +173,7 @@ def recordModelInfo(model: modelstruct.BaseDetectionModel, logger: filemanagemen
     logger("GarbageCollectionSizeTotal", garbage_sum)
 
 
-def standardLoad(index: None | int = None, existing_config: cfg.ConfigObject | None = None) -> dict[str, any]:
+def standardLoad(index: None | int = None, existing_config: cfg.ConfigObject | None = None, **extra_loading_kwargs) -> dict[str, any]:
     """
     This is the standard method that we have for loading a previously run model. It can load either a specific index from the results file, or a specific pytorch tensor file that contains the model weights.
     It returns them in a dictionary of keywords that the standard run can read and make use of.
@@ -192,6 +192,7 @@ def standardLoad(index: None | int = None, existing_config: cfg.ConfigObject | N
 
     # Set up the kwargs for the load_cfg function because passing None does not get the default value
     load_kwargs = {"config": existing_config}
+    load_kwargs = load_kwargs | extra_loading_kwargs
     if index is not None:
         load_kwargs["row_number"] = index
 
