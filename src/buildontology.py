@@ -1,12 +1,13 @@
+import os
 from random import random
-import rdflib
-from rdflib.namespace import RDF, RDFS
+
 import pandas as pd
+import rdflib
 import torch.nn
+from rdflib.namespace import RDF, RDFS
 
 import __init__ as src
 import extramodules
-
 
 RDFS
 NNC = rdflib.Namespace("https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks")   # Neural Network Connections (I guess I should have a location that is not example.org?)
@@ -29,15 +30,14 @@ def build_base_facts(csv_row: str | int = "0", csv_file: str = "results/BigModel
     last_layer = []
     this_layer = []
 
-    # Just testing:
-    # for class_num, dl in enumerate(datasets):
-    #     avghook = extramodules.Get_Average_Hook()
-    #     torch.nn.modules.module.register_module_forward_hook(avghook)
-    #     for batch in dl:
-    #         model(batch[0])
+    if not random_:
+        filename = f"datasets/model({csv_file.split('/')[-1]} {csv_row}).ttl"
+    else:
+        filename = f"datasets/random_model ({csv_row}).ttl"
 
     g = rdflib.Graph()
     g.bind("", NNC)
+    g.add((rdflib.Literal(filename), NNC.filename, rdflib.Literal(filename)))
 
     count = 0
 
@@ -151,18 +151,14 @@ def build_base_facts(csv_row: str | int = "0", csv_file: str = "results/BigModel
         remover.remove()
         del avghook
 
-    if not random_:
-        g.serialize(f"datasets/model({csv_file.split('/')[-1]} {csv_row}).ttl", encoding="UTF-8")
-        return f"datasets/model({csv_file.split('/')[-1]} {csv_row}).ttl", g
-    else:
-        g.serialize(f"datasets/random_model ({csv_row}).ttl", encoding="UTF-8")
-        return f"datasets/random_model ({csv_row}).ttl", g
-    # g.serialize("datasets/random_model.ttl", encoding="UTF-8")
+    g.serialize(filename, encoding="UTF-8")
+    return filename, g
 
 
 def run_really_long_query(file: str = "datasets/model.ttl"):
     g = rdflib.Graph()
     g.parse(file)
+    print("Loaded graph")
     q = """
         PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>
         PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
@@ -183,8 +179,11 @@ def run_really_long_query(file: str = "datasets/model.ttl"):
 
     a = g.query(q)
     with open("top_down_connections.csv", mode="w") as f:
+        print(f'"{file}", , ', file=f)
+        print("Layer, Info, Number of connected", file=f)
         for row in a:
             print(f"{row.l_idx}, {row.input}, {row.num_paths}", file=f)
+    print("Saved first query results")
 
     q = """
         PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>
@@ -209,8 +208,39 @@ def run_really_long_query(file: str = "datasets/model.ttl"):
 
     a = g.query(q)
     with open("bottom_up_connections.csv", mode="w") as f:
+        print(f'"{file}", , ', file=f)
+        print("Layer, Info, Number of connected", file=f)
         for row in a:
             print(f"{row.l_idx}, {row.input}, {row.num_paths}", file=f)
+    print("Saved second query results")
+
+    q = """
+        PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+        # Get the count of the highest value tags on the primary paths
+        SELECT ?l_idx ?n_idx (COUNT(distinct ?tag) as ?number_related_classes)
+        WHERE {
+            ?node ns1:layer ?layer .
+            ?layer ns1:layer_index ?l_idx .
+            ?node ns1:node_index ?n_idx .
+            ?meaning ns1:associated_node ?node .
+            ?meaning ns1:name ?mean .
+            ?meaning ns1:tag ?tag .
+            ?end (ns1:secondary_contributor | ns1:primary_contributor)+ ?node .
+            ?end ns1:meaning ?class .
+            ?class ns1:name ?tag .
+        } GROUP BY ?l_idx ?n_idx
+        ORDER BY ?l_idx ?n_idx
+        """
+
+    a = g.query(q)
+    with open("high_nodes_along_connections.csv", mode="w") as f:
+        print(f'"{file}", , ', file=f)
+        print("Layer, node, Number of connected classes", file=f)
+        for row in a:
+            print(f"{row.l_idx}, {row.n_idx}, {row.number_related_classes}", file=f)
+    print("Saved third query results")
 
 
 def make_pivot_table_from_top_down_connections():
@@ -223,23 +253,7 @@ def make_pivot_table_from_top_down_connections():
 
 
 if __name__ == "__main__":
-    path, g = build_base_facts(random_=False, csv_row="0")
-    run_really_long_query(path)
-
-# PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>
-# PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-
-# SELECT (COUNT(?connection) as ?num_conns) (SAMPLE(?pr_n_idx) as ?primary_n) (SAMPLE(?pr_l_idx) as ?primary_l) ?n_idx ?l_idx (COUNT(distinct ?pr_n_idx) as ?count_primary_n) (COUNT(distinct ?pr_l_idx) as ?count_primary_l) WHERE {
-#     ?connection ns1:node ?node .
-#     ?node ns1:node_index ?n_idx .
-#     FILTER (?n_idx < 3)
-#     ?node ns1:layer ?layer .
-#     ?layer ns1:layer_index ?l_idx .
-#     OPTIONAL {
-#         ?node ns1:primary_contributor ?pr_con .
-#         ?pr_con ns1:node_index ?pr_n_idx .
-#         ?pr_con ns1:layer ?pr_layer .
-#         ?pr_layer ns1:layer_index ?pr_l_idx .
-#     }
-# } GROUP BY ?node ?n_idx ?l_idx
-# ORDER BY ?l_idx ?n_idx
+    for x in [0, 1, 2]:
+        if not os.path.exists(f"datasets/model(BigModel(v0.131).csv {x}).ttl"):
+            path, g = build_base_facts(random_=False, csv_row=f"{x}")
+        run_really_long_query(f"datasets/model(BigModel(v0.131).csv {x}).ttl")
