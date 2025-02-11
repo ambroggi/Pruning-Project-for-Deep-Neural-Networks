@@ -1,5 +1,6 @@
-if __name__ != '__mp_main__':
+if __name__ == '__main__':
     import __init__ as src
+
     # src.torch.autograd.set_detect_anomaly(True)
 
 

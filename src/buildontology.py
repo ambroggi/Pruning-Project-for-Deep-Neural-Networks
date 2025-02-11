@@ -1,16 +1,16 @@
-import os
-from random import random
+if __name__ == "__main__":
+    import os
+    from random import random
 
-import pandas as pd
-import rdflib
-import torch.nn
-from rdflib.namespace import RDF, RDFS
+    import pandas as pd
+    import rdflib
+    import torch.nn
+    from rdflib.namespace import RDF, RDFS
 
-import __init__ as src
-import extramodules
+    import __init__ as src
+    import extramodules
 
-RDFS
-NNC = rdflib.Namespace("https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks")   # Neural Network Connections (I guess I should have a location that is not example.org?)
+    NNC = rdflib.Namespace("https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks")   # Neural Network Connections (I guess I should have a location that is not example.org?)
 
 
 def build_base_facts(csv_row: str | int = "0", csv_file: str = "results/BigModel(v0.131).csv", random_=False):
@@ -253,7 +253,8 @@ def make_pivot_table_from_top_down_connections():
 
 
 if __name__ == "__main__":
-    for x in [0, 1, 2]:
-        if not os.path.exists(f"datasets/model(BigModel(v0.131).csv {x}).ttl"):
-            path, g = build_base_facts(random_=False, csv_row=f"{x}")
-        run_really_long_query(f"datasets/model(BigModel(v0.131).csv {x}).ttl")
+    if not False:
+        for x in [0, 1, 2]:
+            if not os.path.exists(f"datasets/model(BigModel(v0.131).csv {x}).ttl"):
+                path, g = build_base_facts(random_=False, csv_row=f"{x}")
+            run_really_long_query(f"datasets/model(BigModel(v0.131).csv {x}).ttl")
