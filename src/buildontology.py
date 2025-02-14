@@ -210,7 +210,7 @@ def add_model_high_values(g: "rdflib.Graph", datasets: list["src.getdata.BaseDat
         for batch in dl:
             model_out = model(batch[0])
             s += sum(torch.argmax(model_out, dim=1) == class_num).item()
-        g.add(dl.m, NNC.training_percent, s/len(dl))
+        g.add((dl.m, NNC.training_percent, rdflib.Literal(s/len(dl))))
 
         for mod_name, module in model.named_modules():
             if "fc" in mod_name:
