@@ -6,11 +6,73 @@ if __name__ == "__main__":
     import rdflib
     import torch.nn
     from rdflib.namespace import RDF, RDFS
+    from rdflib.plugins.sparql import prepareQuery
 
     import __init__ as src
     import extramodules
 
     NNC = rdflib.Namespace("https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks")   # Neural Network Connections (I guess I should have a location that is not example.org?)
+    QINFO = prepareQuery("""
+        SELECT ?csv_row_number ?csv_name ?pruning_type
+        WHERE {
+            ?model ns1:filename ?csv_name .
+            ?model ns1:prune_type ?pruning_type .
+            ?model ns1:csv_row ?csv_row_number .
+        } LIMIT 1
+        """, {"ns1": NNC, "rdfs": RDFS})
+    Q1 = prepareQuery("""
+        SELECT ?l_idx (SAMPLE(?input_meaning) as ?input) (COUNT(DISTINCT ?mean) as ?num_paths)
+        WHERE {
+            ?node ns1:layer ?layer .
+            ?layer ns1:layer_index ?l_idx .
+            ?node ns1:node_index ?n_idx .
+            ?meaning a ns1:class_node .
+            ?meaning ns1:associated_node/(ns1:secondary_contributor | ns1:primary_contributor)+ ?node .
+            ?meaning ns1:name ?mean .
+            OPTIONAL {
+                ?node ns1:meaning ?in_meaning .
+                ?in_meaning ns1:name ?input_meaning .
+            }
+        } GROUP BY ?n_idx ?l_idx
+        ORDER BY desc(?l_idx) ?n_idx
+        """, {"ns1": NNC, "rdfs": RDFS})
+
+    Q2 = prepareQuery("""
+        # Get "most important" input numbers counts
+        SELECT ?l_idx (SAMPLE(?input_meaning) as ?input) (COUNT(DISTINCT ?mean) as ?num_paths)
+        WHERE {
+            ?node ns1:layer ?layer .
+            ?layer ns1:layer_index ?l_idx .
+            ?node ns1:node_index ?n_idx .
+            ?meaning ns1:associated_node ?start .
+            ?start a ns1:input_node .
+            ?node (ns1:secondary_contributor | ns1:primary_contributor)+ ?start .
+            ?meaning ns1:name ?mean .
+            OPTIONAL {
+                ?node ns1:meaning ?in_meaning .
+                ?in_meaning ns1:name ?input_meaning .
+            }
+        } GROUP BY ?n_idx ?l_idx
+        ORDER BY desc(?l_idx) ?n_idx
+        """, {"ns1": NNC, "rdfs": RDFS})
+
+    Q3 = prepareQuery("""
+        # Get the count of the highest value tags on the primary paths
+        SELECT ?l_idx ?n_idx (COUNT(distinct ?tag) as ?number_related_classes)
+        WHERE {
+            ?node ns1:layer ?layer .
+            ?layer ns1:layer_index ?l_idx .
+            ?node ns1:node_index ?n_idx .
+            ?meaning ns1:associated_node ?node .
+            ?meaning ns1:name ?mean .
+            ?meaning ns1:tag ?tag .
+            ?meaning ns1:tag "High" .
+            ?end (ns1:secondary_contributor | ns1:primary_contributor)+ ?node .
+            ?end ns1:meaning ?class .
+            ?class ns1:name ?tag .
+        } GROUP BY ?l_idx ?n_idx
+        ORDER BY ?l_idx ?n_idx
+        """, {"ns1": NNC, "rdfs": RDFS})
 
 from typing import Literal
 # These should stay the same for each model so I am just going to cache them instead of rebuilding.
@@ -143,8 +205,13 @@ def add_model_high_values(g: "rdflib.Graph", datasets: list["src.getdata.BaseDat
     for class_num, dl in enumerate(datasets):
         avg_hook = extramodules.Get_Average_Hook()
         remover = torch.nn.modules.module.register_module_forward_hook(avg_hook)
+        # Get the average correct guesses
+        s = 0
         for batch in dl:
-            model(batch[0])
+            model_out = model(batch[0])
+            s += sum(torch.argmax(model_out, dim=1) == class_num).item()
+        g.add(dl.m, NNC.training_percent, s/len(dl))
+
         for mod_name, module in model.named_modules():
             if "fc" in mod_name:
                 _, avg = avg_hook.dict[module]
@@ -189,6 +256,7 @@ def build_base_facts(csv_row: str | int = "0", csv_file: str = "results/BigModel
     g.add((mod, NNC.filename, rdflib.Literal(filename)))
     g.add((mod, RDF.type, NNC.model))
     g.add((mod, NNC.prune_type, rdflib.Literal(model.cfg("PruningSelection"))))
+    g.add((mod, NNC.csv_row, rdflib.Literal(csv_row)))
 
     count = 0
 
@@ -203,7 +271,9 @@ def build_base_facts(csv_row: str | int = "0", csv_file: str = "results/BigModel
             count += 1
 
     for attack_type, associated_final_node in enumerate(last_layer):
-        add_meaning(g, associated_final_node, dataset.classes[attack_type], "By Definition")
+        m = add_meaning(g, associated_final_node, dataset.classes[attack_type], "By Definition")
+        g.add((m, RDF.type, NNC.class_node))
+        datasets[attack_type].m = m
 
     add_model_high_values(g=g, datasets=datasets, model=model, random_=random_)
 
@@ -220,88 +290,35 @@ def run_really_long_query(file: str = "datasets/model.ttl", graph: "rdflib.Graph
     else:
         g = graph
         print("Using existing graph for queries")
-    q = """
-        PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>
-        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-        SELECT ?l_idx (SAMPLE(?input_meaning) as ?input) (COUNT(DISTINCT ?mean) as ?num_paths)
-        WHERE {
-            ?node ns1:layer ?layer .
-            ?layer ns1:layer_index ?l_idx .
-            ?node ns1:node_index ?n_idx .
-            ?meaning ns1:associated_node/(ns1:secondary_contributor | ns1:primary_contributor)+ ?node .
-            ?meaning ns1:name ?mean .
-            OPTIONAL {
-                ?node ns1:meaning ?in_meaning .
-                ?in_meaning ns1:name ?input_meaning .
-            }
-        } GROUP BY ?n_idx ?l_idx
-        ORDER BY desc(?l_idx) ?n_idx
-        """
 
-    a = g.query(q)
-    with open("top_down_connections.csv", mode="w") as f:
-        print(f'"{file}", , ', file=f)
-        print("Layer, Info, Number of connected", file=f)
+    a = next(iter(g.query(QINFO)))
+    csv_row_number, pruning_type = a.csv_row_number, a.pruning_type
+
+    a = g.query(Q1)
+    with open("top_down_connections.csv", mode="a") as f:
+        print(f'"{file}", , , , ', file=f)
+        print("Layer, Info, Number of connected, csv row, pruning type", file=f)
         for row in a:
-            print(f"{row.l_idx}, {row.input}, {row.num_paths}", file=f)
+            print(f"{row.l_idx}, {row.input}, {row.num_paths}, {csv_row_number}, {pruning_type}", file=f)
+        print(', , , , ', file=f)
     print("Saved first query results")
 
-    q = """
-        PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>
-        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-
-        # Get "most important" input numbers counts
-        SELECT ?l_idx (SAMPLE(?input_meaning) as ?input) (COUNT(DISTINCT ?mean) as ?num_paths)
-        WHERE {
-            ?node ns1:layer ?layer .
-            ?layer ns1:layer_index ?l_idx .
-            ?node ns1:node_index ?n_idx .
-            ?meaning ns1:associated_node ?start .
-            ?node (ns1:secondary_contributor | ns1:primary_contributor)+ ?start .
-            ?meaning ns1:name ?mean .
-            OPTIONAL {
-                ?node ns1:meaning ?in_meaning .
-                ?in_meaning ns1:name ?input_meaning .
-            }
-        } GROUP BY ?n_idx ?l_idx
-        ORDER BY desc(?l_idx) ?n_idx
-        """
-
-    a = g.query(q)
-    with open("bottom_up_connections.csv", mode="w") as f:
-        print(f'"{file}", , ', file=f)
-        print("Layer, Info, Number of connected", file=f)
+    a = g.query(Q2)
+    with open("bottom_up_connections.csv", mode="a") as f:
+        print(f'"{file}", , , , ', file=f)
+        print("Layer, Info, Number of connected, csv row, pruning type", file=f)
         for row in a:
-            print(f"{row.l_idx}, {row.input}, {row.num_paths}", file=f)
+            print(f"{row.l_idx}, {row.input}, {row.num_paths}, {csv_row_number}, {pruning_type}", file=f)
+        print(', , , , ', file=f)
     print("Saved second query results")
 
-    q = """
-        PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>
-        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-
-        # Get the count of the highest value tags on the primary paths
-        SELECT ?l_idx ?n_idx (COUNT(distinct ?tag) as ?number_related_classes)
-        WHERE {
-            ?node ns1:layer ?layer .
-            ?layer ns1:layer_index ?l_idx .
-            ?node ns1:node_index ?n_idx .
-            ?meaning ns1:associated_node ?node .
-            ?meaning ns1:name ?mean .
-            ?meaning ns1:tag ?tag .
-            ?meaning ns1:tag "High" .
-            ?end (ns1:secondary_contributor | ns1:primary_contributor)+ ?node .
-            ?end ns1:meaning ?class .
-            ?class ns1:name ?tag .
-        } GROUP BY ?l_idx ?n_idx
-        ORDER BY ?l_idx ?n_idx
-        """
-
-    a = g.query(q)
-    with open("high_nodes_along_connections.csv", mode="w") as f:
-        print(f'"{file}", , ', file=f)
-        print("Layer, node, Number of connected classes", file=f)
+    a = g.query(Q3)
+    with open("high_nodes_along_connections.csv", mode="a") as f:
+        print(f'"{file}", , , , ', file=f)
+        print("Layer, node, Number of connected classes, csv row, pruning type", file=f)
         for row in a:
-            print(f"{row.l_idx}, {row.n_idx}, {row.number_related_classes}", file=f)
+            print(f"{row.l_idx}, {row.n_idx}, {row.number_related_classes}, {csv_row_number}, {pruning_type}", file=f)
+        print(', , , , ', file=f)
     print("Saved third query results")
 
 
@@ -325,8 +342,12 @@ def select_best_rows(csv_file: str = "results/BigModel(toOntology).csv"):
 if __name__ == "__main__":
     if not False:
         for x in select_best_rows():
+            print(f"running for csv row {x}")
             if not os.path.exists(f"datasets/ontologies/model(BigModel(toOntology).csv {x}).ttl"):
                 path, g = build_base_facts(random_=False, csv_row=f"{x}")
-            # run_really_long_query(f"datasets/ontologies/model(BigModel(toOntology).csv {x}).ttl")
+                run_really_long_query(f"datasets/ontologies/model(BigModel(toOntology).csv {x}).ttl", graph=g)
+            else:
+                pass
+                run_really_long_query(f"datasets/ontologies/model(BigModel(toOntology).csv {x}).ttl")
     else:
         print(select_best_rows())
