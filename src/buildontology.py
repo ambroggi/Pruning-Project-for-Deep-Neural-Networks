@@ -222,7 +222,7 @@ def add_model_layer(g: "rdflib.Graph", layer: "rdflib.Node", module: "torch.nn.m
 
             if abs(connection_weight.item()) > 0.001:
                 # Only record connections that are non-zeroed (have a little leeway for pruning methods that use training loop to prune)
-                add_node_connection(g, this_layer[-1], connection_weight, last_layer[connected_to] if len(last_layer) > connected_to else None)
+                add_node_connection(g, this_layer[-1], connection_weight, last_layer[connected_to])
 
                 # Keep track of best 2 connections
                 if max_connection is None or max_connection[0] < abs(connection_weight.item()):
@@ -337,47 +337,47 @@ def run_really_long_query(file: str = "datasets/model.ttl", graph: "rdflib.Graph
 
     a = g.query(Q1)
     with open("top_down_connections.csv", mode="a") as f:
-        print(f'"{file}", , , , ', file=f)
-        print("Layer, Info, Number of connected, csv row, pruning type", file=f)
+        print(f'"{file}",,,,', file=f)
+        print("Layer,Info,Number of connected,csv row,pruning type", file=f)
         for row in a:
-            print(f"{row.l_idx}, {row.input}, {row.num_paths}, {csv_row_number}, {pruning_type}", file=f)
-        print(', , , , ', file=f)
+            print(f"{row.l_idx},{row.input},{row.num_paths},{csv_row_number},{pruning_type}", file=f)
+        print(',,,,', file=f)
     print("Saved first query results")
 
     a = g.query(Q2)
     with open("bottom_up_connections.csv", mode="a") as f:
-        print(f'"{file}", , , , ', file=f)
-        print("Layer, Info, Number of connected, csv row, pruning type", file=f)
+        print(f'"{file}",,,,', file=f)
+        print("Layer,Info,Number of connected,csv row,pruning type", file=f)
         for row in a:
             print(f"{row.l_idx}, {row.input}, {row.num_paths}, {csv_row_number}, {pruning_type}", file=f)
-        print(', , , , ', file=f)
+        print(',,,,', file=f)
     print("Saved second query results")
 
     a = g.query(Q3)
     with open("high_nodes_along_connections.csv", mode="a") as f:
-        print(f'"{file}", , , , , ', file=f)
-        print("Layer, node, Number of connected classes, Number of classes total, csv row, pruning type", file=f)
+        print(f'"{file}",,,,,', file=f)
+        print("Layer,node,Number of connected classes,Number of classes total,csv row,pruning type", file=f)
         for row in a:
-            print(f"{row.l_idx}, {row.n_idx}, {row.number_related_classes}, {total_classes}, {csv_row_number}, {pruning_type}", file=f)
-        print(', , , , , ', file=f)
+            print(f"{row.l_idx},{row.n_idx},{row.number_related_classes},{total_classes},{csv_row_number},{pruning_type}", file=f)
+        print(',,,,,', file=f)
     print("Saved third query results")
 
     a = g.query(Q4)
     with open("high_nodes_of_reduced_classes.csv", mode="a") as f:
-        print(f'"{file}", , , , , ', file=f)
-        print("Layer, node, Number of connected classes, Number of classes total, csv row, pruning type", file=f)
+        print(f'"{file}",,,,,', file=f)
+        print("Layer,node,Number of connected classes,Number of classes total,csv row,pruning type", file=f)
         for row in a:
-            print(f"{row.l_idx}, {row.n_idx}, {row.number_related_classes}, {reduced_classes}, {csv_row_number}, {pruning_type}", file=f)
-        print(', , , , , ', file=f)
+            print(f"{row.l_idx},{row.n_idx},{row.number_related_classes},{reduced_classes},{csv_row_number},{pruning_type}", file=f)
+        print(',,,,,', file=f)
     print("Saved fourth query results")
 
     a = g.query(Q5)
     with open("high_nodes.csv", mode="a") as f:
-        print(f'"{file}", , , , ', file=f)
-        print("Layer, node, Number of meanings for node, csv row, pruning type", file=f)
+        print(f'"{file}",,,,', file=f)
+        print("Layer,node,Number of meanings for node,csv row,pruning type", file=f)
         for row in a:
-            print(f"{row.l_idx}, {row.n_idx}, {row.number_meanings_for_node}, {csv_row_number}, {pruning_type}", file=f)
-        print(', , , , ', file=f)
+            print(f"{row.l_idx},{row.n_idx},{row.number_meanings_for_node},{csv_row_number},{pruning_type}", file=f)
+        print(',,,,', file=f)
     print("Saved fifth query results")
 
 
