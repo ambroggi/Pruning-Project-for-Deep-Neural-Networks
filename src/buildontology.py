@@ -13,12 +13,17 @@ if __name__ == "__main__":
 
     NNC = rdflib.Namespace("https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks")   # Neural Network Connections (I guess I should have a location that is not example.org?)
     QINFO = prepareQuery("""
-        SELECT ?csv_row_number ?csv_name ?pruning_type
+        SELECT ?csv_row_number ?csv_name ?pruning_type (COUNT(distinct ?class) as ?num_classes_total) (COUNT(distinct ?tag) as ?num_classes_reduced)
         WHERE {
             ?model ns1:filename ?csv_name .
             ?model ns1:prune_type ?pruning_type .
             ?model ns1:csv_row ?csv_row_number .
-        } LIMIT 1
+            ?class ns1:training_percent ?training .
+            OPTIONAL {
+                    FILTER(?training > 0.5)
+                    ?class ns1:name ?tag .
+                    }
+        } GROUP BY ?csv_row_number ?csv_name ?pruning_type
         """, {"ns1": NNC, "rdfs": RDFS})
     Q1 = prepareQuery("""
         SELECT ?l_idx (SAMPLE(?input_meaning) as ?input) (COUNT(DISTINCT ?mean) as ?num_paths)
@@ -48,6 +53,7 @@ if __name__ == "__main__":
             ?start a ns1:input_node .
             ?node (ns1:secondary_contributor | ns1:primary_contributor)+ ?start .
             ?meaning ns1:name ?mean .
+            ?meaning ns1:mean_type ns1:by_definition .
             OPTIONAL {
                 ?node ns1:meaning ?in_meaning .
                 ?in_meaning ns1:name ?input_meaning .
@@ -58,7 +64,7 @@ if __name__ == "__main__":
 
     Q3 = prepareQuery("""
         # Get the count of the highest value tags on the primary paths
-        SELECT ?l_idx ?n_idx (COUNT(distinct ?tag) as ?number_related_classes)
+        SELECT ?l_idx ?n_idx (COUNT(distinct ?tag) as ?number_related_classes) (COUNT(distinct ?class) as ?number_classes_total)
         WHERE {
             ?node ns1:layer ?layer .
             ?layer ns1:layer_index ?l_idx .
@@ -70,6 +76,41 @@ if __name__ == "__main__":
             ?end (ns1:secondary_contributor | ns1:primary_contributor)+ ?node .
             ?end ns1:meaning ?class .
             ?class ns1:name ?tag .
+        } GROUP BY ?l_idx ?n_idx
+        ORDER BY ?l_idx ?n_idx
+        """, {"ns1": NNC, "rdfs": RDFS})
+
+    Q4 = prepareQuery("""
+        # Get the count of the highest value tags on the primary paths
+        SELECT ?l_idx ?n_idx (COUNT(distinct ?tag) as ?number_related_classes)
+        WHERE {
+            ?node ns1:layer ?layer .
+            ?layer ns1:layer_index ?l_idx .
+            ?node ns1:node_index ?n_idx .
+            ?meaning ns1:associated_node ?node .
+            ?meaning ns1:name ?mean .
+            ?meaning ns1:tag ?tag .
+            ?meaning ns1:tag "High" .
+            ?end ns1:meaning ?class .
+            ?class ns1:training_percent ?training .
+            FILTER(?training > 0.5)
+            ?end (ns1:secondary_contributor | ns1:primary_contributor)+ ?node .
+            ?class ns1:name ?tag .
+        } GROUP BY ?l_idx ?n_idx
+        ORDER BY ?l_idx ?n_idx
+        """, {"ns1": NNC, "rdfs": RDFS})
+
+    Q5 = prepareQuery("""
+        # Number of high values that are on the same node per layer
+        SELECT ?l_idx ?n_idx (COUNT(distinct ?mean) as ?number_meanings_for_node)
+        WHERE {
+            ?node ns1:layer ?layer .
+            ?layer ns1:layer_index ?l_idx .
+            ?node ns1:node_index ?n_idx .
+            ?meaning ns1:associated_node ?node .
+            ?meaning ns1:tag "High" .
+            ?node ns1:meaning ?mean .
+            ?mean ns1:mean_type ns1:by_data .
         } GROUP BY ?l_idx ?n_idx
         ORDER BY ?l_idx ?n_idx
         """, {"ns1": NNC, "rdfs": RDFS})
@@ -213,7 +254,7 @@ def add_model_high_values(g: "rdflib.Graph", datasets: list["src.getdata.BaseDat
         g.add((dl.m, NNC.training_percent, rdflib.Literal(s/len(dl))))
 
         for mod_name, module in model.named_modules():
-            if "fc" in mod_name:
+            if "fc" in mod_name and not isinstance(module, extramodules.Nothing_Module):
                 _, avg = avg_hook.dict[module]
                 if random_:
                     avg = torch.rand_like(avg)
@@ -255,7 +296,7 @@ def build_base_facts(csv_row: str | int = "0", csv_file: str = "results/BigModel
     mod = rdflib.BNode()
     g.add((mod, NNC.filename, rdflib.Literal(filename)))
     g.add((mod, RDF.type, NNC.model))
-    g.add((mod, NNC.prune_type, rdflib.Literal(model.cfg("PruningSelection"))))
+    g.add((mod, NNC.prune_type, rdflib.Literal(model.cfg("PruningSelection")) if not random_ else rdflib.Literal("RandomConnections")))
     g.add((mod, NNC.csv_row, rdflib.Literal(csv_row)))
 
     count = 0
@@ -264,7 +305,7 @@ def build_base_facts(csv_row: str | int = "0", csv_file: str = "results/BigModel
     last_layer = setup_input_layer(g, dataset, mod)
 
     for mod_name, module in model.named_modules():
-        if "fc" in mod_name:
+        if "fc" in mod_name and not isinstance(module, extramodules.Nothing_Module):
             layer = add_layer(g, mod_name, count, number_of_nodes=len(module.weight), model=mod)
             add_model_layer(g, layer, module, last_layer, random_)
             last_layer = module.graph_nodes
@@ -292,7 +333,7 @@ def run_really_long_query(file: str = "datasets/model.ttl", graph: "rdflib.Graph
         print("Using existing graph for queries")
 
     a = next(iter(g.query(QINFO)))
-    csv_row_number, pruning_type = a.csv_row_number, a.pruning_type
+    csv_row_number, pruning_type, total_classes, reduced_classes = a.csv_row_number, a.pruning_type, a.num_classes_total, a.num_classes_reduced
 
     a = g.query(Q1)
     with open("top_down_connections.csv", mode="a") as f:
@@ -314,12 +355,30 @@ def run_really_long_query(file: str = "datasets/model.ttl", graph: "rdflib.Graph
 
     a = g.query(Q3)
     with open("high_nodes_along_connections.csv", mode="a") as f:
-        print(f'"{file}", , , , ', file=f)
-        print("Layer, node, Number of connected classes, csv row, pruning type", file=f)
+        print(f'"{file}", , , , , ', file=f)
+        print("Layer, node, Number of connected classes, Number of classes total, csv row, pruning type", file=f)
         for row in a:
-            print(f"{row.l_idx}, {row.n_idx}, {row.number_related_classes}, {csv_row_number}, {pruning_type}", file=f)
-        print(', , , , ', file=f)
+            print(f"{row.l_idx}, {row.n_idx}, {row.number_related_classes}, {total_classes}, {csv_row_number}, {pruning_type}", file=f)
+        print(', , , , , ', file=f)
     print("Saved third query results")
+
+    a = g.query(Q4)
+    with open("high_nodes_of_reduced_classes.csv", mode="a") as f:
+        print(f'"{file}", , , , , ', file=f)
+        print("Layer, node, Number of connected classes, Number of classes total, csv row, pruning type", file=f)
+        for row in a:
+            print(f"{row.l_idx}, {row.n_idx}, {row.number_related_classes}, {reduced_classes}, {csv_row_number}, {pruning_type}", file=f)
+        print(', , , , , ', file=f)
+    print("Saved fourth query results")
+
+    a = g.query(Q5)
+    with open("high_nodes.csv", mode="a") as f:
+        print(f'"{file}", , , , ', file=f)
+        print("Layer, node, Number of meanings for node, csv row, pruning type", file=f)
+        for row in a:
+            print(f"{row.l_idx}, {row.n_idx}, {row.number_meanings_for_node}, {csv_row_number}, {pruning_type}", file=f)
+        print(', , , , ', file=f)
+    print("Saved fifth query results")
 
 
 def make_pivot_table_from_top_down_connections():
@@ -349,5 +408,13 @@ if __name__ == "__main__":
             else:
                 pass
                 run_really_long_query(f"datasets/ontologies/model(BigModel(toOntology).csv {x}).ttl")
+        for x in [0, 1, 2]:
+            print(f"running for random {x}")
+            if not os.path.exists(f"datasets/ontologies/random_model ({x}).ttl"):
+                path, g = build_base_facts(random_=True, csv_row=f"{x}")
+                run_really_long_query(f"datasets/ontologies/random_model ({x}).ttl", graph=g)
+            else:
+                pass
+                run_really_long_query(f"datasets/ontologies/random_model ({x}).ttl")
     else:
         print(select_best_rows())
