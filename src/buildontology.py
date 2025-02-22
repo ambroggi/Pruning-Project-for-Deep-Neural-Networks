@@ -258,6 +258,11 @@ def add_model_high_values(g: "rdflib.Graph", datasets: list["src.getdata.BaseDat
                 _, avg = avg_hook.dict[module]
                 if random_:
                     avg = torch.rand_like(avg)
+
+                if max(avg) == min(avg):
+                    # No max
+                    continue
+
                 # Add highest node in the layer
                 connection = add_meaning(g, module.graph_nodes[torch.argmax(avg)], "Highest " + datasets[0].base.classes[class_num], "By Data")
                 g.add((connection, NNC.tag, rdflib.Literal(datasets[0].base.classes[class_num])))
@@ -270,6 +275,10 @@ def add_model_high_values(g: "rdflib.Graph", datasets: list["src.getdata.BaseDat
 
                 # Remove highest
                 avg[torch.argmax(avg)] = torch.min(avg)
+
+                if max(avg) == min(avg):
+                    # No second max
+                    continue
 
                 # Add second highest node in the layer (by virtue of the highest having been removed)
                 connection = add_meaning(g, module.graph_nodes[torch.argmax(avg)], "Second " + datasets[0].base.classes[class_num], "By Data")
@@ -349,7 +358,7 @@ def run_really_long_query(file: str = "datasets/model.ttl", graph: "rdflib.Graph
         print(f'"{file}",,,,', file=f)
         print("Layer,Info,Number of connected,csv row,pruning type", file=f)
         for row in a:
-            print(f"{row.l_idx}, {row.input}, {row.num_paths}, {csv_row_number}, {pruning_type}", file=f)
+            print(f"{row.l_idx},{row.input},{row.num_paths},{csv_row_number},{pruning_type}", file=f)
         print(',,,,', file=f)
     print("Saved second query results")
 

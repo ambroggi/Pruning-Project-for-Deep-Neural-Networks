@@ -105,7 +105,7 @@ def graph_pt(pt: pd.DataFrame, file: None | os.PathLike = None):
 
     if file is not None:
         plot.update({"layout": {"title": {"xanchor": "right", "x": 0.9}}})
-        plot.write_image(f"results/images/{file}.png", width=700, height=500, scale=2)
+        plot.write_image(f"results/images/{file}.png", width=1400, height=500, scale=2)
     else:
         plot.show()
 
@@ -132,7 +132,12 @@ if __name__ == "__main__":
             df["Number for calculation"] = df["Number of connected classes"]/df["Number of classes total"]
 
         for x in [y for y in df.columns if "Number" in y]:
+            print(f"{file_} - {x}")
             pt = df.pivot_table(values=x, **options[file_])
             pt = pt.fillna(0)
 
             graph_pt(pt, file=file_)
+
+        if file_ == "top_down_connections":
+            pt = df[df["pruning type"] == "Normal_Run"].pivot_table(values="Number of connected", columns="Number of connected", index="Layer", aggfunc="sum")
+            pt.to_latex("results/images/top_down_table.txt")

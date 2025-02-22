@@ -160,5 +160,17 @@
     "language": "sparql",
     "value": "PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\n# Get the count of the highest value tags on the primary paths\nSELECT ?lidx (COUNT(distinct ?nidx) as ?number_of_unique_nodes) ?tag\nWHERE {\n    ?node ns1:layer ?layer .\n    ?layer ns1:layer_index ?lidx .\n    ?node ns1:node_index ?nidx .\n    ?meaning ns1:associated_node ?node .\n    ?meaning ns1:name ?mean .\n    ?meaning ns1:tag ?tag .\n    ?end (ns1:secondary_contributor | ns1:primary_contributor)+ ?node .\n    ?end ns1:meaning ?class .\n    ?class ns1:name ?tag .\n} GROUP BY ?lidx ?tag\nORDER BY ?lidx ?tag",
     "metadata": {}
+  },
+  {
+    "kind": 2,
+    "language": "sparql",
+    "value": "PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\n# Get the count of the highest value tags on the primary paths\n        SELECT ?l_idx ?n_idx (COUNT(distinct ?tag) as ?number_related_classes)\n        WHERE {\n            ?node ns1:layer ?layer .\n            ?layer ns1:layer_index ?l_idx .\n            ?node ns1:node_index ?n_idx .\n            ?meaning ns1:associated_node ?node .\n            ?meaning ns1:name ?mean .\n            ?meaning ns1:tag ?tag .\n            ?meaning ns1:tag \"High\" .\n            ?end (ns1:secondary_contributor | ns1:primary_contributor)+ ?node .\n            ?end ns1:meaning ?class .\n            ?class ns1:training_percent ?training .\n            FILTER(?training > 0.5)\n            ?class ns1:name ?tag .\n        } GROUP BY ?l_idx ?n_idx\n        ORDER BY ?l_idx ?n_idx",
+    "metadata": {}
+  },
+  {
+    "kind": 2,
+    "language": "sparql",
+    "value": "PREFIX ns1: <https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks>\nPREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\nSELECT ?csv_row_number ?csv_name ?pruning_type (COUNT(distinct ?class) as ?num_classes_total) (COUNT(distinct ?tag) as ?num_classes_reduced)\n    WHERE {\n        ?model ns1:filename ?csv_name .\n        ?model ns1:prune_type ?pruning_type .\n        ?model ns1:csv_row ?csv_row_number .\n        ?class ns1:training_percent ?training .\n        OPTIONAL {\n                FILTER(?training > 0.5)\n                ?class ns1:name ?tag .\n                }\n} GROUP BY ?csv_row_number ?csv_name ?pruning_type",
+    "metadata": {}
   }
 ]
