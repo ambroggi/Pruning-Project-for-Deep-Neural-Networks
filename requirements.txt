@@ -58,3 +58,6 @@ torchvision
 # torchvision
 
 rdflib
+
+matplotlib
+kaleido

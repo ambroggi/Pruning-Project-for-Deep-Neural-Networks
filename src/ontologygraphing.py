@@ -112,32 +112,54 @@ def graph_pt(pt: pd.DataFrame, file: None | os.PathLike = None):
 
 if __name__ == "__main__":
     for file_ in titles.keys():
-        if not os.path.exists(f"{file_}.csv"):
+        if not os.path.exists(f"results/{file_}.csv"):
             continue
-        df = pd.read_csv(f"{file_}.csv", header=1, sep=",", engine='python')
-        df["pruning type"] = df["pruning type"].fillna("Normal_Run")
-        df["csv row"] = df["csv row"].astype(str)
+        df = pd.read_csv(f"results/{file_}.csv", header=1, sep=",", engine='python')
+        df.loc[:, "pruning type"] = df["pruning type"].fillna("Normal_Run")
+        df.loc[:, "csv row"] = df["csv row"].astype(str)
         df = df[df["csv row"].apply(str.isnumeric)]
-        df["csv row"] = df["csv row"].astype(int)
-        df["Layer"] = df["Layer"].astype(int)
+        df.loc[:, "csv row"] = df["csv row"].astype(int)
+        df.loc[:, "Layer"] = df["Layer"].astype(int)
 
         for extra_str in extra_readability:
-            df["pruning type"] = df["pruning type"].apply(lambda x: str.replace(x, extra_str, extra_readability[extra_str]))
-        df["pruning type"] = df["pruning type"].map(readability)
+            df.loc[:, "pruning type"] = df["pruning type"].apply(lambda x: str.replace(x, extra_str, extra_readability[extra_str]))
+        df.loc[:, "pruning type"] = df["pruning type"].map(readability)
 
         for x in [y for y in df.columns if "Number" in y]:
-            df[x] = df[x].astype(int)
+            df.loc[:, x] = df[x].astype(int)
 
         if "high_nodes_" in file_:
             df["Number for calculation"] = df["Number of connected classes"]/df["Number of classes total"]
 
         for x in [y for y in df.columns if "Number" in y]:
             print(f"{file_} - {x}")
-            pt = df.pivot_table(values=x, **options[file_])
-            pt = pt.fillna(0)
+            pt = df.pivot_table(values=x, **options[file_], fill_value=0)
 
             graph_pt(pt, file=file_)
 
         if file_ == "top_down_connections":
-            pt = df[df["pruning type"] == "Normal_Run"].pivot_table(values="Number of connected", columns="Number of connected", index="Layer", aggfunc="sum")
-            pt.to_latex("results/images/top_down_table.txt")
+            # https://stackoverflow.com/a/74025617
+            only_original = df[df["pruning type"] == "Original Run"]
+            pt = only_original.assign(vals=1).pivot_table(values="vals", columns="Number of connected", index="Layer", aggfunc="count", fill_value=0)
+            st = pt.style
+            st.background_gradient(cmap="inferno", vmin=0, vmax=max(pt.max()))
+            st.to_latex("results/images/top_down_table.txt", convert_css=True, hrules=True)
+            # pt.to_latex("results/images/top_down_table.txt")
+
+            only_original = df[df["pruning type"] == "Random Ontology"]
+            pt = only_original.assign(vals=1).pivot_table(values="vals", columns="Number of connected", index="Layer", aggfunc="count", fill_value=0)
+            st = pt.style
+            st.background_gradient(cmap="inferno", vmin=0, vmax=max(pt.max()))
+            st.to_latex("results/images/Random_Ontology_top_down_table.txt", convert_css=True, hrules=True)
+
+        if file_ == "high_nodes_along_connections":
+            # https://stackoverflow.com/a/74025617
+            only_original = df[df["pruning type"] == "Original Run"]
+            pt = only_original.assign(vals=1).pivot_table(values="vals", columns="Number of connected classes", index="Layer", aggfunc="count", fill_value=0)
+            # https://stackoverflow.com/a/63896673
+            cols = pt.columns.union(range(1, 11), sort=True)
+            print(cols)
+            pt = pt.reindex(cols, axis=1, fill_value=0)
+            st = pt.style
+            st.background_gradient(cmap="inferno", vmin=0, vmax=10)
+            st.to_latex("results/images/high_nodes_along_connections_table.txt", convert_css=True, hrules=True)

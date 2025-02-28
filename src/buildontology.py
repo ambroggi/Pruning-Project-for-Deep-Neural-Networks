@@ -345,7 +345,7 @@ def run_really_long_query(file: str = "datasets/model.ttl", graph: "rdflib.Graph
     csv_row_number, pruning_type, total_classes, reduced_classes = a.csv_row_number, a.pruning_type, a.num_classes_total, a.num_classes_reduced
 
     a = g.query(Q1)
-    with open("top_down_connections.csv", mode="a") as f:
+    with open("results/top_down_connections.csv", mode="a") as f:
         print(f'"{file}",,,,', file=f)
         print("Layer,Info,Number of connected,csv row,pruning type", file=f)
         for row in a:
@@ -354,7 +354,7 @@ def run_really_long_query(file: str = "datasets/model.ttl", graph: "rdflib.Graph
     print("Saved first query results")
 
     a = g.query(Q2)
-    with open("bottom_up_connections.csv", mode="a") as f:
+    with open("results/bottom_up_connections.csv", mode="a") as f:
         print(f'"{file}",,,,', file=f)
         print("Layer,Info,Number of connected,csv row,pruning type", file=f)
         for row in a:
@@ -363,7 +363,7 @@ def run_really_long_query(file: str = "datasets/model.ttl", graph: "rdflib.Graph
     print("Saved second query results")
 
     a = g.query(Q3)
-    with open("high_nodes_along_connections.csv", mode="a") as f:
+    with open("results/high_nodes_along_connections.csv", mode="a") as f:
         print(f'"{file}",,,,,', file=f)
         print("Layer,node,Number of connected classes,Number of classes total,csv row,pruning type", file=f)
         for row in a:
@@ -372,7 +372,7 @@ def run_really_long_query(file: str = "datasets/model.ttl", graph: "rdflib.Graph
     print("Saved third query results")
 
     a = g.query(Q4)
-    with open("high_nodes_of_reduced_classes.csv", mode="a") as f:
+    with open("results/high_nodes_of_reduced_classes.csv", mode="a") as f:
         print(f'"{file}",,,,,', file=f)
         print("Layer,node,Number of connected classes,Number of classes total,csv row,pruning type", file=f)
         for row in a:
@@ -381,7 +381,7 @@ def run_really_long_query(file: str = "datasets/model.ttl", graph: "rdflib.Graph
     print("Saved fourth query results")
 
     a = g.query(Q5)
-    with open("high_nodes.csv", mode="a") as f:
+    with open("results/high_nodes.csv", mode="a") as f:
         print(f'"{file}",,,,', file=f)
         print("Layer,node,Number of meanings for node,csv row,pruning type", file=f)
         for row in a:
@@ -391,7 +391,7 @@ def run_really_long_query(file: str = "datasets/model.ttl", graph: "rdflib.Graph
 
 
 def make_pivot_table_from_top_down_connections():
-    df: pd.DataFrame = pd.read_csv("top_down_connections.csv", header=False, columns=["Layer", "Extra_info", "Num_connections"])
+    df: pd.DataFrame = pd.read_csv("results/top_down_connections.csv", header=False, columns=["Layer", "Extra_info", "Num_connections"])
 
     table = df.pivot_table(values="Num_connections", index="Layer", columns="Num_connections", aggfunc="count")
 

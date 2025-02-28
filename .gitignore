@@ -201,11 +201,14 @@ data/
 !ModelStateDict1730954482.0195696.pt
 !ModelStateDict1730954322.3189435.pt
 # Big v0.131
-ModelStateDict1731477930.1655464.pt
-ModelStateDict1731478143.0979779.pt
-ModelStateDict1731477998.6417298.pt
+!ModelStateDict1731477930.1655464.pt
+!ModelStateDict1731478143.0979779.pt
+!ModelStateDict1731477998.6417298.pt
 # Small v0.131
-ModelStateDict1731904854.6284766.pt
-ModelStateDict1731905373.8624258.pt
-ModelStateDict1731904816.594452.pt
+!ModelStateDict1731904854.6284766.pt
+!ModelStateDict1731905373.8624258.pt
+!ModelStateDict1731904816.594452.pt
+
 *.ttl
+*.pcap
+/datasets/Timesheets
