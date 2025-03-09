@@ -139,23 +139,30 @@ if __name__ == "__main__":
 
         if file_ == "top_down_connections":
             # https://stackoverflow.com/a/74025617
-            only_original = df[df["pruning type"] == "Original Run"]
-            pt = only_original.assign(vals=1).pivot_table(values="vals", columns="Number of connected", index="Layer", aggfunc="count", fill_value=0)
+            only_original = df.loc[df["pruning type"] == "Original Run"].copy()
+            only_original.loc[:, "layer"] = "Layer"
+            pt = only_original.assign(vals=1).pivot_table(values="vals", columns="Number of connected", index=["layer", "Layer"], aggfunc="count", fill_value=0)
+            pt.index.set_names([None, None], inplace=True)
+            print(pt)
             st = pt.style
             st.background_gradient(cmap="inferno", vmin=0, vmax=max(pt.max()))
             st.to_latex("results/images/top_down_table.txt", convert_css=True, hrules=True)
             # pt.to_latex("results/images/top_down_table.txt")
 
-            only_original = df[df["pruning type"] == "Random Ontology"]
-            pt = only_original.assign(vals=1).pivot_table(values="vals", columns="Number of connected", index="Layer", aggfunc="count", fill_value=0)
+            only_original = df.loc[df["pruning type"] == "Random Ontology"].copy()
+            only_original.loc[:, "layer"] = "Layer"
+            pt = only_original.assign(vals=1).pivot_table(values="vals", columns="Number of connected", index=["layer", "Layer"], aggfunc="count", fill_value=0)
+            pt.index.set_names([None, None], inplace=True)
             st = pt.style
             st.background_gradient(cmap="inferno", vmin=0, vmax=max(pt.max()))
             st.to_latex("results/images/Random_Ontology_top_down_table.txt", convert_css=True, hrules=True)
 
         if file_ == "high_nodes_along_connections":
             # https://stackoverflow.com/a/74025617
-            only_original = df[df["pruning type"] == "Original Run"]
-            pt = only_original.assign(vals=1).pivot_table(values="vals", columns="Number of connected classes", index="Layer", aggfunc="count", fill_value=0)
+            only_original = df.loc[df["pruning type"] == "Original Run"].copy()
+            only_original.loc[:, "layer"] = "Layer"
+            pt = only_original.assign(vals=1).pivot_table(values="vals", columns="Number of connected classes", index=["layer", "Layer"], aggfunc="count", fill_value=0)
+            pt.index.set_names([None, None], inplace=True)
             # https://stackoverflow.com/a/63896673
             cols = pt.columns.union(range(1, 11), sort=True)
             print(cols)
@@ -163,3 +170,15 @@ if __name__ == "__main__":
             st = pt.style
             st.background_gradient(cmap="inferno", vmin=0, vmax=10)
             st.to_latex("results/images/high_nodes_along_connections_table.txt", convert_css=True, hrules=True)
+
+            only_original = df.loc[df["pruning type"] == "Random Ontology"].copy()
+            only_original.loc[:, "layer"] = "Layer"
+            pt = only_original.assign(vals=1).pivot_table(values="vals", columns="Number of connected classes", index=["layer", "Layer"], aggfunc="count", fill_value=0)
+            pt.index.set_names([None, None], inplace=True)
+            # https://stackoverflow.com/a/63896673
+            cols = pt.columns.union(range(1, 11), sort=True)
+            print(cols)
+            pt = pt.reindex(cols, axis=1, fill_value=0)
+            st = pt.style
+            # st.background_gradient(cmap="inferno", vmin=0, vmax=10)
+            st.to_latex("results/images/random_high_nodes_along_connections_table.txt", convert_css=True, hrules=True)
