@@ -140,7 +140,7 @@ if __name__ == "__main__":
         if file_ == "top_down_connections":
             # https://stackoverflow.com/a/74025617
             only_original = df.loc[df["pruning type"] == "Original Run"].copy()
-            only_original.loc[:, "layer"] = "Layer"
+            only_original.loc[:, "layer"] = r"\rotatebox{90}{Layer}"
             pt = only_original.assign(vals=1).pivot_table(values="vals", columns="Number of connected", index=["layer", "Layer"], aggfunc="count", fill_value=0)
             pt.index.set_names([None, None], inplace=True)
             print(pt)
@@ -150,7 +150,7 @@ if __name__ == "__main__":
             # pt.to_latex("results/images/top_down_table.txt")
 
             only_original = df.loc[df["pruning type"] == "Random Ontology"].copy()
-            only_original.loc[:, "layer"] = "Layer"
+            only_original.loc[:, "layer"] = r"\rotatebox{90}{Layer}"
             pt = only_original.assign(vals=1).pivot_table(values="vals", columns="Number of connected", index=["layer", "Layer"], aggfunc="count", fill_value=0)
             pt.index.set_names([None, None], inplace=True)
             st = pt.style
@@ -160,7 +160,7 @@ if __name__ == "__main__":
         if file_ == "high_nodes_along_connections":
             # https://stackoverflow.com/a/74025617
             only_original = df.loc[df["pruning type"] == "Original Run"].copy()
-            only_original.loc[:, "layer"] = "Layer"
+            only_original.loc[:, "layer"] = r"\rotatebox{90}{Layer}"
             pt = only_original.assign(vals=1).pivot_table(values="vals", columns="Number of connected classes", index=["layer", "Layer"], aggfunc="count", fill_value=0)
             pt.index.set_names([None, None], inplace=True)
             # https://stackoverflow.com/a/63896673
@@ -172,7 +172,7 @@ if __name__ == "__main__":
             st.to_latex("results/images/high_nodes_along_connections_table.txt", convert_css=True, hrules=True)
 
             only_original = df.loc[df["pruning type"] == "Random Ontology"].copy()
-            only_original.loc[:, "layer"] = "Layer"
+            only_original.loc[:, "layer"] = r"\rotatebox{90}{Layer}"
             pt = only_original.assign(vals=1).pivot_table(values="vals", columns="Number of connected classes", index=["layer", "Layer"], aggfunc="count", fill_value=0)
             pt.index.set_names([None, None], inplace=True)
             # https://stackoverflow.com/a/63896673
