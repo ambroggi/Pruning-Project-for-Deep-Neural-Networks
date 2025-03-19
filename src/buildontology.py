@@ -115,14 +115,31 @@ if __name__ == "__main__":
         ORDER BY ?l_idx ?n_idx
         """, {"ns1": NNC, "rdfs": RDFS})
 
-from typing import Literal
+from typing import Literal, TYPE_CHECKING
 # These should stay the same for each model so I am just going to cache them instead of rebuilding.
 global dataset, datasets
 dataset = None
 datasets = None
 
 
-def get_model_and_datasets(csv_row: str | int = "0", csv_file: str = "results/BigModel(toOntology).csv"):
+if TYPE_CHECKING:
+    NNC.filename = "test"
+
+
+def get_model_and_datasets(csv_row: str | int = "0", csv_file: str = "results/BigModel(toOntology).csv") -> tuple["src.modelstruct.BaseDetectionModel", "src.getdata.ModifiedDataloader", list["src.getdata.ModifiedDataloader"]]:
+    """
+    Loads the model and the dataset from a specific csv file and row.
+
+    Args:
+        csv_row (str | int, optional): Row of the csv file to retrieve the model from. Defaults to "0".
+        csv_file (str, optional): Csv file to read. Defaults to "results/BigModel(toOntology).csv".
+
+    Returns:
+        src.modelstruct.BaseDetectionModel: Model that has been loaded.
+        src.getdata.ModifiedDataloader: Dataloader to read for general data.
+        list:
+            src.getdata.ModifiedDataloader: Dataloaders sorted by class.
+    """
     print("Loading model and splitting dataset")
     config = src.cfg.ConfigObject()
     csv_row = str(csv_row)
@@ -144,7 +161,20 @@ def get_model_and_datasets(csv_row: str | int = "0", csv_file: str = "results/Bi
     return model, dataset, datasets
 
 
-def add_layer(g: "rdflib.Graph", layer_name: str, layer_index: int, number_of_nodes: int | None = None, model: "rdflib.Node" = None):
+def add_layer(g: "rdflib.Graph", layer_name: str, layer_index: int, number_of_nodes: int | None = None, model: "rdflib.Node" = None) -> "rdflib.Node":
+    """
+    Adds a layer to an rdflib graph. Where a layer is an entity that contains several nodes.
+
+    Args:
+        g (rdflib.Graph): Graph to add the layer to.
+        layer_name (str): Name the layer.
+        layer_index (int): Numerical index to describe the layer.
+        number_of_nodes (int | None, optional): Specify the number of nodes in the layer. Defaults to None.
+        model (rdflib.Node, optional): Model entity in the graph. Defaults to None.
+
+    Returns:
+        rdflib.Node: The layer entity node that was added.
+    """
     layer = rdflib.BNode()
     g.add((layer, RDF.type, NNC.layer))
     g.add((layer, RDFS.label, rdflib.Literal(layer_name)))
@@ -156,7 +186,18 @@ def add_layer(g: "rdflib.Graph", layer_name: str, layer_index: int, number_of_no
     return layer
 
 
-def add_node(g: "rdflib.Graph", layer: "rdflib.Node", node_index: int):
+def add_node(g: "rdflib.Graph", layer: "rdflib.Node", node_index: int) -> "rdflib.Node":
+    """
+    Add an individual neuron node to a specified layer in a rdflib graph
+
+    Args:
+        g (rdflib.Graph): Graph to add the node to.
+        layer (rdflib.Node): Layer to add the node to.
+        node_index (int): Index of the node within the layer.
+
+    Returns:
+        rdflib.Node: The neural node entity node that was added.
+    """
     n = rdflib.BNode()
     g.add((n, RDF.type, NNC.node))
     g.add((n, NNC.layer, layer))
@@ -164,7 +205,19 @@ def add_node(g: "rdflib.Graph", layer: "rdflib.Node", node_index: int):
     return n
 
 
-def add_meaning(g: "rdflib.Graph", node: "rdflib.Node", meaning: str, meaning_type: Literal["By Definition", "By Data", "By Inference"] = "By Definition"):
+def add_meaning(g: "rdflib.Graph", node: "rdflib.Node", meaning: str, meaning_type: Literal["By Definition", "By Data", "By Inference"] = "By Definition") -> "rdflib.Node":
+    """
+    Adds additional meaning to a given node of the nn. Either by definition for input and output neurons, by data for observed from the dataset, and by inference for other.
+
+    Args:
+        g (rdflib.Graph): Graph to add the meaning to.
+        node (rdflib.Node): Specific node to give more info for.
+        meaning (str): The information to add to the node.
+        meaning_type (Literal[&quot;By Definition&quot;, &quot;By Data&quot;, &quot;By Inference&quot;], optional): Type of meaning. By Definition should be values that are defined purely on how the model is structured. By Data is observed from the dataset. And Inference is created from elsewhere. Defaults to "By Definition".
+
+    Returns:
+        rdflib.Node: The rdflib node that has been added to the graph.
+    """
     meaning_types = {
         "By Definition": NNC.by_definition,
         "By Data": NNC.by_data,
@@ -179,7 +232,19 @@ def add_meaning(g: "rdflib.Graph", node: "rdflib.Node", meaning: str, meaning_ty
     return m
 
 
-def add_node_connection(g: "rdflib.Graph", output_node: "rdflib.Node", weight: "torch.Tensor", input_node: "rdflib.Node"):
+def add_node_connection(g: "rdflib.Graph", output_node: "rdflib.Node", weight: "torch.Tensor", input_node: "rdflib.Node") -> "rdflib.Node":
+    """
+    Add a connection entity between a node and another node of the previous layer.
+
+    Args:
+        g (rdflib.Graph): Graph to add the connection to.
+        output_node (rdflib.Node): Node that is further along in the neural network
+        weight (torch.Tensor): Connection multiplier
+        input_node (rdflib.Node): Node that is less far along on the neural network.
+
+    Returns:
+        rdflib.Node: Connection entity that has been added to the graph.
+    """
     # Note, connections go backwards through the model.
     # output_node should be on the layer after input_node.
     w = weight.item() if isinstance(weight, torch.Tensor) else weight
@@ -191,7 +256,19 @@ def add_node_connection(g: "rdflib.Graph", output_node: "rdflib.Node", weight: "
     return c
 
 
-def setup_input_layer(g: "rdflib.Graph", dataset: "src.getdata.BaseDataset", model: "rdflib.Graph" = None):
+def setup_input_layer(g: "rdflib.Graph", dataset: "src.getdata.BaseDataset", model: "rdflib.Graph" = None) -> list["rdflib.Node"]:
+    """
+    Adds a layer that serves as the input layer that is specially marked with all nodes having By Definition meanings.
+
+    Args:
+        g (rdflib.Graph): graph to modify
+        dataset (src.getdata.BaseDataset): dataset to grab the meaning names from.
+        model (rdflib.Graph, optional): model entity in the graph. Defaults to None.
+
+    Returns:
+        list:
+            rdflib.Node: Node entities in the input layer.
+    """
     input_layer = add_layer(g, "input", -1, number_of_nodes=dataset.number_of_features, model=model)
     dataset_columns = list(dataset.feature_labels.values())
     last_layer = []
@@ -208,6 +285,16 @@ def setup_input_layer(g: "rdflib.Graph", dataset: "src.getdata.BaseDataset", mod
 
 
 def add_model_layer(g: "rdflib.Graph", layer: "rdflib.Node", module: "torch.nn.modules.Linear", last_layer: list["rdflib.Node"], random_: bool):
+    """
+    Add all of the connections to a layer from a prior layer. (Different from add_layer which just adds a single layer entity.)
+
+    Args:
+        g (rdflib.Graph): Graph to add a model to.
+        layer (rdflib.Node): Layer entity to modify by adding all connections.
+        module (torch.nn.modules.Linear): Module associated with this layer.
+        last_layer (list[&quot;rdflib.Node&quot;]): list of rdflib node entities that are the nodes in the last layer.
+        random_ (bool): Weather the connections should be assigned randomly for reference.
+    """
     # Define a layer of the network
     this_layer = []
     for num, node in enumerate(module.weight):
@@ -243,6 +330,15 @@ def add_model_layer(g: "rdflib.Graph", layer: "rdflib.Node", module: "torch.nn.m
 
 
 def add_model_high_values(g: "rdflib.Graph", datasets: list["src.getdata.BaseDataset"], model: "src.modelstruct.BaseDetectionModel", random_: bool):
+    """
+    Add the high values from the dataset to the graph as meaning to the nodes.
+
+    Args:
+        g (rdflib.Graph): graph to be modifying.
+        datasets (list[&quot;src.getdata.BaseDataset&quot;]): datasets to test, split up by class.
+        model (src.modelstruct.BaseDetectionModel): model to test.
+        random_ (bool): Weather the connections should be assigned randomly for reference.
+    """
     for class_num, dl in enumerate(datasets):
         avg_hook = extramodules.Get_Average_Hook()
         remover = torch.nn.modules.module.register_module_forward_hook(avg_hook)
@@ -288,7 +384,19 @@ def add_model_high_values(g: "rdflib.Graph", datasets: list["src.getdata.BaseDat
         del avg_hook
 
 
-def build_base_facts(csv_row: str | int = "0", csv_file: str = "results/BigModel(toOntology).csv", random_=False):
+def build_base_facts(csv_row: str | int = "0", csv_file: str = "results/BigModel(toOntology).csv", random_=False) -> tuple[str, "rdflib.Graph"]:
+    """
+    Generate the model and info without any inference.
+
+    Args:
+        csv_row (str | int, optional): Row of the csv to read or specific file if it is a path, works the same as csv row command line arg. Defaults to "0".
+        csv_file (str, optional): File to read for the csv row. Defaults to "results/BigModel(toOntology).csv".
+        random_ (bool, optional): Weather to set values randomly for comparison. Defaults to False.
+
+    Returns:
+        str: Name of file that the graph was saved in.
+        rdflib.graph: Final built graph for immediate use.
+    """
     model, dataset, datasets = get_model_and_datasets(csv_row, csv_file)
 
     layer = None
@@ -333,6 +441,13 @@ def build_base_facts(csv_row: str | int = "0", csv_file: str = "results/BigModel
 
 
 def run_really_long_query(file: str = "datasets/model.ttl", graph: "rdflib.Graph" = None):
+    """
+    Runs all of the really long queries. Each query is added to the end of its own file.
+
+    Args:
+        file (str, optional): File to load from if graph is none. Defaults to "datasets/model.ttl".
+        graph (rdflib.Graph, optional): Graph to run the queries on. Defaults to None.
+    """
     if not graph:
         g = rdflib.Graph()
         g.parse(file)
@@ -390,7 +505,13 @@ def run_really_long_query(file: str = "datasets/model.ttl", graph: "rdflib.Graph
     print("Saved fifth query results")
 
 
-def make_pivot_table_from_top_down_connections():
+def make_pivot_table_from_top_down_connections() -> "pd.DataFrame":
+    """
+    Generates a pivot table to observe the top down connections from the most recent file generated.
+
+    Returns:
+        pd.DataFrame: the pivot table generated.
+    """
     df: pd.DataFrame = pd.read_csv("results/top_down_connections.csv", header=False, columns=["Layer", "Extra_info", "Num_connections"])
 
     table = df.pivot_table(values="Num_connections", index="Layer", columns="Num_connections", aggfunc="count")
@@ -399,7 +520,7 @@ def make_pivot_table_from_top_down_connections():
     return table
 
 
-def select_best_rows(csv_file: str = "results/BigModel(toOntology).csv"):
+def select_best_rows(csv_file: str = "results/BigModel(toOntology).csv") -> list[int]:
     # Wanted to make this automatic but did not eventually do that.
     df = pd.read_csv("results/BigModel(toOntology).csv")
     # df = df[df["WeightPrunePercent"] == "[0.62, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 1.0]"]

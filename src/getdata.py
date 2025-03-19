@@ -39,6 +39,10 @@ class InputFeatures(torch.Tensor):
     pass
 
 
+class ModifiedDataloader(torch.utils.data.DataLoader):
+    base: "BaseDataset"
+
+
 class BaseDataset(torch.utils.data.Dataset):
     """This is the base abstract dataset type that is for all datasets for this code base.
     """
@@ -497,7 +501,7 @@ def collate_fn_(items: tuple[InputFeatures | torch.Tensor, Targets | torch.Tenso
     return (torch.cat(features), torch.cat(tags))
 
 
-def get_dataloader(config: ConfigObject | None = None, dataset: None | BaseDataset = None) -> torch.utils.data.DataLoader:
+def get_dataloader(config: ConfigObject | None = None, dataset: None | BaseDataset = None) -> ModifiedDataloader:
     """
     Gets the dataloader specified by the config or wraps a dataset in a dataloader. If neither is given the default config from cfg.py is used.
 
@@ -513,7 +517,7 @@ def get_dataloader(config: ConfigObject | None = None, dataset: None | BaseDatas
             print("Config was not given for dataset, creating config")
             config = ConfigObject()
         dataset = get_dataset(config)
-    dl = torch.utils.data.DataLoader(dataset, batch_size=config("BatchSize"), num_workers=config("NumberOfWorkers"), persistent_workers=True if config("NumberOfWorkers") > 1 else False, **dataset.base.load_kwargs)
+    dl: ModifiedDataloader = torch.utils.data.DataLoader(dataset, batch_size=config("BatchSize"), num_workers=config("NumberOfWorkers"), persistent_workers=True if config("NumberOfWorkers") > 1 else False, **dataset.base.load_kwargs)
     dl.base = dataset.base
     return dl
 
@@ -539,7 +543,7 @@ def get_dataset(config: ConfigObject) -> BaseDataset:
     return data
 
 
-def get_train_test(config: ConfigObject | None = None, dataset: None | BaseDataset = None, dataloader: None | torch.utils.data.DataLoader = None) -> tuple[torch.utils.data.Dataset, torch.utils.data.Dataset] | tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
+def get_train_test(config: ConfigObject | None = None, dataset: None | BaseDataset = None, dataloader: None | ModifiedDataloader = None) -> tuple[torch.utils.data.Dataset, torch.utils.data.Dataset] | tuple[ModifiedDataloader, ModifiedDataloader]:
     """
     Splits a dataset or the data in a dataloader into train and test datasets by the percentages given in config.
     The first such split generates a Scaler for the features from the training half and applies it to both the train and test.
@@ -572,7 +576,7 @@ def get_train_test(config: ConfigObject | None = None, dataset: None | BaseDatas
         return get_train_test(config, get_dataset(config))
 
 
-def split_by_class(dataloader: torch.utils.data.DataLoader, classes_to_use: list[int], config: ConfigObject, individual=False):
+def split_by_class(dataloader: ModifiedDataloader, classes_to_use: list[int], config: ConfigObject, individual=False) -> ModifiedDataloader | list[ModifiedDataloader]:
     data_lists = {x: list() for x in classes_to_use}
     for (X, y) in dataloader:
         pairs = zip(X, y)
