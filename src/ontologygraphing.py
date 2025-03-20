@@ -1,4 +1,5 @@
 import os
+from itertools import repeat
 
 # import numpy as np
 import pandas as pd
@@ -141,8 +142,10 @@ if __name__ == "__main__":
             # https://stackoverflow.com/a/74025617
             only_original = df.loc[df["pruning type"] == "Original Run"].copy()
             only_original.loc[:, "layer"] = r"\rotatebox{90}{Layer}"
-            pt = only_original.assign(vals=1).pivot_table(values="vals", columns="Number of connected", index=["layer", "Layer"], aggfunc="count", fill_value=0)
+            only_original.loc[:, "col_name"] = "Number of connected"
+            pt = only_original.assign(vals=1).pivot_table(values="vals", columns=["col_name", "Number of connected"], index=["layer", "Layer"], aggfunc="count", fill_value=0)
             pt.index.set_names([None, None], inplace=True)
+            pt.columns.set_names([None, None], inplace=True)
             print(pt)
             st = pt.style
             st.background_gradient(cmap="inferno", vmin=0, vmax=max(pt.max()))
@@ -151,8 +154,10 @@ if __name__ == "__main__":
 
             only_original = df.loc[df["pruning type"] == "Random Ontology"].copy()
             only_original.loc[:, "layer"] = r"\rotatebox{90}{Layer}"
-            pt = only_original.assign(vals=1).pivot_table(values="vals", columns="Number of connected", index=["layer", "Layer"], aggfunc="count", fill_value=0)
+            only_original.loc[:, "col_name"] = "Number of connected"
+            pt = only_original.assign(vals=1).pivot_table(values="vals", columns=["col_name", "Number of connected"], index=["layer", "Layer"], aggfunc="count", fill_value=0)
             pt.index.set_names([None, None], inplace=True)
+            pt.columns.set_names([None, None], inplace=True)
             st = pt.style
             st.background_gradient(cmap="inferno", vmin=0, vmax=max(pt.max()))
             st.to_latex("results/images/Random_Ontology_top_down_table.txt", convert_css=True, hrules=True)
@@ -161,10 +166,12 @@ if __name__ == "__main__":
             # https://stackoverflow.com/a/74025617
             only_original = df.loc[df["pruning type"] == "Original Run"].copy()
             only_original.loc[:, "layer"] = r"\rotatebox{90}{Layer}"
-            pt = only_original.assign(vals=1).pivot_table(values="vals", columns="Number of connected classes", index=["layer", "Layer"], aggfunc="count", fill_value=0)
+            only_original.loc[:, "col_name"] = "Number of connected classes"
+            pt = only_original.assign(vals=1).pivot_table(values="vals", columns=["col_name", "Number of connected classes"], index=["layer", "Layer"], aggfunc="count", fill_value=0)
             pt.index.set_names([None, None], inplace=True)
+            pt.columns.set_names([None, None], inplace=True)
             # https://stackoverflow.com/a/63896673
-            cols = pt.columns.union(range(1, 11), sort=True)
+            cols = pt.columns.union([*zip(repeat("Number of connected classes"), range(1, 11))], sort=True)
             print(cols)
             pt = pt.reindex(cols, axis=1, fill_value=0)
             st = pt.style
@@ -173,10 +180,12 @@ if __name__ == "__main__":
 
             only_original = df.loc[df["pruning type"] == "Random Ontology"].copy()
             only_original.loc[:, "layer"] = r"\rotatebox{90}{Layer}"
-            pt = only_original.assign(vals=1).pivot_table(values="vals", columns="Number of connected classes", index=["layer", "Layer"], aggfunc="count", fill_value=0)
+            only_original.loc[:, "col_name"] = "Number of connected classes"
+            pt = only_original.assign(vals=1).pivot_table(values="vals", columns=["col_name", "Number of connected classes"], index=["layer", "Layer"], aggfunc="count", fill_value=0)
             pt.index.set_names([None, None], inplace=True)
+            pt.columns.set_names([None, None], inplace=True)
             # https://stackoverflow.com/a/63896673
-            cols = pt.columns.union(range(1, 11), sort=True)
+            cols = pt.columns.union([*zip(repeat("Number of connected classes"), range(1, 11))], sort=True)
             print(cols)
             pt = pt.reindex(cols, axis=1, fill_value=0)
             st = pt.style
@@ -186,10 +195,12 @@ if __name__ == "__main__":
         if file_ == "high_nodes":
             only_original = df.loc[df["pruning type"] == "Original Run"].copy()
             only_original.loc[:, "layer"] = r"\rotatebox{90}{Layer}"
-            pt = only_original.assign(vals=1).pivot_table(values="vals", columns="Number of meanings for node", index=["layer", "Layer"], aggfunc="count", fill_value=0)
+            only_original.loc[:, "col_name"] = "Number of meanings for node"
+            pt = only_original.assign(vals=1).pivot_table(values="vals", columns=["col_name", "Number of meanings for node"], index=["layer", "Layer"], aggfunc="count", fill_value=0)
             pt.index.set_names([None, None], inplace=True)
+            pt.columns.set_names([None, None], inplace=True)
             # https://stackoverflow.com/a/63896673
-            cols = pt.columns.union(range(1, 11), sort=True)
+            cols = pt.columns.union([*zip(repeat("Number of connected classes"), range(1, 11))], sort=True)
             print(cols)
             pt = pt.reindex(cols, axis=1, fill_value=0)
             st = pt.style

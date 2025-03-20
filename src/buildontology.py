@@ -293,7 +293,7 @@ def add_model_layer(g: "rdflib.Graph", layer: "rdflib.Node", module: "torch.nn.m
         layer (rdflib.Node): Layer entity to modify by adding all connections.
         module (torch.nn.modules.Linear): Module associated with this layer.
         last_layer (list[&quot;rdflib.Node&quot;]): list of rdflib node entities that are the nodes in the last layer.
-        random_ (bool): Weather the connections should be assigned randomly for reference.
+        random_ (bool): whether the connections should be assigned randomly for reference.
     """
     # Define a layer of the network
     this_layer = []
@@ -337,7 +337,7 @@ def add_model_high_values(g: "rdflib.Graph", datasets: list["src.getdata.BaseDat
         g (rdflib.Graph): graph to be modifying.
         datasets (list[&quot;src.getdata.BaseDataset&quot;]): datasets to test, split up by class.
         model (src.modelstruct.BaseDetectionModel): model to test.
-        random_ (bool): Weather the connections should be assigned randomly for reference.
+        random_ (bool): whether the connections should be assigned randomly for reference.
     """
     for class_num, dl in enumerate(datasets):
         avg_hook = extramodules.Get_Average_Hook()
@@ -391,7 +391,7 @@ def build_base_facts(csv_row: str | int = "0", csv_file: str = "results/BigModel
     Args:
         csv_row (str | int, optional): Row of the csv to read or specific file if it is a path, works the same as csv row command line arg. Defaults to "0".
         csv_file (str, optional): File to read for the csv row. Defaults to "results/BigModel(toOntology).csv".
-        random_ (bool, optional): Weather to set values randomly for comparison. Defaults to False.
+        random_ (bool, optional): whether to set values randomly for comparison. Defaults to False.
 
     Returns:
         str: Name of file that the graph was saved in.
