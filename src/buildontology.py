@@ -115,6 +115,34 @@ if __name__ == "__main__":
         ORDER BY ?l_idx ?n_idx
         """, {"ns1": NNC, "rdfs": RDFS})
 
+    # Q6 = prepareUpdate("""
+    #     INSERT {
+    #         ?from ns1:LRP ?relevance
+    #     }
+    #     WHERE {
+    #         ?node ns1:layer ?layer .
+    #         ?layer ns1:layer_index ?l_idx .
+    #         ?node ns1:node_index ?n_idx .
+    #         ?node ns1:meaning ?class .
+    #         ?connection ns1:node ?node .
+    #         ?connection ns1:connected_to ?from .
+    #         ?connection ns1:weight ?val .
+    #         ?class ns1:training_percent ?training .
+    #         SELECT (SUM(?val) AS ?layer_relevance)
+    #         WHERE {
+    #             ?node ns1:layer ?layer .
+    #             ?layer ns1:layer_index ?l_idx .
+    #             ?node ns1:node_index ?n_idx .
+    #             ?node ns1:meaning ?class .
+    #             ?connection ns1:node ?node .
+    #             ?connection ns1:connected_to ?from .
+    #             ?connection ns1:weight ?val .
+    #             ?class ns1:training_percent ?training .
+    #         } GROUPBY ?l_idx
+    #         BIND((?val / ?layer_relevance) AS ?relevance)
+    #     }
+    #     """, {"ns1": NNC, "rdfs": RDFS})
+
 from typing import Literal, TYPE_CHECKING
 # These should stay the same for each model so I am just going to cache them instead of rebuilding.
 global dataset, datasets
@@ -503,6 +531,8 @@ def run_really_long_query(file: str = "datasets/model.ttl", graph: "rdflib.Graph
             print(f"{row.l_idx},{row.n_idx},{row.number_meanings_for_node},{csv_row_number},{pruning_type}", file=f)
         print(',,,,', file=f)
     print("Saved fifth query results")
+
+    # g.update(Q6)
 
 
 def make_pivot_table_from_top_down_connections() -> "pd.DataFrame":
