@@ -111,6 +111,24 @@ def graph_pt(pt: pd.DataFrame, file: None | os.PathLike = None):
         plot.show()
 
 
+def generate_table(dataframe: pd.DataFrame, file_name: str, col_name: str = "Number of connected", grouping: str = "Original Run"):
+    # https://stackoverflow.com/a/74025617
+    only_original = dataframe.loc[dataframe["pruning type"] == grouping].copy()
+    only_original.loc[:, "layer"] = r"\rotatebox{90}{Layer}"
+    only_original.loc[:, "col_name"] = col_name
+    pt = only_original.assign(vals=1).pivot_table(values="vals", columns=["col_name", col_name], index=["layer", "Layer"], aggfunc="count", fill_value=0)
+    pt.index.set_names([None, None], inplace=True)
+    pt.columns.set_names([None, None], inplace=True)
+    # https://stackoverflow.com/a/63896673
+    cols = pt.columns.union([*zip(repeat("Number of connected classes"), range(1, 11))], sort=True)
+    print(cols)
+    pt = pt.reindex(cols, axis=1, fill_value=0)
+    # print(pt)
+    st = pt.style
+    st.background_gradient(cmap="inferno", vmin=0, vmax=max(pt.max()))
+    st.to_latex(f"results/images/{file_name}.txt", convert_css=True, hrules=True)
+
+
 if __name__ == "__main__":
     for file_ in titles.keys():
         if not os.path.exists(f"results/{file_}.csv"):
@@ -139,70 +157,12 @@ if __name__ == "__main__":
             graph_pt(pt, file=file_)
 
         if file_ == "top_down_connections":
-            # https://stackoverflow.com/a/74025617
-            only_original = df.loc[df["pruning type"] == "Original Run"].copy()
-            only_original.loc[:, "layer"] = r"\rotatebox{90}{Layer}"
-            only_original.loc[:, "col_name"] = "Number of connected"
-            pt = only_original.assign(vals=1).pivot_table(values="vals", columns=["col_name", "Number of connected"], index=["layer", "Layer"], aggfunc="count", fill_value=0)
-            pt.index.set_names([None, None], inplace=True)
-            pt.columns.set_names([None, None], inplace=True)
-            print(pt)
-            st = pt.style
-            st.background_gradient(cmap="inferno", vmin=0, vmax=max(pt.max()))
-            st.to_latex("results/images/top_down_table.txt", convert_css=True, hrules=True)
-            # pt.to_latex("results/images/top_down_table.txt")
-
-            only_original = df.loc[df["pruning type"] == "Random Ontology"].copy()
-            only_original.loc[:, "layer"] = r"\rotatebox{90}{Layer}"
-            only_original.loc[:, "col_name"] = "Number of connected"
-            pt = only_original.assign(vals=1).pivot_table(values="vals", columns=["col_name", "Number of connected"], index=["layer", "Layer"], aggfunc="count", fill_value=0)
-            pt.index.set_names([None, None], inplace=True)
-            pt.columns.set_names([None, None], inplace=True)
-            st = pt.style
-            st.background_gradient(cmap="inferno", vmin=0, vmax=max(pt.max()))
-            st.to_latex("results/images/Random_Ontology_top_down_table.txt", convert_css=True, hrules=True)
+            generate_table(df, "top_down_table", "Number of connected", "Original Run")
+            generate_table(df, "Random_Ontology_top_down_table", "Number of connected", "Random Ontology")
 
         if file_ == "high_nodes_along_connections":
-            # https://stackoverflow.com/a/74025617
-            only_original = df.loc[df["pruning type"] == "Original Run"].copy()
-            only_original.loc[:, "layer"] = r"\rotatebox{90}{Layer}"
-            only_original.loc[:, "col_name"] = "Number of connected classes"
-            pt = only_original.assign(vals=1).pivot_table(values="vals", columns=["col_name", "Number of connected classes"], index=["layer", "Layer"], aggfunc="count", fill_value=0)
-            pt.index.set_names([None, None], inplace=True)
-            pt.columns.set_names([None, None], inplace=True)
-            # https://stackoverflow.com/a/63896673
-            cols = pt.columns.union([*zip(repeat("Number of connected classes"), range(1, 11))], sort=True)
-            print(cols)
-            pt = pt.reindex(cols, axis=1, fill_value=0)
-            st = pt.style
-            st.background_gradient(cmap="inferno", vmin=0, vmax=10)
-            st.to_latex("results/images/high_nodes_along_connections_table.txt", convert_css=True, hrules=True)
-
-            only_original = df.loc[df["pruning type"] == "Random Ontology"].copy()
-            only_original.loc[:, "layer"] = r"\rotatebox{90}{Layer}"
-            only_original.loc[:, "col_name"] = "Number of connected classes"
-            pt = only_original.assign(vals=1).pivot_table(values="vals", columns=["col_name", "Number of connected classes"], index=["layer", "Layer"], aggfunc="count", fill_value=0)
-            pt.index.set_names([None, None], inplace=True)
-            pt.columns.set_names([None, None], inplace=True)
-            # https://stackoverflow.com/a/63896673
-            cols = pt.columns.union([*zip(repeat("Number of connected classes"), range(1, 11))], sort=True)
-            print(cols)
-            pt = pt.reindex(cols, axis=1, fill_value=0)
-            st = pt.style
-            # st.background_gradient(cmap="inferno", vmin=0, vmax=10)
-            st.to_latex("results/images/random_high_nodes_along_connections_table.txt", convert_css=True, hrules=True)
+            generate_table(df, "high_nodes_along_connections_table", "Number of connected classes", "Original Run")
+            generate_table(df, "random_high_nodes_along_connections_table", "Number of connected classes", "Random Ontology")
 
         if file_ == "high_nodes":
-            only_original = df.loc[df["pruning type"] == "Original Run"].copy()
-            only_original.loc[:, "layer"] = r"\rotatebox{90}{Layer}"
-            only_original.loc[:, "col_name"] = "Number of meanings for node"
-            pt = only_original.assign(vals=1).pivot_table(values="vals", columns=["col_name", "Number of meanings for node"], index=["layer", "Layer"], aggfunc="count", fill_value=0)
-            pt.index.set_names([None, None], inplace=True)
-            pt.columns.set_names([None, None], inplace=True)
-            # https://stackoverflow.com/a/63896673
-            cols = pt.columns.union([*zip(repeat("Number of connected classes"), range(1, 11))], sort=True)
-            print(cols)
-            pt = pt.reindex(cols, axis=1, fill_value=0)
-            st = pt.style
-            st.background_gradient(cmap="inferno", vmin=0, vmax=10)
-            st.to_latex("results/images/high_nodes_total.txt", convert_css=True, hrules=True)
+            generate_table(df, "high_nodes_total", "Number of meanings for node", "Original Run")
