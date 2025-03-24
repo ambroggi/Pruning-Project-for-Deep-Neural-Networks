@@ -83,7 +83,7 @@ def build_base_facts(csv_row: str | int = "0", csv_file: str = "results/BigModel
     A = [x.mean(dim=0).detach() for x in A]
 
     # Last relevance is just the final layer
-    R[-1] = (A[-1].softmax(dim=0))
+    R[-1] = (A[-1]/A[-1].sum(dim=0))
 
     for l_idx in range(0, len(R)-1)[::-1]:
         A[l_idx].requires_grad = True
@@ -110,21 +110,25 @@ def relprop(a: "torch.Tensor", layer: "torch.nn.Module", R: "torch.Tensor"):
     new_layer = rho(layer)
     z = epsilon + new_layer.forward(a)
     s = R/(z+1e-9)
-    print(f"zs - R: {(z*s.data - R).sum()}")
+    print(f"{s.sum().item()=}\t{a.sum().item()=}")
+    # print(f"zs - R: {(z*s.data - R).sum()}")
+    # print(f"z/z: {(z/z.sum()).sum()}")
     (z*s.data).sum().backward()
-    c2 = a.grad
-    c = torch.stack([(new_layer.weight[:, x]*s).sum() for x in range(len(a))])
-    print(f"c: {c.sum()}\tdiff: {(c - c2).sum()}\tc/z: {c.sum()/(z.sum()*R.sum())}")
+    c = a.grad
+    pass
+    # c2 = torch.stack([(new_layer.weight[:, x]*s).sum() for x in range(len(a))])
+    # print(f"c: {c.sum()}\t{(c - c2).sum().item()=}\tc/z: {c.sum()/(z.sum())}")
     R = a*c
-    print(f"R: {R.sum()}\tMean: {R.mean()}")
+    print(f"R: {R.sum()}")
+    # return R.softmax(dim=0)
     return R
 
 
 def rho(mod: "torch.Module"):
     if isinstance(mod, torch.nn.Linear):
         new_ = torch.nn.Linear(mod.in_features, mod.out_features)
-        new_.weight.data = mod.weight.data + (abs(mod.weight.data) * 0)
-        new_.bias.data = mod.bias.data + (abs(mod.bias.data) * 0)
+        new_.weight.data = mod.weight.data + (abs(mod.weight.data) * 0.5)
+        new_.bias.data = mod.bias.data + (abs(mod.bias.data) * 0.5)
         # new_.bias.data = torch.zeros_like(new_.bias.data)
         # return torch.nn.Sequential(new_)  # , torch.nn.ReLU()
         return new_
