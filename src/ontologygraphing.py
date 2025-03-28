@@ -1,11 +1,12 @@
 import os
-from itertools import repeat
+from itertools import repeat, product
 
 # import numpy as np
 import pandas as pd
 import plotly
 import plotly.express
 import plotly.graph_objects
+from scipy import stats
 
 
 readability = {
@@ -129,27 +130,65 @@ def generate_table(dataframe: pd.DataFrame, file_name: str, col_name: str = "Num
     st.to_latex(f"results/images/{file_name}.txt", convert_css=True, hrules=True)
 
 
+def check_statistical_for_top_down():
+    sample_total = format_df("top_down_connections")
+    sample_original = sample_total.loc[sample_total["pruning type"] == "Original Run"].copy()
+    pt_sample = sample_original.assign(vals=1).pivot_table(values="vals", columns="Number of connected", index=["Layer", "csv row"], aggfunc="count", fill_value=0)
+    cols = pt_sample.columns.union(range(1, 11), sort=True)
+    pt_sample = pt_sample.reindex(cols, axis=1, fill_value=0)
+
+    distribution = format_df("500-Random/top_down_connections")
+    pt_dist = distribution.assign(vals=1).pivot_table(values="vals", columns="Number of connected", index=["Layer", "csv row"], aggfunc="count", fill_value=0)
+    cols = pt_dist.columns.union(range(1, 11), sort=True)
+    pt_dist = pt_dist.reindex(cols, axis=1, fill_value=0)
+
+    pt_pvalue = pt_sample.loc[(slice(None), 0), (slice(None))].copy().astype("float")
+    pt_pvalue.index = pt_pvalue.index.get_level_values(0)  # https://stackoverflow.com/a/51537177
+    for pair in product(pt_pvalue.index, pt_pvalue.columns):
+        pval = stats.ks_2samp(pt_dist.loc[(pair[0], slice(None)), (pair[1])], pt_sample.loc[(pair[0], slice(None)), (pair[1])]).pvalue.item()
+        # print(pval)
+        pt_pvalue.loc[pair] = pval
+    # print(pt_pvalue)
+    pt_pvalue.columns.set_names(["P-Values"], inplace=True)
+
+    st = pt_pvalue.style
+    st.background_gradient(cmap="magma_r", vmin=0, vmax=1)
+    st.format(precision=2)
+    st.to_latex("results/images/top_down_pvalues.txt", convert_css=True, hrules=True)
+
+    # https://stackoverflow.com/a/50209193
+    # print(stats.ks_2samp(pt_dist[1], pt_sample[1]))
+
+
+def format_df(file_name: str):
+    df = pd.read_csv(f"results/{file_name}.csv", header=1, sep=",", engine='python')
+    df.loc[:, "pruning type"] = df["pruning type"].fillna("Normal_Run")
+    df.loc[:, "csv row"] = df["csv row"].astype(str)
+    df = df[df["csv row"].apply(str.isnumeric)]
+    df.loc[:, "csv row"] = df["csv row"].astype(int)
+    df.loc[:, "Layer"] = df["Layer"].astype(int)
+
+    for extra_str in extra_readability:
+        df.loc[:, "pruning type"] = df["pruning type"].apply(lambda x: str.replace(x, extra_str, extra_readability[extra_str]))
+    df.loc[:, "pruning type"] = df["pruning type"].map(readability)
+
+    for x in [y for y in df.columns if "Number" in y]:
+        df.loc[:, x] = df[x].astype(int)
+
+    if "high_nodes_" in file_name:
+        df["Number for calculation"] = df["Number of connected classes"]/df["Number of classes total"]
+
+    return df
+
+
 if __name__ == "__main__":
+    check_statistical_for_top_down()
     for file_ in titles.keys():
         if not os.path.exists(f"results/{file_}.csv"):
             continue
-        df = pd.read_csv(f"results/{file_}.csv", header=1, sep=",", engine='python')
-        df.loc[:, "pruning type"] = df["pruning type"].fillna("Normal_Run")
-        df.loc[:, "csv row"] = df["csv row"].astype(str)
-        df = df[df["csv row"].apply(str.isnumeric)]
-        df.loc[:, "csv row"] = df["csv row"].astype(int)
-        df.loc[:, "Layer"] = df["Layer"].astype(int)
-
-        for extra_str in extra_readability:
-            df.loc[:, "pruning type"] = df["pruning type"].apply(lambda x: str.replace(x, extra_str, extra_readability[extra_str]))
-        df.loc[:, "pruning type"] = df["pruning type"].map(readability)
-
-        for x in [y for y in df.columns if "Number" in y]:
-            df.loc[:, x] = df[x].astype(int)
-
-        if "high_nodes_" in file_:
-            df["Number for calculation"] = df["Number of connected classes"]/df["Number of classes total"]
-
+        
+        df = format_df(file_)
+        
         for x in [y for y in df.columns if "Number" in y]:
             print(f"{file_} - {x}")
             pt = df.pivot_table(values=x, **options[file_], fill_value=0)
