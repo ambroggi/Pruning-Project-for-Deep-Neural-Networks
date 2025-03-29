@@ -121,7 +121,7 @@ def generate_table(dataframe: pd.DataFrame, file_name: str, col_name: str = "Num
     pt.index.set_names([None, None], inplace=True)
     pt.columns.set_names([None, None], inplace=True)
     # https://stackoverflow.com/a/63896673
-    cols = pt.columns.union([*zip(repeat("Number of connected classes"), range(1, 11))], sort=True)
+    cols = pt.columns.union([*zip(repeat(pt.columns[0][0]), range(1, 11))], sort=True)
     print(cols)
     pt = pt.reindex(cols, axis=1, fill_value=0)
     # print(pt)
@@ -156,6 +156,7 @@ def check_statistical_for_top_down():
     st.format(precision=2)
     st.to_latex("results/images/top_down_pvalues.txt", convert_css=True, hrules=True)
 
+    generate_table(distribution, "top_down_table_rand_500", "Number of connected", "Random Ontology")
     # https://stackoverflow.com/a/50209193
     # print(stats.ks_2samp(pt_dist[1], pt_sample[1]))
 
@@ -186,9 +187,9 @@ if __name__ == "__main__":
     for file_ in titles.keys():
         if not os.path.exists(f"results/{file_}.csv"):
             continue
-        
+
         df = format_df(file_)
-        
+
         for x in [y for y in df.columns if "Number" in y]:
             print(f"{file_} - {x}")
             pt = df.pivot_table(values=x, **options[file_], fill_value=0)
