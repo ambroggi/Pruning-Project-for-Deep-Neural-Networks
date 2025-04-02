@@ -1,44 +1,44 @@
 # developed with Python 3.11.3 and the following pip installs:
-et_xmlfile==2.0.0
-filelock==3.16.1
-fsspec==2024.10.0
-gitdb==4.0.11
-GitPython==3.1.43
-Jinja2==3.1.4
-joblib==1.4.2
-MarkupSafe==3.0.2
-mpmath==1.3.0
-networkx==3.4.2
-numpy==1.26.4
-openpyxl==3.1.5
-osqp==0.6.7.post3
-packaging==24.2
-pandas==2.2.3
-pillow==11.0.0
-plotly==5.24.1
-psutil==6.1.0
-pyarrow==18.1.0
-python-dateutil==2.9.0.post0
-pytz==2024.2
-qdldl==0.1.7.post4
-scikit-learn==1.6.0
-scipy==1.14.1
-six==1.17.0
-smmap==5.0.1
-sympy==1.13.3
-tenacity==9.0.0
-thop==0.1.1.post2209072238
-threadpoolctl==3.5.0
-torch==2.2.2
-torchvision==0.17.2
-tqdm==4.67.1
-typing_extensions==4.12.2
-tzdata==2024.2
+et_xmlfile
+filelock
+fsspec
+gitdb
+GitPython
+Jinja2
+joblib
+MarkupSafe
+mpmath
+networkx
+numpy
+openpyxl
+osqp
+packaging
+pandas
+pillow
+plotly
+psutil
+pyarrow
+python-dateutil
+pytz
+qdldl
+scikit-learn
+scipy
+six
+smmap
+sympy
+tenacity
+thop
+threadpoolctl
+torch
+torchvision
+tqdm
+typing_extensions
+tzdata
 
 # Less restrictive version: (Above is pip freeze output)
-numpy < 2 # Because of pytorch 2.2.2
+numpy # Because of pytorch 2.2.2
 pandas
-torch == 2.2.2 # Pytorch has stopped support of mac https://github.com/pytorch/pytorch/issues/114602
+torch 
 GitPython  # This is purely here to create the version numbers in the record file
 scikit-learn
 thop
