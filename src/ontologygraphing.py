@@ -142,12 +142,18 @@ def check_statistical_for_top_down():
     cols = pt_dist.columns.union(range(1, 11), sort=True)
     pt_dist = pt_dist.reindex(cols, axis=1, fill_value=0)
 
+    # Create a blank table and then fill the table with the correct values
     pt_pvalue = pt_sample.loc[(slice(None), 0), (slice(None))].copy().astype("float")
     pt_pvalue.index = pt_pvalue.index.get_level_values(0)  # https://stackoverflow.com/a/51537177
+    pt_statistic = pt_sample.loc[(slice(None), 0), (slice(None))].copy().astype("float")
+    pt_statistic.index = pt_pvalue.index.get_level_values(0)
     for pair in product(pt_pvalue.index, pt_pvalue.columns):
-        pval = stats.ks_2samp(pt_dist.loc[(pair[0], slice(None)), (pair[1])], pt_sample.loc[(pair[0], slice(None)), (pair[1])]).pvalue.item()
+        ks_2 = stats.ks_2samp(pt_dist.loc[(pair[0], slice(None)), (pair[1])], pt_sample.loc[(pair[0], slice(None)), (pair[1])])
+        pval = ks_2.pvalue.item()
+        statistic = ks_2.statistic.item()
         # print(pval)
         pt_pvalue.loc[pair] = pval
+        pt_statistic.loc[pair] = statistic
     # print(pt_pvalue)
     pt_pvalue.columns.set_names(["P-Values"], inplace=True)
 
@@ -159,6 +165,40 @@ def check_statistical_for_top_down():
     generate_table(distribution, "top_down_table_rand_500", "Number of connected", "Random Ontology")
     # https://stackoverflow.com/a/50209193
     # print(stats.ks_2samp(pt_dist[1], pt_sample[1]))
+
+
+def check_all_statistical_for_top_down():
+    distribution = format_df("500-Random/top_down_connections")
+    pt_dist = distribution.assign(vals=1).pivot_table(values="vals", columns="Number of connected", index=["Layer", "csv row"], aggfunc="count", fill_value=0)
+    cols = pt_dist.columns.union(range(1, 11), sort=True)
+    pt_dist = pt_dist.reindex(cols, axis=1, fill_value=0)
+
+    sample_total = format_df("top_down_connections")
+    for type_value in sample_total["pruning type"].unique():
+        sample_original = sample_total.loc[sample_total["pruning type"] == type_value].copy()
+        pt_sample = sample_original.assign(vals=1).pivot_table(values="vals", columns="Number of connected", index=["Layer", "csv row"], aggfunc="count", fill_value=0)
+        cols = pt_sample.columns.union(range(1, 11), sort=True)
+        pt_sample = pt_sample.reindex(cols, axis=1, fill_value=0)
+
+        # Create a blank table and then fill the table with the correct values
+        pt_pvalue = pt_sample.loc[(slice(None), pt_sample.index[0][1]), (slice(None))].copy().astype("float")
+        pt_pvalue.index = pt_pvalue.index.get_level_values(0)  # https://stackoverflow.com/a/51537177
+        pt_statistic = pt_sample.loc[(slice(None), pt_sample.index[0][1]), (slice(None))].copy().astype("float")
+        pt_statistic.index = pt_pvalue.index.get_level_values(0)
+        for pair in product(pt_pvalue.index, pt_pvalue.columns):
+            ks_2 = stats.ks_2samp(pt_dist.loc[(pair[0], slice(None)), (pair[1])], pt_sample.loc[(pair[0], slice(None)), (pair[1])])
+            pval = ks_2.pvalue.item()
+            statistic = ks_2.statistic.item()
+
+            # print(pval)
+            pt_pvalue.loc[pair] = ks_2.statistic_sign.item() if (pval < 0.005) else 0
+            pt_statistic.loc[pair] = statistic
+        # print(pt_pvalue)
+        pt_pvalue.columns.set_names(["P-Values"], inplace=True)
+        pt_statistic.columns.set_names(["Statistic-Values"], inplace=True)
+
+        plotly.express.imshow(pt_pvalue, title=type_value).show()
+        # plotly.express.imshow(pt_statistic, title=type_value).show()
 
 
 def format_df(file_name: str):
@@ -183,6 +223,7 @@ def format_df(file_name: str):
 
 
 if __name__ == "__main__":
+    # check_all_statistical_for_top_down()
     check_statistical_for_top_down()
     for file_ in titles.keys():
         if not os.path.exists(f"results/{file_}.csv"):
