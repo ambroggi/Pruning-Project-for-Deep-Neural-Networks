@@ -1,17 +1,14 @@
 # Basing this off of https://git.tu-berlin.de/gmontavon/lrp-tutorial and http://www.zhyyyj.com/attachment/2021-6-17/cc5m64oxc0n79lslq5.pdf
 
 if __name__ == "__main__":
-    import os
-    from random import random
-
     import pandas as pd
     import rdflib
     import torch.nn
 
     import __init__ as src
-    import extramodules
 
-from typing import Literal, TYPE_CHECKING
+
+# from typing import Literal, TYPE_CHECKING
 # These should stay the same for each model so I am just going to cache them instead of rebuilding.
 global dataset, datasets
 dataset = None
@@ -110,7 +107,7 @@ def relprop(a: "torch.Tensor", layer: "torch.nn.Module", R: "torch.Tensor"):
     new_layer = rho(layer)
     z = epsilon + new_layer.forward(a)
     s = R/(z+1e-9)
-    print(f"{s.sum().item()=}\t{a.sum().item()=}")
+    # print(f"{s.sum().item()=}\t{a.sum().item()=}")
     # print(f"zs - R: {(z*s.data - R).sum()}")
     # print(f"z/z: {(z/z.sum()).sum()}")
     (z*s.data).sum().backward()
