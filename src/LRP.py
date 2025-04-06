@@ -4,6 +4,9 @@ if __name__ == "__main__":
     import pandas as pd
     import rdflib
     import torch.nn
+    import plotly.express
+    import numpy as np
+    from itertools import zip_longest
 
     import __init__ as src
 
@@ -54,41 +57,67 @@ def build_base_facts(csv_row: str | int = "0", csv_file: str = "results/BigModel
     # First set up the model
     model, dataset, datasets = get_model_and_datasets(csv_row, csv_file)
 
-    # Create a hook to gather
-    store_obj = storage_for_layer()
-    hook_remover = torch.nn.modules.module.register_module_forward_hook(store_obj)
+    maxes = None
 
-    # Get all of the modules we will want
-    modules = [*model.get_important_modules()]
+    for data_class_index in range(len(datasets)):
+        # Create a hook to gather
+        store_obj = storage_for_layer()
+        hook_remover = torch.nn.modules.module.register_module_forward_hook(store_obj)
 
-    # Create container for Relevance
-    R: list[torch.Tensor] = [None]*(len(modules)+1)
+        # Get all of the modules we will want
+        modules = [*model.get_important_modules()]
 
-    # Run the data through the model to collect.
-    inp_ = []
-    for X, y in datasets[0]:
-        model(X)
-        inp_.append(X)
+        # Create container for Relevance
+        R: list[torch.Tensor] = [None]*(len(modules)+1)
 
-    # Remove the hook from the module (Note: this method of collecting the values is not very fast.)
-    hook_remover.remove()
+        # Run the data through the model to collect.
+        inp_ = []
+        for X, y in datasets[data_class_index]:
+            model(X)
+            inp_.append(X)
 
-    # Get all of the layer activations plus initial input
-    A = [torch.cat(inp_, dim=0).detach()] + [torch.cat(store_obj.dict_[mod], dim=0).detach() for mod in modules]
+        # Remove the hook from the module (Note: this method of collecting the values is not very fast.)
+        hook_remover.remove()
 
-    # It is unclear if this should be single-example or average, I interpret it as Average?
-    A = [x.mean(dim=0).detach() for x in A]
+        # Get all of the layer activations plus initial input
+        A = [torch.cat(inp_, dim=0).detach()] + [torch.cat(store_obj.dict_[mod], dim=0).detach() for mod in modules]
 
-    # Last relevance is just the final layer
-    R[-1] = (A[-1]/A[-1].sum(dim=0))
+        # It is unclear if this should be single-example or average, I interpret it as Average?
+        A = [x.mean(dim=0).detach() for x in A]
 
-    for l_idx in range(0, len(R)-1)[::-1]:
-        A[l_idx].requires_grad = True
-        A[l_idx].retain_grad()
-        R[l_idx] = relprop(A[l_idx], modules[l_idx], R[l_idx+1])
-        A[l_idx].grad = None
-        model.zero_grad()
+        # Last relevance is just the final layer
+        R[-1] = (A[-1]/A[-1].sum(dim=0))
 
+        for l_idx in range(0, len(R)-1)[::-1]:
+            A[l_idx].requires_grad = True
+            A[l_idx].retain_grad()
+            R[l_idx] = relprop(A[l_idx], modules[l_idx], R[l_idx+1])
+            A[l_idx].grad = None
+            model.zero_grad()
+
+        # https://stackoverflow.com/a/75106571
+        R_ = np.array(list(map(np.array, [*zip(*zip_longest(*[x.detach().numpy() for x in R], fillvalue=np.nan))])))
+        if False:
+            plotly.express.imshow(R_[:, :202], title=f"Class {data_class_index}").show()
+        # plotly.express.imshow(R_[:, :202]**2).show()
+
+        # Mark the two max values per layer
+        tense_r = torch.tensor(R_).nan_to_num(-torch.inf)
+        R_where = torch.zeros_like(tense_r)
+        print(tense_r.argmax(dim=1))
+        R_where[range(len(R_where)), tense_r.argmax(dim=1)] = 1
+        tense_r[range(len(R_where)), tense_r.argmax(dim=1)] = torch.min(tense_r, dim=1)[0]
+        print(tense_r.argmax(dim=1))
+        R_where[range(len(R_where)), tense_r.argmax(dim=1)] = 1
+
+        if maxes is None:
+            maxes = R_where
+        else:
+            maxes += R_where
+        pass
+
+    plotly.express.imshow(maxes.detach().numpy()[:, :202], title=f"2 Highest, {csv_row=}, {model.cfg('PruningSelection')}").show()
+    pass
     # https://git.tu-berlin.de/gmontavon/lrp-tutorial
     # for l in range(1,len(R))[::-1]:
 
@@ -121,17 +150,16 @@ def relprop(a: "torch.Tensor", layer: "torch.nn.Module", R: "torch.Tensor"):
     return R
 
 
+epsilon = 0.0
+rho_value = 0.5
+
+
 def rho(mod: "torch.Module"):
     if isinstance(mod, torch.nn.Linear):
         new_ = torch.nn.Linear(mod.in_features, mod.out_features)
-        new_.weight.data = mod.weight.data + (abs(mod.weight.data) * 0.5)
-        new_.bias.data = mod.bias.data + (abs(mod.bias.data) * 0.5)
-        # new_.bias.data = torch.zeros_like(new_.bias.data)
-        # return torch.nn.Sequential(new_)  # , torch.nn.ReLU()
+        new_.weight.data = mod.weight.data + (abs(mod.weight.data) * rho_value)
+        new_.bias.data = mod.bias.data + (abs(mod.bias.data) * rho_value)
         return new_
-
-
-epsilon = 0.0
 
 
 def select_best_rows(csv_file: str = "results/BigModel(toOntology).csv") -> list[int]:
