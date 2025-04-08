@@ -6,7 +6,7 @@ if __name__ == "__main__":
     import torch.nn
     import plotly.express
     import numpy as np
-    from itertools import zip_longest
+    from itertools import zip_longest, product
 
     import __init__ as src
 
@@ -16,6 +16,7 @@ if __name__ == "__main__":
 global dataset, datasets
 dataset = None
 datasets = None
+compiling_multiple = dict()
 
 
 def get_model_and_datasets(csv_row: str | int = "0", csv_file: str = "results/BigModel(toOntology).csv") -> tuple["src.modelstruct.BaseDetectionModel", "src.getdata.ModifiedDataloader", list["src.getdata.ModifiedDataloader"]]:
@@ -116,7 +117,17 @@ def build_base_facts(csv_row: str | int = "0", csv_file: str = "results/BigModel
             maxes += R_where
         pass
 
-    plotly.express.imshow(maxes.detach().numpy()[:, :202], title=f"2 Highest, {csv_row=}, {model.cfg('PruningSelection')}").show()
+    global compiling_multiple
+    if model.cfg('PruningSelection') in compiling_multiple and compiling_multiple[model.cfg('PruningSelection')] is False:
+        plotly.express.imshow(maxes.detach().numpy()[:, :202], title=f"2 Highest, {csv_row=}, {model.cfg('PruningSelection')}").show()
+    elif model.cfg('PruningSelection') in compiling_multiple:
+        if len(compiling_multiple[model.cfg('PruningSelection')]) < 3:
+            compiling_multiple[model.cfg('PruningSelection')].append(maxes.detach().numpy())
+        if len(compiling_multiple[model.cfg('PruningSelection')]) == 3:
+            plotly.express.imshow(sum(compiling_multiple[model.cfg('PruningSelection')])[:, :202], title=f"2 Highest, {csv_row=}, {model.cfg('PruningSelection')}").show()
+            # compiling_multiple[model.cfg('PruningSelection')] = []
+    else:
+        compiling_multiple[model.cfg('PruningSelection')] = [maxes.detach().numpy()]
     pass
     # https://git.tu-berlin.de/gmontavon/lrp-tutorial
     # for l in range(1,len(R))[::-1]:
@@ -128,6 +139,33 @@ def build_base_facts(csv_row: str | int = "0", csv_file: str = "results/BigModel
     #     s = R[l+1] / z               # step 2
     #     c = s.dot(w.T)               # step 3
     #     R[l] = A[l]*c                # step 4
+
+
+def combined_check():
+    full_df = pd.DataFrame({}, index=pd.MultiIndex.from_tuples(product(compiling_multiple.keys(), range(30)), names=["PruningType", "Coincidence"]), columns=range(10)).astype(object)
+    full_df.fillna(0, inplace=True)
+    for x in compiling_multiple.keys():
+        combined = torch.tensor(sum(compiling_multiple[x]))
+        df = pd.DataFrame(combined)
+        df.index.name = "Layer"
+        # test1 = df.T.value_counts()
+        # test2 = df.value_counts()
+        # test3 = df.apply(pd.value_counts, axis=1)
+        # test4 = df.apply(pd.value_counts, axis=0)
+
+        # FutureWarning: pandas.value_counts is deprecated and will be removed in a future version. Use pd.Series(obj).value_counts() instead.
+        # Great. Now I need to use a lambda, thanks pandas devs.
+        pivot_table = df.apply(lambda x: (pd.Series(x).value_counts()), axis=1)
+        pivot_table = pivot_table.reindex(range(10), axis=1, fill_value=0)
+        pivot_table = pivot_table.reindex(range(len(pivot_table)), axis=0)
+        pivot_table.fillna(0, inplace=True)
+
+        for row in pivot_table.T:
+            full_df.loc[(x, row)] = pivot_table.T[row]
+    print(full_df)
+    
+    full_df.to_csv("results/lrp.csv")
+    pass
 
 
 # http://www.zhyyyj.com/attachment/2021-6-17/cc5m64oxc0n79lslq5.pdf
@@ -189,8 +227,9 @@ if __name__ == "__main__":
     if not False:
         for x in select_best_rows():
             build_base_facts(random_=False, csv_row=f"{x}")
-        for x in [0, 1, 2]:
-            build_base_facts(random_=True, csv_row=f"{x}")
-            print(f"running for random {x}")
+        combined_check()
+        # for x in [0, 1, 2]:
+        #     build_base_facts(random_=True, csv_row=f"{x}")
+        #     print(f"running for random {x}")
     else:
         print(select_best_rows())
