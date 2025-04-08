@@ -7,7 +7,17 @@ import torch.utils
 import torch.utils.hooks
 from tqdm import tqdm
 
-from . import Imported_Code, cfg, extramodules, filemanagement, modelstruct
+try:
+    from . import Imported_Code, cfg, extramodules, filemanagement, modelstruct
+except ImportError as e:
+    if "no known parent package" in e.args[0]:
+        import cfg
+        import extramodules
+        import filemanagement
+        import Imported_Code
+        import modelstruct
+    else:
+        raise
 
 
 def swapping_run(config: cfg.ConfigObject, model: modelstruct.BaseDetectionModel, layers: list[int] | None = None, **kwargs) -> dict[str, object]:

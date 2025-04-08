@@ -94,3 +94,20 @@ class Nothing_Module(torch.nn.Module):
 
     def get_extra_state(self) -> str:
         return "NONE"
+
+
+class Get_Average_Hook():
+    def __init__(self):
+        self.dict = {}
+        self.average = None
+        self.count = 0
+
+    def __call__(self, module: torch.nn.Module, _, new_values: torch.Tensor) -> torch.Tensor:
+        if module in self.dict.keys():
+            count, average = self.dict[module]
+            new_count = count + len(new_values)
+            average = ((average*count) + new_values.sum(dim=0))/new_count
+            count = new_count
+            self.dict[module] = count, average
+        else:
+            self.dict[module] = len(new_values), new_values.sum(dim=0)

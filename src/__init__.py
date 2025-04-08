@@ -5,8 +5,18 @@ import time
 import psutil
 import torch
 
-from . import cfg, filemanagement, getdata, modelstruct
-from .algorithmruns import types_of_tests
+try:
+    from . import cfg, filemanagement, getdata, modelstruct
+    from .algorithmruns import types_of_tests
+except ImportError as e:
+    if "no known parent package" in e.args[0]:
+        import cfg
+        import filemanagement
+        import getdata
+        import modelstruct
+        from algorithmruns import types_of_tests
+    else:
+        raise
 
 # This may be useful: https://stackoverflow.com/a/53593326
 
@@ -163,7 +173,7 @@ def recordModelInfo(model: modelstruct.BaseDetectionModel, logger: filemanagemen
     logger("GarbageCollectionSizeTotal", garbage_sum)
 
 
-def standardLoad(index: None | int = None, existing_config: cfg.ConfigObject | None = None) -> dict[str, any]:
+def standardLoad(index: None | int = None, existing_config: cfg.ConfigObject | None = None, **extra_loading_kwargs) -> dict[str, any]:
     """
     This is the standard method that we have for loading a previously run model. It can load either a specific index from the results file, or a specific pytorch tensor file that contains the model weights.
     It returns them in a dictionary of keywords that the standard run can read and make use of.
@@ -182,6 +192,7 @@ def standardLoad(index: None | int = None, existing_config: cfg.ConfigObject | N
 
     # Set up the kwargs for the load_cfg function because passing None does not get the default value
     load_kwargs = {"config": existing_config}
+    load_kwargs = load_kwargs | extra_loading_kwargs
     if index is not None:
         load_kwargs["row_number"] = index
 

@@ -3,7 +3,13 @@
 # Most of this is just to get things into the format that I want it to be in, only a few lines are actually directly related to the paper
 import torch
 
-from ..extramodules import Nothing_Module
+try:
+    from ..extramodules import Nothing_Module
+except ImportError as e:
+    if "attempted relative import beyond top-level package" == e.args[0]:
+        from extramodules import Nothing_Module
+    else:
+        raise
 
 
 class Theseus_Replacement(torch.nn.Module):

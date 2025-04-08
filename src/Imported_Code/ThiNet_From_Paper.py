@@ -2,8 +2,14 @@
 # Implementation made by Alexandre Broggi 2024, I hope I am not making any big mistakes
 import torch
 import torch.utils.data
-from ..extramodules import PreMutablePruningLayer
-from .helperFunctions import forward_hook
+try:
+    from ..extramodules import PreMutablePruningLayer
+except ImportError as e:
+    if "attempted relative import beyond top-level package" == e.args[0]:
+        from extramodules import PreMutablePruningLayer
+        from .helperFunctions import forward_hook
+    else:
+        raise
 
 
 def thinet_pruning(model: torch.nn.Module, parameterNumber: int, config, dataset: torch.utils.data.DataLoader | torch.utils.data.Dataset | None = None):
