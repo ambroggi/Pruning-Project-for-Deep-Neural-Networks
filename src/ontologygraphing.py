@@ -1,8 +1,12 @@
+# This file has kind of been Frankensteined together as we keep adding more ontological based graphs and they just get added here.
+# It creates outputs in a couple of different places, mainly in results/images
+# And it reads in from the csv files kept in results.
 import os
 from itertools import repeat, product
 
 # import numpy as np
 import pandas as pd
+import numpy as np
 import plotly
 import plotly.express
 import plotly.graph_objects
@@ -211,7 +215,7 @@ def format_df(file_name: str):
 
     for extra_str in extra_readability:
         df.loc[:, "pruning type"] = df["pruning type"].apply(lambda x: str.replace(x, extra_str, extra_readability[extra_str]))
-    df.loc[:, "pruning type"] = df["pruning type"].map(readability)
+    df.loc[:, "pruning type"] = df["pruning type"].map(lambda x: readability[x] if "Waypoint_" not in x else x)
 
     for x in [y for y in df.columns if "Number" in y]:
         df.loc[:, x] = df[x].astype(int)
@@ -224,26 +228,43 @@ def format_df(file_name: str):
 
 if __name__ == "__main__":
     # check_all_statistical_for_top_down()
-    check_statistical_for_top_down()
-    for file_ in titles.keys():
-        if not os.path.exists(f"results/{file_}.csv"):
-            continue
+    if False:
+        check_statistical_for_top_down()
+        for file_ in titles.keys():
+            if not os.path.exists(f"results/{file_}.csv"):
+                continue
 
-        df = format_df(file_)
+            df = format_df(file_)
 
-        for x in [y for y in df.columns if "Number" in y]:
-            print(f"{file_} - {x}")
-            pt = df.pivot_table(values=x, **options[file_], fill_value=0)
+            for x in [y for y in df.columns if "Number" in y]:
+                print(f"{file_} - {x}")
+                pt = df.pivot_table(values=x, **options[file_], fill_value=0)
 
-            graph_pt(pt, file=file_)
+                graph_pt(pt, file=file_)
 
-        if file_ == "top_down_connections":
-            generate_table(df, "top_down_table", "Number of connected", "Original Run")
-            generate_table(df, "Random_Ontology_top_down_table", "Number of connected", "Random Ontology")
+            if file_ == "top_down_connections":
+                generate_table(df, "top_down_table", "Number of connected", "Original Run")
+                generate_table(df, "Random_Ontology_top_down_table", "Number of connected", "Random Ontology")
 
-        if file_ == "high_nodes_along_connections":
-            generate_table(df, "high_nodes_along_connections_table", "Number of connected classes", "Original Run")
-            generate_table(df, "random_high_nodes_along_connections_table", "Number of connected classes", "Random Ontology")
+            if file_ == "high_nodes_along_connections":
+                generate_table(df, "high_nodes_along_connections_table", "Number of connected classes", "Original Run")
+                generate_table(df, "random_high_nodes_along_connections_table", "Number of connected classes", "Random Ontology")
 
-        if file_ == "high_nodes":
-            generate_table(df, "high_nodes_total", "Number of meanings for node", "Original Run")
+            if file_ == "high_nodes":
+                generate_table(df, "high_nodes_total", "Number of meanings for node", "Original Run")
+    else:
+        df = format_df("waypointing/top_down_connections")
+        pt = df.assign(vals=1).pivot_table(values="vals", columns=["Number of connected", "pruning type"], index=["Layer"], aggfunc="count", fill_value=0)
+        # print(*[f"{x}\n" for x in zip_longest(pt.columns, product(range(1, 11), [f"Waypoint_{x}" for x in range(15)]))])
+        # print([*zip(*pt.columns.values)])
+        pt = pt.reindex(product(range(1, 11), [f"Waypoint_{x}" for x in range(15)]), axis=1)
+        pt = pt.apply(lambda x: x**0.5)
+        pt.columns.names
+        pt.index.names
+        # plot = plotly.express.imshow(pt, title="Changes over training", x="Number of connected")
+
+        np_test = np.array([pt.loc[:, (slice(None), x)].to_numpy() for x in [f"Waypoint_{x}" for x in range(15)]])
+        # https://stackoverflow.com/a/66054748
+        plot = plotly.express.imshow(np_test, facet_col=0)
+
+        plot.show()

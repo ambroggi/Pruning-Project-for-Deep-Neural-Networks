@@ -25,4 +25,4 @@ if [[ "$FILEPATH" == *"Small"* ]]
 fi
 
 source .venv/bin/activate
-python ./main.py --PruningSelection ${PRUNINGSELECTION[$SLURM_ARRAY_TASK_ID]} --NumberOfWorkers 3 --FromSaveLocation "csv $1" --ResultsPath "$FILEPATH" --WeightPrunePercent "${WEIGHTS[$SLURM_ARRAY_TASK_ID]}" --NumberWeightsplits 1 ${SMALLMODEL[@]}
+python ./src/main.py --PruningSelection ${PRUNINGSELECTION[$SLURM_ARRAY_TASK_ID]} --NumberOfWorkers 3 --FromSaveLocation "csv $1" --ResultsPath "$FILEPATH" --WeightPrunePercent "${WEIGHTS[$SLURM_ARRAY_TASK_ID]}" --NumberWeightsplits 1 ${SMALLMODEL[@]}

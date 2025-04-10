@@ -1,5 +1,6 @@
 if __name__ == "__main__":
     import os
+    import sys
     from random import random
 
     import pandas as pd
@@ -187,6 +188,18 @@ def get_model_and_datasets(csv_row: str | int = "0", csv_file: str = "results/Bi
     model = src.modelstruct.getModel(load["config"])
     model.cfg = load["config"]
     return model, dataset, datasets
+
+
+def get_waypoint_model(model: "src.modelstruct.BaseDetectionModel", waypoint_number: int, csv_row: str | int = "0", csv_file: str = "results/BigModel(OntologyWaypoints).csv"):
+    if csv_row.isnumeric():
+        csv_row = int(csv_row)
+    row = pd.read_csv(csv_file).iloc[csv_row]
+    waypoint_pth = row[f"-Waypoint_{waypoint_number}-"]
+    waypoint_loss = row[f"Epoch waypoint {waypoint_number} mean_loss"]
+    model.load_state_dict(torch.load(f"savedModels/waypoints/{waypoint_pth}", map_location=model.cfg("Device")))
+    model.cfg("PruningSelection", f"Waypoint_{waypoint_number}")
+
+    return model, waypoint_loss
 
 
 def add_layer(g: "rdflib.Graph", layer_name: str, layer_index: int, number_of_nodes: int | None = None, model: "rdflib.Node" = None) -> "rdflib.Node":
@@ -412,7 +425,7 @@ def add_model_high_values(g: "rdflib.Graph", datasets: list["src.getdata.BaseDat
         del avg_hook
 
 
-def build_base_facts(csv_row: str | int = "0", csv_file: str = "results/BigModel(toOntology).csv", random_=False) -> tuple[str, "rdflib.Graph"]:
+def build_base_facts(csv_row: str | int = "0", csv_file: str = "results/BigModel(toOntology).csv", random_=False, waypoint=None) -> tuple[str, "rdflib.Graph"]:
     """
     Generate the model and info without any inference.
 
@@ -426,6 +439,8 @@ def build_base_facts(csv_row: str | int = "0", csv_file: str = "results/BigModel
         rdflib.graph: Final built graph for immediate use.
     """
     model, dataset, datasets = get_model_and_datasets(csv_row, csv_file)
+    if waypoint is not None:
+        model, _ = get_waypoint_model(model, waypoint, csv_row, csv_file)
 
     layer = None
     last_layer = []
@@ -463,7 +478,8 @@ def build_base_facts(csv_row: str | int = "0", csv_file: str = "results/BigModel
 
     add_model_high_values(g=g, datasets=datasets, model=model, random_=random_)
 
-    g.serialize(filename, encoding="UTF-8")
+    if not waypoint:
+        g.serialize(filename, encoding="UTF-8")
     print("Created graph")
     return filename, g
 
@@ -488,7 +504,7 @@ def run_really_long_query(file: str = "datasets/model.ttl", graph: "rdflib.Graph
     csv_row_number, pruning_type, total_classes, reduced_classes = a.csv_row_number, a.pruning_type, a.num_classes_total, a.num_classes_reduced
 
     a = g.query(Q1)
-    with open("results/top_down_connections.csv", mode="a") as f:
+    with open("results/waypointing/top_down_connections.csv", mode="a") as f:
         print(f'"{file}",,,,', file=f)
         print("Layer,Info,Number of connected,csv row,pruning type", file=f)
         for row in a:
@@ -559,7 +575,7 @@ def select_best_rows(csv_file: str = "results/BigModel(toOntology).csv") -> list
 
 
 if __name__ == "__main__":
-    if not False:
+    if not not False:
         for x in select_best_rows():
             print(f"running for csv row {x}")
             if not os.path.exists(f"datasets/ontologies/model(BigModel(toOntology).csv {x}).ttl"):
@@ -578,3 +594,7 @@ if __name__ == "__main__":
                 run_really_long_query(f"datasets/ontologies/random_model ({x}).ttl")
     else:
         print(select_best_rows())
+        print(repr(sys.argv[1]))
+        for x in range(15):
+            path, g = build_base_facts(csv_file="results/BigModel(OntologyWaypoints).csv", random_=False, csv_row=f"{sys.argv[1]}", waypoint=x)
+            run_really_long_query("", graph=g)
