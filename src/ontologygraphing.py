@@ -10,6 +10,7 @@ import numpy as np
 import plotly
 import plotly.express
 import plotly.graph_objects
+import plotly.subplots
 from scipy import stats
 
 
@@ -171,14 +172,16 @@ def check_statistical_for_top_down():
     # print(stats.ks_2samp(pt_dist[1], pt_sample[1]))
 
 
-def check_all_statistical_for_top_down():
-    distribution = format_df("500-Random/top_down_connections")
+def check_all_statistical_for_top_down(distribution_file="500-Random/top_down_connections", sample_file="top_down_connections", filtering=lambda x: x["pruning type"] == "RandomConnections"):
+    distribution = format_df(distribution_file)
+    distribution = distribution[filtering(distribution)]
     pt_dist = distribution.assign(vals=1).pivot_table(values="vals", columns="Number of connected", index=["Layer", "csv row"], aggfunc="count", fill_value=0)
     cols = pt_dist.columns.union(range(1, 11), sort=True)
     pt_dist = pt_dist.reindex(cols, axis=1, fill_value=0)
 
-    sample_total = format_df("top_down_connections")
-    for type_value in sample_total["pruning type"].unique():
+    sample_total = format_df(sample_file)
+    np_arr = []
+    for i, type_value in enumerate(sample_total["pruning type"].unique()):
         sample_original = sample_total.loc[sample_total["pruning type"] == type_value].copy()
         pt_sample = sample_original.assign(vals=1).pivot_table(values="vals", columns="Number of connected", index=["Layer", "csv row"], aggfunc="count", fill_value=0)
         cols = pt_sample.columns.union(range(1, 11), sort=True)
@@ -195,14 +198,18 @@ def check_all_statistical_for_top_down():
             statistic = ks_2.statistic.item()
 
             # print(pval)
-            pt_pvalue.loc[pair] = ks_2.statistic_sign.item() if (pval < 0.005) else 0
+            pt_pvalue.loc[pair] = 2*(1-pval)*ks_2.statistic_sign.item() if (pval < 0.005) else (1-pval)*ks_2.statistic_sign.item()
             pt_statistic.loc[pair] = statistic
         # print(pt_pvalue)
         pt_pvalue.columns.set_names(["P-Values"], inplace=True)
         pt_statistic.columns.set_names(["Statistic-Values"], inplace=True)
 
-        plotly.express.imshow(pt_pvalue, title=type_value).show()
-        # plotly.express.imshow(pt_statistic, title=type_value).show()
+        np_arr.append(pt_pvalue.to_numpy())
+
+    plot = plotly.express.imshow(np.array(np_arr), facet_col=0, color_continuous_scale='RdBu_r', facet_col_wrap=7)
+    # https://community.plotly.com/t/changing-label-of-plotly-express-facet-categories/28066/5
+    plot.for_each_annotation(lambda x: x.update(text=f"Epoch {4*int(x.text.split('facet_col=')[1])}"))
+    plot.show()
 
 
 def format_df(file_name: str):
@@ -258,13 +265,19 @@ if __name__ == "__main__":
         # print(*[f"{x}\n" for x in zip_longest(pt.columns, product(range(1, 11), [f"Waypoint_{x}" for x in range(15)]))])
         # print([*zip(*pt.columns.values)])
         pt = pt.reindex(product(range(1, 11), [f"Waypoint_{x}" for x in range(15)]), axis=1)
-        pt = pt.apply(lambda x: x**0.5)
+        # pt = pt.apply(lambda x: x**0.5)
         pt.columns.names
         pt.index.names
         # plot = plotly.express.imshow(pt, title="Changes over training", x="Number of connected")
 
-        np_test = np.array([pt.loc[:, (slice(None), x)].to_numpy() for x in [f"Waypoint_{x}" for x in range(15)]])
+        np_test = np.array([pt.loc[:, (slice(None), x)].to_numpy() for x in [f"Waypoint_{x}" for x in range(13)]])
+        np_test = np_test/np_test.max()
         # https://stackoverflow.com/a/66054748
-        plot = plotly.express.imshow(np_test, facet_col=0)
-
+        plot = plotly.express.imshow(np_test, facet_col=0, facet_col_wrap=7)
+        plot.for_each_annotation(lambda x: x.update(text=f"Epoch {4*int(x.text.split('facet_col=')[1])}"))
         plot.show()
+
+        check_all_statistical_for_top_down("waypointing/top_down_connections", "waypointing/top_down_connections", filtering=lambda x: x["pruning type"] == "Waypoint_0")
+        check_all_statistical_for_top_down("waypointing/top_down_connections", "waypointing/top_down_connections", filtering=lambda x: x["pruning type"] == "Waypoint_6")
+        check_all_statistical_for_top_down("waypointing/top_down_connections", "waypointing/top_down_connections", filtering=lambda x: x["pruning type"] == "Waypoint_12")
+        pass
