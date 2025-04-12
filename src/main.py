@@ -58,7 +58,7 @@ def loopAlgSpecific(config: src.cfg.ConfigObject, selected: str):
         kwargs = src.standard_run(save_epoch_waypoints=True, config=config)
         kwargs["model"].save_model_state_dict(logger=kwargs["logger"])
     else:
-        print(f"Starting run of {src.algorithmruns.types_of_tests[selected].__name__}")
+        print(f"Starting run of {src.types_of_tests[selected].__name__}")
         load = src.standardLoad(existing_config=config, index=0)
 
         weightsOrdering = range(config("NumberWeightSplits")-1, -1, -1)
