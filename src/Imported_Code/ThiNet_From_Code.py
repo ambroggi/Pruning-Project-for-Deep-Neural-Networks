@@ -8,8 +8,8 @@ import time
 # x:N*64 matrix, N is the instance number, 64 is channel number
 def value_sum(x, y, compress_rate):
     # 1. set parameters
-    x = np.mat(x)
-    y = np.mat(y)
+    x = np.asmatrix(x)
+    y = np.asmatrix(y)
     goal_num = int(x.shape[1] * compress_rate)
     index = []
 
@@ -73,7 +73,7 @@ def value_sum_another(x, y, compress_rate):
     index = np.sort(index)
 
     # 4.least square
-    selected_x = np.mat(x[:, index])
+    selected_x = np.asmatrix(x[:, index])
     w = (selected_x.T * selected_x).I * (selected_x.T * y)
     w = np.array(w)
     return index, w

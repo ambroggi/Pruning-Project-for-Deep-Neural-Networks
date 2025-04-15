@@ -12,4 +12,4 @@
 #SBATCH --constraint=[2080|2080ti]  # Reccommended for getting the same type of GPUS https://docs.unity.rc.umass.edu/documentation/tools/gpus/ (as of Nov 4 2024)
 
 source .venv/bin/activate
-python ./main.py --PruningSelection $SLURM_ARRAY_TASK_ID --NumberOfWorkers 3 --FromSaveLocation "csv $1" --ResultsPath "$2"
+python ./src/main.py --PruningSelection $SLURM_ARRAY_TASK_ID --NumberOfWorkers 3 --FromSaveLocation "csv $1" --ResultsPath "$2"

@@ -1,3 +1,28 @@
+# Structure of Repository
+
+This repository is structured into several folders and several run-able files.
+
+Folders:
+- datasets: The dataset files (`https://www.kaggle.com/datasets/emilynack/aci-iot-network-traffic-dataset-2023/data`) must be placed here in order to allow the model to run.
+    - datasets/ontologies: A folder that caches some of the ontologies built from existing models using `src/buildontology.py`
+- results: The logging files that store all run information.
+    - 500-Random: results from running `src/buildontology.py` on 500 randomly connected ontologies as a baseline. 
+    - results/images: This folder stores all of the graphs we tried to generate, but only after you run `src/graphingresults.py` that generates the images.
+    - results/raytraining: Stores info about raytrain runs, raytrain is a library that ties to find good hyperparameters that we used. See `src/raytraining.py`
+    - results/waypointing: Some results from running the ontology search on waypoints, snapshots of the model during training, to see changes over training time.
+- savedModels: The main models that were used in runs will be stored here with a unique name. Exact models and historical performance can be inferred from the resulting logging file.
+- src: Stores all of the code.
+    - src/Imported_Code: Stores all code for running the specific algorithms, each file is labeled with if it is original or from another source. Although most are at least slightly modified.
+
+Files:
+- .git*: Files that identify specific git information.
+- *.sh: Files for running the main python files on the High Performance Computing cluster that was available to us.
+- `main.py`: This is the main file and will be what you need to run to launch our code and generate data from pruning. Use `python main.py -h` to learn specific command line options.
+- `buildontology.py` and `ontologygraphing.py`: These two files are how we analyzed the model with ontological methods.
+- README.md: This file. You are reading it already, thank you.
+- requirements.txt: Lists modules that you need to install with pip. Use `python -m venv .venv; source .venv/bin/activate; pip install -r requirements.txt` to install everything in case you don't know how.
+
+
 # Pruning Algorithms applied to Network Intrusion Detection Dataset
 
 This is a pipeline for testing various different pruning methods on an arbitrary Artificial Neural Network (ANN) model for the purposes of reducing the required runtime and memory usage. This will hopefully make smaller ANN models for Network Intrusion Detection Systems (NIDS) that can fit in mobile platforms.
@@ -19,27 +44,6 @@ TOFD [link](https://github.com/ArchipLab-LinfengZhang/Task-Oriented-Feature-Dist
 Random Pruning *Standard Method*
 
 Complete replacement *Baseline training new model*
-
-
-## Structure of Repository
-
-This repository is structured into several folders and some running code.
-
-Folders:
-- datasets: The dataset files must be placed here in order to allow the model to run.
-- results: The logging files that store all run information.
-    - results/images: This folder stores all of the graphs we tried to generate, but only after you run `src/graphingresults.py` that generates the images.
-    - results/raytraining: Stores info about raytrain runs, raytrain is a library that ties to find good hyperparameters that we used. See `src/raytraining.py`
-- savedModels: Every model that was used in a run will be stored here with a unique name. Exact models  and historical performance can be inferred from the resulting logging file.
-- src: stores all of the code
-    - src/Imported_Code: Stores all code for running the specific algorithms, each file is labeled with if it is original or from another source. Although most are at least slightly modified.
-
-Files:
-- .git*: Files that identify specific git information.
-- *.sh: Files for running the model on the High Performance Computing cluster that was available to us.
-- main.py: This is the main file and will be what you need to run to launch our code and generate data. Use `python main.py -h` to learn specific command line options. 
-- README.md: This file. You are reading it already, thank you.
-- requirements.txt: Lists modules that you need to install with pip. Use `python -m venv .venv; source .venv/bin/activate; pip install -r requirements.txt` to install everything in case you don't know how.
 
 
 ## How to run
@@ -88,3 +92,8 @@ We had access to a High Performance Computing (HPC) cluster, which made our test
 ### Hyperparameter Tuning
 
 Tuning hyperparameters was done by using the raytraining module. This was set up and run using the file `src/raytraining.py`. You can run this file and look at the output to find the best case for Learning Rate, Dropout rate, Hidden layer count, and Hidden layer size. This was more of a finicky process so we are unable to write down the whole steps for finding the best hyperparameters from this output.
+
+
+# Ontology Observation of Pruned Models
+
+This is a method of observing our pruned and unpruned models using rdflib ontologies. It consists of the two files `src/buildontology.py` and `src/ontologygraphing.py`

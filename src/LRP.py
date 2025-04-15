@@ -163,7 +163,7 @@ def combined_check():
         for row in pivot_table.T:
             full_df.loc[(x, row)] = pivot_table.T[row]
     print(full_df)
-    
+
     full_df.to_csv("results/lrp.csv")
     pass
 
