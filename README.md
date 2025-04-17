@@ -69,7 +69,7 @@ The results we got from our original runs can be re-graphed by running the `src/
 
 ### Generating your own data
 
-You can easily generate your own data by using `python main.py`. This has several options for each run. You can use `python main.py -h` to see the full options list with explanations but the main ones are:
+You can easily generate your own data by using `python src/main.py`. This has several options for each run. You can use `python src/main.py -h` to see the full options list with explanations but the main ones are:
 
 - PruningSelection: If PruningSelection is set, then only that one algorithm will be run. If nothing is set then the code will go round robbin over all of the algorithms (slow for parallelization). Algorithm names are as follows (see bottom of `src/algorithmruns.py` file):
 
@@ -96,4 +96,12 @@ Tuning hyperparameters was done by using the raytraining module. This was set up
 
 # Ontology Observation of Pruned Models
 
-This is a method of observing our pruned and unpruned models using rdflib ontologies. It consists of the two files `src/buildontology.py` and `src/ontologygraphing.py`
+This is a method of observing our pruned and unpruned models using rdflib ontologies. It consists of the two files `src/buildontology.py` and `src/ontologygraphing.py`. They are less streamlined than the pruning methods, as this section was more explorational than comparative. 
+
+## `src/buildontology.py`
+
+Builds the ontological model from a given log file and the associated saved model(s). By default the ontological representations of the models are saved into the datasets folder as they are more treated as a dataset. 
+
+## `src/ontologygraphing.py`
+
+Equivalent to `src/graphingresults.py` for the ontological exploration. Creates all of the visual graphs and figures.
