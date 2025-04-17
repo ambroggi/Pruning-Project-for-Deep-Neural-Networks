@@ -89,7 +89,11 @@ def graph_pt(pt: pd.DataFrame, file: None | os.PathLike = None):
 
     for pruning_selection in pt.keys():
         vals = pt[pruning_selection]
-        plot.add_trace(plotly.graph_objects.Scatter(x=vals.index, y=vals, name=pruning_selection, marker={"color": colors.get(pruning_selection, "Gray"), "symbol": shapes.get(pruning_selection, "circle-open")}, text=pt[pruning_selection].keys()))
+        plot.add_trace(plotly.graph_objects.Scatter(x=vals.index, y=vals,
+                                                    name=pruning_selection,
+                                                    marker={"color": colors.get(pruning_selection, "Gray"),
+                                                            "symbol": shapes.get(pruning_selection, "circle-open")},
+                                                    text=pt[pruning_selection].keys()))
 
     x_axis_config = {"autorange": "reversed", "type": "linear"} if "reversed" in titles.get(file, ("Unknown", "unknown", "unknown"))[2] else {"type": "linear"}
     y_axis_config = {"type": "log"} if "log" in titles.get(file, ("Unknown", "unknown", "unknown"))[2] else {"type": "linear"}
@@ -174,26 +178,29 @@ def check_statistical_for_top_down():
 
 def check_all_statistical_for_top_down(distribution_file="500-Random/top_down_connections", sample_file="top_down_connections", filtering=lambda x: x["pruning type"] == "RandomConnections"):
     distribution = format_df(distribution_file)
-    distribution = distribution[filtering(distribution)]
+    distribution: pd.DataFrame = distribution[filtering(distribution)]
     pt_dist = distribution.assign(vals=1).pivot_table(values="vals", columns="Number of connected", index=["Layer", "csv row"], aggfunc="count", fill_value=0)
     cols = pt_dist.columns.union(range(1, 11), sort=True)
     pt_dist = pt_dist.reindex(cols, axis=1, fill_value=0)
 
-    sample_total = format_df(sample_file)
+    sample_total: pd.DataFrame = format_df(sample_file)
     np_arr = []
-    for i, type_value in enumerate(sample_total["pruning type"].unique()):
+    names = sample_total["pruning type"].unique()
+    for i, type_value in enumerate(names):
         sample_original = sample_total.loc[sample_total["pruning type"] == type_value].copy()
         pt_sample = sample_original.assign(vals=1).pivot_table(values="vals", columns="Number of connected", index=["Layer", "csv row"], aggfunc="count", fill_value=0)
         cols = pt_sample.columns.union(range(1, 11), sort=True)
         pt_sample = pt_sample.reindex(cols, axis=1, fill_value=0)
 
         # Create a blank table and then fill the table with the correct values
-        pt_pvalue = pt_sample.loc[(slice(None), pt_sample.index[0][1]), (slice(None))].copy().astype("float")
+        pt_pvalue: pd.DataFrame = pt_sample.loc[(slice(None), pt_sample.index[0][1]), (slice(None))].copy().astype("float")
         pt_pvalue.index = pt_pvalue.index.get_level_values(0)  # https://stackoverflow.com/a/51537177
-        pt_statistic = pt_sample.loc[(slice(None), pt_sample.index[0][1]), (slice(None))].copy().astype("float")
-        pt_statistic.index = pt_pvalue.index.get_level_values(0)
+
+        pt_statistic = pt_pvalue.copy()
         for pair in product(pt_pvalue.index, pt_pvalue.columns):
-            ks_2 = stats.ks_2samp(pt_dist.loc[(pair[0], slice(None)), (pair[1])], pt_sample.loc[(pair[0], slice(None)), (pair[1])])
+            distribution_of_cell = pt_dist.loc[(pair[0], slice(None)), (pair[1])]
+            sample_of_cell = pt_sample.loc[(pair[0], slice(None)), (pair[1])]
+            ks_2 = stats.ks_2samp(distribution_of_cell, sample_of_cell)
             pval = ks_2.pvalue.item()
             statistic = ks_2.statistic.item()
 
@@ -204,15 +211,26 @@ def check_all_statistical_for_top_down(distribution_file="500-Random/top_down_co
         pt_pvalue.columns.set_names(["P-Values"], inplace=True)
         pt_statistic.columns.set_names(["Statistic-Values"], inplace=True)
 
+        # Make sure that all versions have the same length
+        pt_pvalue = pt_pvalue.reindex(pt_dist.index.get_level_values(0).unique(), fill_value=0)
+        # print(f"{type_value}, {len(pt_pvalue.to_numpy())=}")
         np_arr.append(pt_pvalue.to_numpy())
 
-    plot = plotly.express.imshow(np.array(np_arr), facet_col=0, color_continuous_scale='RdBu_r', facet_col_wrap=7)
-    # https://community.plotly.com/t/changing-label-of-plotly-express-facet-categories/28066/5
-    plot.for_each_annotation(lambda x: x.update(text=f"Epoch {4*int(x.text.split('facet_col=')[1])}"))
+    np_arr = np.array(np_arr)
+
+    plot = plotly.express.imshow(np_arr, facet_col=0, color_continuous_scale='RdBu_r', facet_col_wrap=min(7, len(np_arr)), range_color=[-2, 2])
+    if "waypoint" in sample_file:
+        # https://community.plotly.com/t/changing-label-of-plotly-express-facet-categories/28066/5
+        plot.for_each_annotation(lambda x: x.update(text=f"Epoch {4*int(x.text.split('facet_col=')[1])}"))
+    else:
+        plot.for_each_annotation(lambda x: x.update(text=f"{names[int(x.text.split('facet_col=')[1])]}"))
+
+    # file_name = "results/images/"+distribution_file.split("/")[-1]+"-".join(distribution["pruning type"].unique())+".png"
+    # plot.write_image(file_name, width=1000, height=800, scale=2)
     plot.show()
 
 
-def format_df(file_name: str):
+def format_df(file_name: str) -> pd.DataFrame:
     df = pd.read_csv(f"results/{file_name}.csv", header=1, sep=",", engine='python')
     df.loc[:, "pruning type"] = df["pruning type"].fillna("Normal_Run")
     df.loc[:, "csv row"] = df["csv row"].astype(str)
@@ -222,7 +240,7 @@ def format_df(file_name: str):
 
     for extra_str in extra_readability:
         df.loc[:, "pruning type"] = df["pruning type"].apply(lambda x: str.replace(x, extra_str, extra_readability[extra_str]))
-    df.loc[:, "pruning type"] = df["pruning type"].map(lambda x: readability[x] if "Waypoint_" not in x else x)
+    df.loc[:, "pruning type"] = df["pruning type"].map(lambda x: readability[x] if x in readability.keys() else x)
 
     for x in [y for y in df.columns if "Number" in y]:
         df.loc[:, x] = df[x].astype(int)
@@ -236,6 +254,7 @@ def format_df(file_name: str):
 if __name__ == "__main__":
     # check_all_statistical_for_top_down()
     if False:
+        check_all_statistical_for_top_down("top_down_connections", "top_down_connections", lambda x: x["pruning type"] == "Original Run")
         check_statistical_for_top_down()
         for file_ in titles.keys():
             if not os.path.exists(f"results/{file_}.csv"):
@@ -259,13 +278,13 @@ if __name__ == "__main__":
 
             if file_ == "high_nodes":
                 generate_table(df, "high_nodes_total", "Number of meanings for node", "Original Run")
-    else:
+    elif False:
         df = format_df("waypointing/top_down_connections")
         pt = df.assign(vals=1).pivot_table(values="vals", columns=["Number of connected", "pruning type"], index=["Layer"], aggfunc="count", fill_value=0)
         # print(*[f"{x}\n" for x in zip_longest(pt.columns, product(range(1, 11), [f"Waypoint_{x}" for x in range(15)]))])
         # print([*zip(*pt.columns.values)])
         pt = pt.reindex(product(range(1, 11), [f"Waypoint_{x}" for x in range(15)]), axis=1)
-        # pt = pt.apply(lambda x: x**0.5)
+        pt = pt.apply(lambda x: x**0.5)
         pt.columns.names
         pt.index.names
         # plot = plotly.express.imshow(pt, title="Changes over training", x="Number of connected")
@@ -275,9 +294,30 @@ if __name__ == "__main__":
         # https://stackoverflow.com/a/66054748
         plot = plotly.express.imshow(np_test, facet_col=0, facet_col_wrap=7)
         plot.for_each_annotation(lambda x: x.update(text=f"Epoch {4*int(x.text.split('facet_col=')[1])}"))
-        plot.show()
+        plot.write_image("results/images/top_down_connections_sqr.png", width=1000, height=800, scale=2)
+        # plot.show()
 
         check_all_statistical_for_top_down("waypointing/top_down_connections", "waypointing/top_down_connections", filtering=lambda x: x["pruning type"] == "Waypoint_0")
         check_all_statistical_for_top_down("waypointing/top_down_connections", "waypointing/top_down_connections", filtering=lambda x: x["pruning type"] == "Waypoint_6")
         check_all_statistical_for_top_down("waypointing/top_down_connections", "waypointing/top_down_connections", filtering=lambda x: x["pruning type"] == "Waypoint_12")
-        pass
+    else:
+        df = format_df("pruning/randStructured/top_down_connections")
+        pt = df.assign(vals=1).pivot_table(values="vals", columns=["Number of connected", "pruning type"], index=["Layer"], aggfunc="count", fill_value=0)
+        # print(*[f"{x}\n" for x in zip_longest(pt.columns, product(range(1, 11), [f"Waypoint_{x}" for x in range(15)]))])
+        # print([*zip(*pt.columns.values)])
+        percentage = [float(x.split("|")[1]) for x in df["pruning type"].unique()]
+        percentage.sort(reverse=True)
+        pt = pt.reindex(product(range(1, 11), [f"RandomStructured|{x}" for x in percentage]), axis=1, fill_value=0)
+        pt = pt.apply(lambda x: x**0.5)
+        pt.columns.names
+        pt.index.names
+        # plot = plotly.express.imshow(pt, title="Changes over training", x="Number of connected")
+
+        np_test = np.array([pt.loc[:, (slice(None), x)].to_numpy() for x in [f"RandomStructured|{x}" for x in percentage]])
+        np_test = np_test/np_test.max()
+        # https://stackoverflow.com/a/66054748
+        plot = plotly.express.imshow(np_test, facet_col=0)
+        plot.for_each_annotation(lambda x: x.update(text=f"{percentage[int(x.text.split('facet_col=')[1])]}"))
+        plot.show()
+
+        check_all_statistical_for_top_down("waypointing/top_down_connections", "pruning/randStructured/top_down_connections", lambda x: x["pruning type"] == "Waypoint_12")

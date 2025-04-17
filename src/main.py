@@ -75,7 +75,7 @@ def loopAlgSpecific(config: src.cfg.ConfigObject, selected: str):
         for weight_prune_percent in weights:
             load["config"]("WeightPrunePercent", weight_prune_percent)
             test = src.standard_run(PruningSelection=selected, **load)
-            test
+            test["model"].save_model_state_dict(logger=test["logger"])
 
             # After the first run, assume everything is working properly and no need to check all of the gradients (because it makes it much slower)
             src.torch.autograd.set_detect_anomaly(False)
