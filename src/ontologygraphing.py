@@ -3,6 +3,7 @@
 # And it reads in from the csv files kept in results.
 import os
 from itertools import repeat, product
+from typing import Literal
 
 # import numpy as np
 import pandas as pd
@@ -121,7 +122,7 @@ def graph_pt(pt: pd.DataFrame, file: None | os.PathLike = None):
         plot.show()
 
 
-def generate_table(dataframe: pd.DataFrame, file_name: str, col_name: str = "Number of connected", grouping: str = "Original Run"):
+def generate_table(dataframe: pd.DataFrame, file_name: str, col_name: str = "Number of connected", grouping: str = "Original Run", reduce: Literal["Horizontal", "Vertical"] = ""):
     # https://stackoverflow.com/a/74025617
     only_original = dataframe.loc[dataframe["pruning type"] == grouping].copy()
     only_original.loc[:, "layer"] = r"\rotatebox{90}{Layer}"
@@ -130,9 +131,40 @@ def generate_table(dataframe: pd.DataFrame, file_name: str, col_name: str = "Num
     pt.index.set_names([None, None], inplace=True)
     pt.columns.set_names([None, None], inplace=True)
     # https://stackoverflow.com/a/63896673
-    cols = pt.columns.union([*zip(repeat(pt.columns[0][0]), range(1, 11))], sort=True)
+    exterior_column = repeat(pt.columns[0][0])
+    interior_columns = range(1, 11)
+    cols = pt.columns.union([*zip(exterior_column, interior_columns)], sort=True)
     print(cols)
     pt = pt.reindex(cols, axis=1, fill_value=0)
+
+    if "Horizontal" in reduce:
+        grouping_size = 2
+        # # https://www.reddit.com/r/learnpython/comments/nkvusr/how_can_i_group_and_sum_certain_columns_of_a/
+        # bins = pd.cut(interior_columns, range(1, 11, grouping_size), include_lowest=True, right=False)
+        # pt = pt.rename(columns=dict(zip(pt.columns, bins)))
+        # pt = pt.groupby(pt.columns, axis=1).sum()
+        interior_columns = [f"{x}-{min(x+grouping_size-1,max(interior_columns))}" for x in range(1, 11, grouping_size)]
+        new_cols = [*zip(exterior_column, interior_columns)]
+        for (x, y) in new_cols:
+            y_start = int(y.split("-")[0])
+            y_end = int(y.split("-")[1])+1
+            aggregate = pt[[*zip(exterior_column, range(y_start, y_end))]].sum(axis=1)
+            pt[x, y] = aggregate
+        pt = pt.reindex(new_cols, axis=1)
+        print(pt)
+    if "Vertical" in reduce:
+        grouping_size = 3
+        row_names = [f"{x}-{min(x+grouping_size-1,len(pt)-1)}" for x in range(0, len(pt), grouping_size)]
+        row_exterior = repeat(pt.index[0][0])
+        for y in row_names:
+            y_start = int(y.split("-")[0])
+            y_end = int(y.split("-")[1])+1
+            aggregate = pt.loc[[*zip(row_exterior, range(y_start, y_end))]].sum(axis=0)
+            pt.loc[(next(row_exterior), y), :] = aggregate
+
+        pt = pt.reindex([*zip(row_exterior, row_names)], axis=0)
+        print(pt)
+
     # print(pt)
     st = pt.style
     st.background_gradient(cmap="inferno", vmin=0, vmax=max(pt.max()))
@@ -253,8 +285,7 @@ def format_df(file_name: str) -> pd.DataFrame:
 
 if __name__ == "__main__":
     # check_all_statistical_for_top_down()
-    if False:
-        check_all_statistical_for_top_down("top_down_connections", "top_down_connections", lambda x: x["pruning type"] == "Original Run")
+    if not False:
         check_statistical_for_top_down()
         for file_ in titles.keys():
             if not os.path.exists(f"results/{file_}.csv"):
@@ -271,13 +302,17 @@ if __name__ == "__main__":
             if file_ == "top_down_connections":
                 generate_table(df, "top_down_table", "Number of connected", "Original Run")
                 generate_table(df, "Random_Ontology_top_down_table", "Number of connected", "Random Ontology")
+                generate_table(df, "top_down_table_thin", "Number of connected", "Original Run", reduce="Horizontal")
+                generate_table(df, "Random_Ontology_top_down_table_thin", "Number of connected", "Random Ontology", reduce="Horizontal")
 
             if file_ == "high_nodes_along_connections":
                 generate_table(df, "high_nodes_along_connections_table", "Number of connected classes", "Original Run")
+                generate_table(df, "high_nodes_along_connections_table_short", "Number of connected classes", "Original Run", reduce="Vertical")
                 generate_table(df, "random_high_nodes_along_connections_table", "Number of connected classes", "Random Ontology")
 
             if file_ == "high_nodes":
                 generate_table(df, "high_nodes_total", "Number of meanings for node", "Original Run")
+        check_all_statistical_for_top_down("top_down_connections", "top_down_connections", lambda x: x["pruning type"] == "Original Run")
     elif False:
         df = format_df("waypointing/top_down_connections")
         pt = df.assign(vals=1).pivot_table(values="vals", columns=["Number of connected", "pruning type"], index=["Layer"], aggfunc="count", fill_value=0)
@@ -301,23 +336,24 @@ if __name__ == "__main__":
         check_all_statistical_for_top_down("waypointing/top_down_connections", "waypointing/top_down_connections", filtering=lambda x: x["pruning type"] == "Waypoint_6")
         check_all_statistical_for_top_down("waypointing/top_down_connections", "waypointing/top_down_connections", filtering=lambda x: x["pruning type"] == "Waypoint_12")
     else:
-        df = format_df("pruning/randStructured/top_down_connections")
+        folder = "thinet"  # "randStructured"
+        df = format_df(f"pruning/{folder}/top_down_connections")
         pt = df.assign(vals=1).pivot_table(values="vals", columns=["Number of connected", "pruning type"], index=["Layer"], aggfunc="count", fill_value=0)
         # print(*[f"{x}\n" for x in zip_longest(pt.columns, product(range(1, 11), [f"Waypoint_{x}" for x in range(15)]))])
         # print([*zip(*pt.columns.values)])
         percentage = [float(x.split("|")[1]) for x in df["pruning type"].unique()]
         percentage.sort(reverse=True)
-        pt = pt.reindex(product(range(1, 11), [f"RandomStructured|{x}" for x in percentage]), axis=1, fill_value=0)
+        pt = pt.reindex(product(range(1, 11), [f"{folder}|{x}" for x in percentage]), axis=1, fill_value=0)
         pt = pt.apply(lambda x: x**0.5)
         pt.columns.names
         pt.index.names
         # plot = plotly.express.imshow(pt, title="Changes over training", x="Number of connected")
 
-        np_test = np.array([pt.loc[:, (slice(None), x)].to_numpy() for x in [f"RandomStructured|{x}" for x in percentage]])
+        np_test = np.array([pt.loc[:, (slice(None), x)].to_numpy() for x in [f"{folder}|{x}" for x in percentage]])
         np_test = np_test/np_test.max()
         # https://stackoverflow.com/a/66054748
         plot = plotly.express.imshow(np_test, facet_col=0)
         plot.for_each_annotation(lambda x: x.update(text=f"{percentage[int(x.text.split('facet_col=')[1])]}"))
         plot.show()
 
-        check_all_statistical_for_top_down("waypointing/top_down_connections", "pruning/randStructured/top_down_connections", lambda x: x["pruning type"] == "Waypoint_12")
+        check_all_statistical_for_top_down("waypointing/top_down_connections", f"pruning/{folder}/top_down_connections", lambda x: x["pruning type"] == "Waypoint_12")

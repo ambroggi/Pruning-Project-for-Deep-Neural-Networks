@@ -1,6 +1,7 @@
 # This is an implementation of BERT_Theseus from the paper: BERT-of-Theseus: Compressing BERT by Progressive Module Replacing (https://arxiv.org/pdf/2002.02925)
 # Implementation made by Alexandre Broggi 2024, I hope I am not making any big mistakes
 # Most of this is just to get things into the format that I want it to be in, only a few lines are actually directly related to the paper
+# Found an official implementation far too late to use: https://github.com/JetRunner/BERT-of-Theseus
 import torch
 
 try:
