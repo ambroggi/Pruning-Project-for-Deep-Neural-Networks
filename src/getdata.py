@@ -485,6 +485,62 @@ class ACIPayloadless(BaseDataset):
             return old_label
 
 
+class tabularBenchmark(BaseDataset):
+    # https://huggingface.co/datasets/inria-soda/tabular-benchmark
+
+    def __init__(self, target_format: str = "CrossEntropy"):
+        super().__init__()
+        self.original_vals = pd.read_csv("hf://datasets/inria-soda/tabular-benchmark/clf_cat/covertype.csv")
+        self.original_vals["label"] = self.original_vals.pop("class").astype(str)
+
+        # Get the classes
+        self.classes = {label: num for num, label in enumerate(self.original_vals["label"].unique())}
+        self.number_of_classes = len(self.classes)
+        self.classes.update({num: label for label, num in self.classes.items()})
+        self.original_vals["label"] = self.original_vals["label"].map(self.classes)
+
+        self.format = target_format
+        # Scalers apparently work well with dataframes? https://stackoverflow.com/a/36475297
+        self.scaler.fit(self.original_vals)
+        self.dat = pd.DataFrame(self.scaler.transform(self.original_vals), columns=self.original_vals.columns)
+        self.dat["label"] = self.original_vals["label"]
+
+        self.number_of_features = len(self.original_vals.columns) - 1
+        self.feature_labels = {feature_num: column_name for feature_num, column_name in enumerate(filter(lambda x: x not in {"label", "index"}, self.original_vals.columns))}
+
+    def __len__(self) -> int:
+        return len(self.original_vals)
+
+    def __getitem__(self, index: int) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
+        if self.scaler_status == 0:
+            print("Warning, no scaler set! please set the scaler!")
+            self.scaler_status = -1
+        item = self.dat.iloc[index]
+        # item.pop("index")
+        tar = item.pop("label")
+        features = torch.Tensor(item.astype(float).to_numpy())
+        target = torch.Tensor(tar)
+        target = target.long()
+        target.requires_grad = False
+        target = self.target_to_one_hot(target)
+        return features, target
+
+    def __getitems__(self, indexes: list[int]) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
+        if self.scaler_status == 0:
+            print("Warning, no scaler set! please set the scaler!")
+            self.scaler_status = -1
+        items = self.dat.iloc[indexes]
+        # items.pop("index")
+        tar = items.pop("label")
+        features = torch.Tensor(items.astype(float).to_numpy())
+        # features.apply_(lambda x: self.scale.transform(x))
+        targets = torch.Tensor(tar.astype(int).to_numpy())
+        targets = targets.long()
+        targets.requires_grad = False
+        targets = self.target_to_one_hot(targets)
+        return features, targets
+
+
 def collate_fn_(items: tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor] | list[tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]]) -> tuple[InputFeatures | torch.Tensor, Targets | torch.Tensor]:
     """
     Function for joining key, feature tuples together in the format that we want it in.
@@ -532,7 +588,7 @@ def get_dataset(config: ConfigObject) -> BaseDataset:
     Returns:
         BaseDataset: The dataset retrieved from the config.
     """
-    datasets: dict[str, torch.utils.data.Dataset] = {"Vulnerability": VulnerabilityDataset, "RandomDummy": RandomDummyDataset, "ACI": ACIIOT2023, "ACI_grouped": partial(ACIIOT2023, grouped=True), "ACI_grouped_full_balance": partial(ACIIOT2023, grouped=True, difference_multiplier=1), "ACI_flows": ACIPayloadless}
+    datasets: dict[str, torch.utils.data.Dataset] = {"Vulnerability": VulnerabilityDataset, "RandomDummy": RandomDummyDataset, "ACI": ACIIOT2023, "ACI_grouped": partial(ACIIOT2023, grouped=True), "ACI_grouped_full_balance": partial(ACIIOT2023, grouped=True, difference_multiplier=1), "ACI_flows": ACIPayloadless, "Tabular": tabularBenchmark}
     data: BaseDataset = datasets[config("DatasetName")](target_format=config("LossFunction", getString=True))
     config("NumClasses", data.number_of_classes)
     config("NumFeatures", data.number_of_features)
