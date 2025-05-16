@@ -164,7 +164,7 @@ def combined_check():
             full_df.loc[(x, row)] = pivot_table.T[row]
     print(full_df)
 
-    full_df.to_csv("results/lrp.csv")
+    full_df.to_csv(os.path.join("results", "lrp.csv"))
     pass
 
 
@@ -200,9 +200,9 @@ def rho(mod: "torch.Module"):
         return new_
 
 
-def select_best_rows(csv_file: str = "results/BigModel(toOntology).csv") -> list[int]:
+def select_best_rows(csv_file: str = os.path.join("results", "BigModel(toOntology).csv")) -> list[int]:
     # Wanted to make this automatic but did not eventually do that.
-    df = pd.read_csv("results/BigModel(toOntology).csv")
+    df = pd.read_csv(os.path.join("results","BigModel(toOntology).csv"))
     # df = df[df["WeightPrunePercent"] == "[0.62, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 1.0]"]
     df = df[df["Notes"] == 0]
     return list(df.index)

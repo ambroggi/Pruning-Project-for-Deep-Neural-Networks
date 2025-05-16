@@ -491,11 +491,11 @@ class tabularBenchmark(BaseDataset):
 
     def __init__(self, target_format: str = "CrossEntropy"):
         super().__init__()
-        if os.path.exists("datasets/huggingface_dataset_cache.csv"):
-            self.original_vals = pd.read_csv("datasets/huggingface_dataset_cache.csv")
+        if os.path.exists(os.path.join("datasets", "huggingface_dataset_cache.csv")):
+            self.original_vals = pd.read_csv(os.path.join("datasets", "huggingface_dataset_cache.csv"))
         else:
             self.original_vals = pd.read_csv("hf://datasets/inria-soda/tabular-benchmark/clf_cat/albert.csv")
-            self.original_vals.to_csv("datasets/huggingface_dataset_cache.csv")
+            self.original_vals.to_csv(os.path.join("datasets", "huggingface_dataset_cache.csv"))
         self.original_vals["label"] = self.original_vals.pop("class").astype(str)
 
         # Get the classes
