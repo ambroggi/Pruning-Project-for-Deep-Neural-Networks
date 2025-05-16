@@ -4,7 +4,7 @@ if __name__ == '__main__':
     # src.torch.autograd.set_detect_anomaly(True)
 
 
-def loopAll(config: src.cfg.ConfigObject):
+def loopAll(config: "src.cfg.ConfigObject"):
     """
     Runs a standard run and then loops through all of the pruning methods, printing the results to results/record.csv unless otherwise specified by the config.
 
@@ -41,7 +41,7 @@ def loopAll(config: src.cfg.ConfigObject):
         src.torch.autograd.set_detect_anomaly(False)
 
 
-def loopAlgSpecific(config: src.cfg.ConfigObject, selected: str):
+def loopAlgSpecific(config: "src.cfg.ConfigObject", selected: str):
     """
     Runs all of the tests for one specific algorithm based on the selected Prune.
     If selected is "0" or "None" it runs a normal run (no pruning) and saves the model that was made.

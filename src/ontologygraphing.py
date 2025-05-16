@@ -2,6 +2,7 @@
 # It creates outputs in a couple of different places, mainly in results/images
 # And it reads in from the csv files kept in results.
 import os
+import sys
 from itertools import repeat, product
 from typing import Literal
 
@@ -123,6 +124,7 @@ def graph_pt(pt: pd.DataFrame, file: None | os.PathLike = None):
 
 
 def generate_table(dataframe: pd.DataFrame, file_name: str, col_name: str = "Number of connected", grouping: str = "Original Run", reduce: Literal["Horizontal", "Vertical"] = ""):
+    print(f"Generating LaTeX table {file_name}")
     # https://stackoverflow.com/a/74025617
     only_original = dataframe.loc[dataframe["pruning type"] == grouping].copy()
     only_original.loc[:, "layer"] = r"\rotatebox{90}{Layer}"
@@ -172,6 +174,7 @@ def generate_table(dataframe: pd.DataFrame, file_name: str, col_name: str = "Num
 
 
 def check_statistical_for_top_down():
+    print("Generating P-value table, original run vs 500 random")
     sample_total = format_df("top_down_connections")
     sample_original = sample_total.loc[sample_total["pruning type"] == "Original Run"].copy()
     pt_sample = sample_original.assign(vals=1).pivot_table(values="vals", columns="Number of connected", index=["Layer", "csv row"], aggfunc="count", fill_value=0)
@@ -285,8 +288,27 @@ def format_df(file_name: str) -> pd.DataFrame:
 
 if __name__ == "__main__":
     # check_all_statistical_for_top_down()
-    if not False:
-        check_statistical_for_top_down()
+    if "-h" in sys.argv:
+        print("""
+              This is the graphing function for the created ontological outputs generated from the file buildontology.py
+              This function did not have enough use to create a proper command line argument page so this is not in the proper format.
+
+              ontologygraphing.py
+              \t- Runs the standard ontology graph generation, to be put in the results/ folder.
+
+              ontologygraphing.py waypointing
+              \t- Runs a comparison over training epochs to examine how the paths change.
+
+              ontologygraphing.py waypointing {folder}
+              \t- Runs a comparison over training epochs within a specific file along the path pruning/{folder}/top_down_connections vs the main waypoint to examine pruning changes the paths.
+
+              -h Displays this help text.
+
+              """, flush=True)
+
+    if len(sys.argv) == 1:
+        print("Running standard ontology graph generation")
+
         for file_ in titles.keys():
             if not os.path.exists(f"results/{file_}.csv"):
                 continue
@@ -294,9 +316,8 @@ if __name__ == "__main__":
             df = format_df(file_)
 
             for x in [y for y in df.columns if "Number" in y]:
-                print(f"{file_} - {x}")
+                print(f"creating file: {file_} - column name {x}")
                 pt = df.pivot_table(values=x, **options[file_], fill_value=0)
-
                 graph_pt(pt, file=file_)
 
             if file_ == "top_down_connections":
@@ -312,8 +333,11 @@ if __name__ == "__main__":
 
             if file_ == "high_nodes":
                 generate_table(df, "high_nodes_total", "Number of meanings for node", "Original Run")
+        check_statistical_for_top_down()
+        print("Generating image for each pruning method. Note: Not saved, just appearing in browser")
         check_all_statistical_for_top_down("top_down_connections", "top_down_connections", lambda x: x["pruning type"] == "Original Run")
-    elif False:
+    elif (len(sys.argv) == 2) and (sys.argv[1] == "waypointing"):
+        print("Running more comparisons based on waypoints taken of the model during training.")
         df = format_df("waypointing/top_down_connections")
         pt = df.assign(vals=1).pivot_table(values="vals", columns=["Number of connected", "pruning type"], index=["Layer"], aggfunc="count", fill_value=0)
         # print(*[f"{x}\n" for x in zip_longest(pt.columns, product(range(1, 11), [f"Waypoint_{x}" for x in range(15)]))])
@@ -335,8 +359,8 @@ if __name__ == "__main__":
         check_all_statistical_for_top_down("waypointing/top_down_connections", "waypointing/top_down_connections", filtering=lambda x: x["pruning type"] == "Waypoint_0")
         check_all_statistical_for_top_down("waypointing/top_down_connections", "waypointing/top_down_connections", filtering=lambda x: x["pruning type"] == "Waypoint_6")
         check_all_statistical_for_top_down("waypointing/top_down_connections", "waypointing/top_down_connections", filtering=lambda x: x["pruning type"] == "Waypoint_12")
-    else:
-        folder = "thinet"  # "randStructured"
+    elif "waypointing":
+        folder = sys.argv[2]  # "thinet"  # "randStructured"
         df = format_df(f"pruning/{folder}/top_down_connections")
         pt = df.assign(vals=1).pivot_table(values="vals", columns=["Number of connected", "pruning type"], index=["Layer"], aggfunc="count", fill_value=0)
         # print(*[f"{x}\n" for x in zip_longest(pt.columns, product(range(1, 11), [f"Waypoint_{x}" for x in range(15)]))])

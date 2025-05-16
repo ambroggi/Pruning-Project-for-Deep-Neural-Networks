@@ -57,6 +57,7 @@ class BaseDataset(torch.utils.data.Dataset):
         self.classes = {}
         self.feature_labels = {}
         self.format = None
+        self.original_vals: pd.DataFrame
 
     def scale(self, scaler: StandardScaler | None = None):
         """Scale the dataset into a normalized form. This new dataset is saved as self.dat
@@ -490,7 +491,11 @@ class tabularBenchmark(BaseDataset):
 
     def __init__(self, target_format: str = "CrossEntropy"):
         super().__init__()
-        self.original_vals = pd.read_csv("hf://datasets/inria-soda/tabular-benchmark/clf_cat/covertype.csv")
+        if os.path.exists("datasets/huggingface_dataset_cache.csv"):
+            self.original_vals = pd.read_csv("datasets/huggingface_dataset_cache.csv")
+        else:
+            self.original_vals = pd.read_csv("hf://datasets/inria-soda/tabular-benchmark/clf_cat/albert.csv")
+            self.original_vals.to_csv("datasets/huggingface_dataset_cache.csv")
         self.original_vals["label"] = self.original_vals.pop("class").astype(str)
 
         # Get the classes

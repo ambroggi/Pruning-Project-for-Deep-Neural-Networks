@@ -13,6 +13,14 @@ if __name__ == "__main__":
     import __init__ as src
     import extramodules
 
+    RESULTS_PATH = "results/"
+    RESULTS_FILE = "BigModel(toOntology).csv"
+
+    if len(sys.argv) > 1 and len(sys.argv[1]) > 0:
+        RESULTS_FILE = sys.argv[1]
+        RESULTS_FILE = RESULTS_FILE.removeprefix(RESULTS_PATH)
+    RESULTS_FILE = "temp.csv"
+
     NNC = rdflib.Namespace("https://github.com/ambroggi/Pruning-Project-for-Deep-Neural-Networks")   # Neural Network Connections (I guess I should have a location that is not example.org?)
     QINFO = prepareQuery("""
         SELECT ?csv_row_number ?csv_name ?pruning_type (COUNT(distinct ?class) as ?num_classes_total) (COUNT(distinct ?tag) as ?num_classes_reduced)
@@ -43,7 +51,7 @@ if __name__ == "__main__":
         } GROUP BY ?n_idx ?l_idx
         ORDER BY desc(?l_idx) ?n_idx
         """, {"ns1": NNC, "rdfs": RDFS})
-    q1_path = "results/top_down_connections.csv"
+    q1_path = f"{RESULTS_PATH}top_down_connections.csv"
 
     Q2 = prepareQuery("""
         # Get "most important" input numbers counts
@@ -64,7 +72,7 @@ if __name__ == "__main__":
         } GROUP BY ?n_idx ?l_idx
         ORDER BY desc(?l_idx) ?n_idx
         """, {"ns1": NNC, "rdfs": RDFS})
-    q2_path = "results/bottom_up_connections.csv"
+    q2_path = f"{RESULTS_PATH}bottom_up_connections.csv"
 
     Q3 = prepareQuery("""
         # Get the count of the highest value tags on the primary paths
@@ -83,7 +91,7 @@ if __name__ == "__main__":
         } GROUP BY ?l_idx ?n_idx
         ORDER BY ?l_idx ?n_idx
         """, {"ns1": NNC, "rdfs": RDFS})
-    q3_path = "results/high_nodes_along_connections.csv"
+    q3_path = f"{RESULTS_PATH}high_nodes_along_connections.csv"
 
     Q4 = prepareQuery("""
         # Get the count of the highest value tags on the primary paths
@@ -104,7 +112,7 @@ if __name__ == "__main__":
         } GROUP BY ?l_idx ?n_idx
         ORDER BY ?l_idx ?n_idx
         """, {"ns1": NNC, "rdfs": RDFS})
-    q4_path = "results/high_nodes_of_reduced_classes.csv"
+    q4_path = f"{RESULTS_PATH}high_nodes_of_reduced_classes.csv"
 
     Q5 = prepareQuery("""
         # Number of high values that are on the same node per layer
@@ -120,7 +128,7 @@ if __name__ == "__main__":
         } GROUP BY ?l_idx ?n_idx
         ORDER BY ?l_idx ?n_idx
         """, {"ns1": NNC, "rdfs": RDFS})
-    q5_path = "results/high_nodes.csv"
+    q5_path = f"{RESULTS_PATH}high_nodes.csv"
 
     # Q6 = prepareUpdate("""
     #     INSERT {
@@ -149,6 +157,10 @@ if __name__ == "__main__":
     #         BIND((?val / ?layer_relevance) AS ?relevance)
     #     }
     #     """, {"ns1": NNC, "rdfs": RDFS})
+else:
+    RESULTS_PATH = ""
+    RESULTS_FILE = ""
+
 
 from typing import Literal, TYPE_CHECKING
 # These should stay the same for each model so I am just going to cache them instead of rebuilding.
@@ -162,7 +174,7 @@ if TYPE_CHECKING:
 
 
 # @cache
-def get_model_and_datasets(csv_row: str | int = "0", csv_file: str = "results/BigModel(toOntology).csv") -> tuple["src.modelstruct.BaseDetectionModel", "src.getdata.ModifiedDataloader", list["src.getdata.ModifiedDataloader"]]:
+def get_model_and_datasets(csv_row: str | int = "0", csv_file: str = f"{RESULTS_PATH}{RESULTS_FILE}") -> tuple["src.modelstruct.BaseDetectionModel", "src.getdata.ModifiedDataloader", list["src.getdata.ModifiedDataloader"]]:
     """
     Loads the model and the dataset from a specific csv file and row.
 
@@ -197,7 +209,7 @@ def get_model_and_datasets(csv_row: str | int = "0", csv_file: str = "results/Bi
     return model, dataset, datasets
 
 
-def get_waypoint_model(model: "src.modelstruct.BaseDetectionModel", waypoint_number: int, csv_row: str | int = "0", csv_file: str = "results/BigModel(OntologyWaypoints).csv"):
+def get_waypoint_model(model: "src.modelstruct.BaseDetectionModel", waypoint_number: int, csv_row: str | int = "0", csv_file: str = f"{RESULTS_PATH}BigModel(OntologyWaypoints).csv"):
     if csv_row.isnumeric():
         csv_row = int(csv_row)
     row = pd.read_csv(csv_file).iloc[csv_row]
@@ -446,7 +458,7 @@ def add_model_high_values(g: "rdflib.Graph", datasets: list["src.getdata.BaseDat
         del avg_hook
 
 
-def build_base_facts(csv_row: str | int = "0", csv_file: str = "results/BigModel(toOntology).csv", random_=False, waypoint=None, save=True, add_prune_info=False) -> tuple[str, "rdflib.Graph"]:
+def build_base_facts(csv_row: str | int = "0", csv_file: str = f"{RESULTS_PATH}{RESULTS_FILE}", random_=False, waypoint=None, save=True, add_prune_info=False) -> tuple[str, "rdflib.Graph"]:
     """
     Generate the model and info without any inference.
 
@@ -481,26 +493,31 @@ def build_base_facts(csv_row: str | int = "0", csv_file: str = "results/BigModel
     g.add((mod, RDF.type, NNC.model))
     g.add((mod, NNC.prune_type, rdflib.Literal(model.cfg("PruningSelection")) if not random_ else rdflib.Literal("RandomConnections")))
     g.add((mod, NNC.csv_row, rdflib.Literal(csv_row)))
+    print("Test1")
 
     count = 0
 
     # setup for the initial input values to relate the first layer to the input vector
     last_layer = setup_input_layer(g, dataset, mod)
 
+    print("Test2")
     for mod_name, module in model.named_modules():
         if "fc" in mod_name and not isinstance(module, extramodules.Nothing_Module):
             layer = add_layer(g, mod_name, count, number_of_nodes=len(module.weight), model=mod)
             add_model_layer(g, layer, module, last_layer, random_)
             last_layer = module.graph_nodes
             count += 1
-
+    print("Test3")
+    
     for attack_type, associated_final_node in enumerate(last_layer):
         m = add_meaning(g, associated_final_node, dataset.classes[attack_type], "By Definition")
         g.add((m, RDF.type, NNC.class_node))
         datasets[attack_type].m = m
 
+    print("Test4")
     add_model_high_values(g=g, datasets=datasets, model=model, random_=random_)
 
+    print("Test5")
     if save:
         g.serialize(filename, encoding="UTF-8")
     print("Created graph")
@@ -577,6 +594,7 @@ def run_really_long_query(file: str = "datasets/model.ttl", graph: "rdflib.Graph
         print("Saved fifth query results")
 
     # g.update(Q6)
+    del g
 
 
 def make_pivot_table_from_top_down_connections() -> "pd.DataFrame":
@@ -586,15 +604,15 @@ def make_pivot_table_from_top_down_connections() -> "pd.DataFrame":
     Returns:
         pd.DataFrame: the pivot table generated.
     """
-    df: pd.DataFrame = pd.read_csv("results/top_down_connections.csv", header=False, columns=["Layer", "Extra_info", "Num_connections"])
+    df: pd.DataFrame = pd.read_csv(f"{RESULTS_PATH}top_down_connections.csv", header=False, columns=["Layer", "Extra_info", "Num_connections"])
 
     table = df.pivot_table(values="Num_connections", index="Layer", columns="Num_connections", aggfunc="count")
 
-    table.to_latex("results/layer_connections.txt")
+    table.to_latex(f"{RESULTS_PATH}layer_connections.txt")
     return table
 
 
-def select_best_rows(csv_file: str = "results/BigModel(toOntology).csv", original_row: None | int = None) -> list[int]:
+def select_best_rows(csv_file: str = f"{RESULTS_PATH}{RESULTS_FILE}", original_row: None | int = None) -> list[int]:
     # Wanted to make this automatic but did not eventually do that.
     df = pd.read_csv(csv_file)
     # df = df[df["WeightPrunePercent"] == "[0.62, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 0.56, 1.0]"]
@@ -607,14 +625,19 @@ def select_best_rows(csv_file: str = "results/BigModel(toOntology).csv", origina
 
 
 def run_standard_tests():
+    for x in [q1_path, q2_path, q3_path, q4_path, q5_path]:
+        if os.path.exists(x):
+            os.remove(x)
     for x in select_best_rows():
         print(f"running for csv row {x}")
-        if not os.path.exists(f"datasets/ontologies/model(BigModel(toOntology).csv {x}).ttl"):
+        # Checking for pre-created ontology
+        if not os.path.exists(f"datasets/ontologies/model({RESULTS_FILE} {x}).ttl"):
             path, g = build_base_facts(random_=False, csv_row=f"{x}")
-            run_really_long_query(f"datasets/ontologies/model(BigModel(toOntology).csv {x}).ttl", graph=g)
+            run_really_long_query(f"datasets/ontologies/model({RESULTS_FILE} {x}).ttl", graph=g)
+            del g
         else:
-            pass
-            run_really_long_query(f"datasets/ontologies/model(BigModel(toOntology).csv {x}).ttl")
+            print(f"Loading the file: datasets/ontologies/model({RESULTS_FILE} {x}).ttl")
+            run_really_long_query(f"datasets/ontologies/model({RESULTS_FILE} {x}).ttl")
 
 
 def run_standard_random_baseline_tests():
@@ -630,38 +653,40 @@ def run_standard_random_baseline_tests():
 
 def run_waypoint_tests():
     global q1_path, Q2, q3_path, Q4, Q5
-    q1_path = "results/waypointing/top_down_connections.csv"
+    q1_path = f"{RESULTS_PATH}waypointing/top_down_connections.csv"
     Q2 = None
-    q3_path = "results/waypointing/high_nodes_along_connections.csv"
+    q3_path = f"{RESULTS_PATH}waypointing/high_nodes_along_connections.csv"
     Q4 = None
     Q5 = None
     print(repr(sys.argv[1]))
     for x in range(13):
         print(f"Starting {x} on row {repr(sys.argv[1])}")
-        path, g = build_base_facts(csv_file="results/BigModel(OntologyWaypoints).csv", random_=False, csv_row=f"{sys.argv[1]}", waypoint=x, save=False)
+        path, g = build_base_facts(csv_file=f"{RESULTS_PATH}BigModel(OntologyWaypoints).csv", random_=False, csv_row=f"{sys.argv[1]}", waypoint=x, save=False)
         run_really_long_query("", graph=g)
 
 
 def run_pruning_tests():
     global q1_path, Q2, q3_path, Q4, Q5
-    q1_path = "results/pruning/top_down_connections.csv"
+    q1_path = f"{RESULTS_PATH}pruning/top_down_connections.csv"
     Q2 = None
-    q3_path = "results/pruning/high_nodes_along_connections.csv"
+    q3_path = f"{RESULTS_PATH}pruning/high_nodes_along_connections.csv"
     Q4 = None
     Q5 = None
     print(repr(sys.argv[1]))
-    for x in select_best_rows("results/BigModel(OntologyPruning).csv", original_row=sys.argv[1]):
+    for x in select_best_rows(f"{RESULTS_PATH}BigModel(OntologyPruning).csv", original_row=sys.argv[1]):
         print(f"Starting {x} on original row {repr(sys.argv[1])}")
-        path, g = build_base_facts(csv_file="results/BigModel(OntologyPruning).csv", random_=False, csv_row=f"{x}", save=False, add_prune_info=True)
+        path, g = build_base_facts(csv_file=f"{RESULTS_PATH}BigModel(OntologyPruning).csv", random_=False, csv_row=f"{x}", save=False, add_prune_info=True)
         run_really_long_query("", graph=g)
         del g
 
 
 if __name__ == "__main__":
-    if not not False:
+    if True:
         run_standard_tests()
         run_standard_random_baseline_tests()
     elif False:
+        print("Building ontologies and running the queries based on the waypoint columns on the line of argv $1")
         run_waypoint_tests()
     else:
+        print("Building ontologies  and running the queries on the models that were created by pruning the row argv $1. So it runs on the pruned models.")
         run_pruning_tests()

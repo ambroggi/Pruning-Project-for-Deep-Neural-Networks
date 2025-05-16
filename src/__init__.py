@@ -1,6 +1,7 @@
 # import Imported_Code.admm_joint_pruning
 import gc
 import time
+import sys
 
 import psutil
 import torch
@@ -88,7 +89,8 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
         try:
             kwargs = types_of_tests[PruningSelection](**kwargs)
         except RuntimeError as e:
-            print(f"An error has occurred with trying to run {PruningSelection}:\n\t{e}")
+            # raise e
+            print(f"An error has occurred with trying to run {PruningSelection}:\n\t{e}", file=sys.stderr)
             return {"config": kwargs["config"], "data": kwargs["data"]}
         assert "PruningSelection" not in kwargs  # Just a test to make sure I didn't accidentally add this anywhere
         model = kwargs["model"]

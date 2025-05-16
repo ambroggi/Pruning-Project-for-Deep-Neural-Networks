@@ -1,5 +1,5 @@
 # This file is supposed to be all of the different algorithms that can be run
-
+import sys
 import math
 
 import torch
@@ -164,8 +164,14 @@ def admm_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, *
     # Expects model to have log_softmax applied (observed from the model used in the code)
     remover = model.register_forward_hook(lambda module, args, output: torch.nn.functional.log_softmax(output, dim=1))
 
-    # Performs the pruning method
-    Imported_Code.prune_admm(wrapped_cfg, model, config("Device"), model.dataloader, model.validation_dataloader, optimizer)
+    try:
+        # Performs the pruning method
+        Imported_Code.prune_admm(wrapped_cfg, model, config("Device"), model.dataloader, model.validation_dataloader, optimizer)
+    except RuntimeError as e:
+        if "selected index k out of range" in e.args[0]:
+            # e.add_note("ADMM testing does not allow fewer than 5 classes.")
+            # raise e
+            print("Warning: ADMM internal testing does not allow fewer than 5 classes. But the model still exists, so continuing", file=sys.stderr)
 
     # Applies the pruning to the base model, NOTE: MIGHT CAUSE ISSUES WITH "Imported_Code.remove_admm_v_layers"
     Imported_Code.apply_filter(model, config("Device"), wrapped_cfg)

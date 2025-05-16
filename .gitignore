@@ -213,3 +213,4 @@ data/
 *.pcap
 *.out
 /datasets/Timesheets
+*cache.csv

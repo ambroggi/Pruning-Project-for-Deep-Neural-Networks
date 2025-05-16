@@ -1,4 +1,5 @@
 import os
+import sys
 
 import numpy as np
 import pandas as pd
@@ -239,16 +240,27 @@ def make_table(pt1, pt2):
 
 
 if __name__ == "__main__":
-    df_small, pt_small = read_results("results/SmallModel(v0.131).csv")
-    df, pt = read_results("results/BigModel(v0.131).csv")
+    default_path = "results/BigModel(v0.131).csv"
+    default_path2 = "results/SmallModel(v0.131).csv"
+    if len(sys.argv) > 1 and len(sys.argv[1]) > 0:
+        default_path = sys.argv[1]
+        default_path2 = None
+    if len(sys.argv) > 2 and len(sys.argv[2]) > 0:
+        default_path2 = sys.argv[2]
 
-    make_table(pt_small, pt)
+    df1, pt1 = read_results(default_path)
+    if default_path2:
+        df2, pt2 = read_results(default_path2)
+
+        make_table(pt2, pt1)
 
     if not False:  # Just for fun, every time I disable this I am just going to add another "not" here (And then I never edited it again)
         for x in scatterpairs_scaled:
-            graph_pt(pt, x, file=f"results/images/Big-scaled-{x[0]}-{x[1]}.png")
-            graph_pt(pt_small, x, file=f"results/images/Small-scaled-{x[0]}-{x[1]}.png")
+            graph_pt(pt1, x, file=f"results/images/first-scaled-{x[0]}-{x[1]}.png")
+            if default_path2:
+                graph_pt(pt2, x, file=f"results/images/second-scaled-{x[0]}-{x[1]}.png")
             # graph_pt(pt, x)
         for x in scatterpairs_true:
-            graph_pt(pt, x, file=f"results/images/Big-{x[0]}-{x[1]}.png")
-            graph_pt(pt_small, x, file=f"results/images/Small-{x[0]}-{x[1]}.png")
+            graph_pt(pt1, x, file=f"results/images/first-{x[0]}-{x[1]}.png")
+            if default_path2:
+                graph_pt(pt2, x, file=f"results/images/second-{x[0]}-{x[1]}.png")
