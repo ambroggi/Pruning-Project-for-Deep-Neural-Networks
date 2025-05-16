@@ -106,7 +106,7 @@ class auxiliary_module(torch.nn.Module):
 
         self.intermediate = torch.nn.Sequential(
             torch.nn.Conv1d(expected_tensor_example.shape[1], expected_tensor_example.shape[2], convkernel, stride=2, padding=1),
-            torch.nn.Conv1d(expected_tensor_example.shape[2], expected_tensor_example.shape[1], convkernel, stride=2, padding=1),
+            torch.nn.Conv1d(expected_tensor_example.shape[2], expected_tensor_example.shape[1], convkernel, stride=2, padding=2),
             torch.nn.MaxPool1d(maxpool),
             torch.nn.Flatten(),
         )
