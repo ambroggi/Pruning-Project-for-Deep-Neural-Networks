@@ -71,9 +71,9 @@ class ModelFunctions():
         Returns:
             None | tqdm.tqdm: None if no progress bar was created, otherwise a tqdm object that can be iterated through.
         """
-        if os.path.exists("results/progressbar.txt") and self.make_progressbar:
+        if os.path.exists(os.path.join("results", "progressbar.txt")) and self.make_progressbar:
             # Write into the progressbar file, but this is a bit complicated because we want to keep overwriting the same line so that it shows progress correctly.
-            self.progress_file = open("results/progressbar.txt", mode="r+")  # This might be useful so I am putting it here: https://stackoverflow.com/a/72412819
+            self.progress_file = open(os.path.join("results", "progressbar.txt"), mode="r+")  # This might be useful so I am putting it here: https://stackoverflow.com/a/72412819
             self.progress_file.seek(0, 2)
             progress_pos = self.progress_file.tell()
             progress_bar = tqdm.tqdm(range(epochs), desc=f"Fit \t|{self.cfg('PruningSelection')}| \tPID:{os.getpid()}\t", total=epochs, file=self.progress_file, ascii=True)
@@ -486,9 +486,9 @@ class ModelFunctions():
             else:
                 self.cfg("SaveLocation", name if ".pt" in name else f"{name}.pt")
             logger(logger_column_, self.cfg("SaveLocation"))
-            torch.save(self.state_dict(), "savedModels/"+self.cfg("SaveLocation"))
+            torch.save(self.state_dict(), os.path.join("savedModels", self.cfg("SaveLocation")))
         else:
             # This is if you want an extra save (making it for waypoints)
             name = f"ModelStateDict{logger_column if logger_column is not None else ''}{time.time()}.pt" if name is None else (name if ".pt" in name else f"{name}.pt")
             logger(logger_column_, name)
-            torch.save(self.state_dict(), "savedModels/"+name)
+            torch.save(self.state_dict(), os.path.join("savedModels", name))

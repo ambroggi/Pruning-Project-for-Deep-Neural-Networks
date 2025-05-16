@@ -17,9 +17,9 @@ except ImportError as e:
 
 
 class ExperimentLineManager():
-    def __init__(self, pth: str | os.PathLike = "results/record.csv", cfg: ConfigObject | None = None):
+    def __init__(self, pth: str | os.PathLike = os.path.join("results", "record.csv"), cfg: ConfigObject | None = None):
         self.pth = pth
-        if pth == "results/record.csv" and cfg is not None and cfg("ResultsPath") is not None:
+        if pth == os.path.join("results", "record.csv") and cfg is not None and cfg("ResultsPath") is not None:
             self.pth = cfg("ResultsPath")
 
         # Check that config exists
@@ -115,7 +115,7 @@ class ExperimentLineManager():
             self(name, val)
 
 
-def load_cfg(pth: str | os.PathLike = "results/record.csv", row_number=-1, config: ConfigObject | None = None, structure_only=True) -> ConfigObject:
+def load_cfg(pth: str | os.PathLike = os.path.join("results", "record.csv"), row_number=-1, config: ConfigObject | None = None, structure_only=True) -> ConfigObject:
     """
     Loads the config from a given history row. This sets the config up so that the specific model can be loaded back.
     If structure_only is true, it only loads the structure config values leaving the rest unchanged, otherwise it tries to overwrite the whole config
@@ -146,7 +146,7 @@ def load_cfg(pth: str | os.PathLike = "results/record.csv", row_number=-1, confi
     return config, row_number
 
 
-def history_row(pth: str | os.PathLike = "results/record.csv", row_number=-1) -> tuple[pd.Series, int]:
+def history_row(pth: str | os.PathLike = os.path.join("results", "record.csv"), row_number=-1) -> tuple[pd.Series, int]:
     """
     Reads a given row from the history/log file and returns it as a tuple of a pandas series and an integer where the integer is the row index number.
     Note that this is a slow function because it both uses flock to make sure the file is not being edited at the time and it reads in the whole file before selecting the specific row.

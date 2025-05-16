@@ -1,3 +1,5 @@
+import os
+
 import torch
 import torch.nn.utils.prune
 
@@ -55,7 +57,7 @@ class BaseDetectionModel(torch.nn.Module, modelfunctions.ModelFunctions):
         Loads the model from the --FromSaveLocation config value assuming that it was written to. This overrides the current model and thus might cause inaccuracies in the output log
         """
         if self.cfg("FromSaveLocation") is not None and len(self.cfg("FromSaveLocation")) != 0:
-            self.load_model_state_dict_with_structure(torch.load("savedModels/"+self.cfg("FromSaveLocation"), map_location=self.cfg("Device")))
+            self.load_model_state_dict_with_structure(torch.load(os.path.join("savedModels", self.cfg("FromSaveLocation")), map_location=self.cfg("Device")))
 
 
 class SimpleCNNModel(BaseDetectionModel):

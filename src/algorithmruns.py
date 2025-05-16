@@ -1,5 +1,6 @@
 # This file is supposed to be all of the different algorithms that can be run
 import sys
+import os
 import math
 
 import torch
@@ -364,7 +365,7 @@ def DAIS_test(model: modelstruct.BaseDetectionModel, config: cfg.ConfigObject, l
     model.epoch_callbacks.extend([a.callback_fn for a in alphas])
 
     config("PruningSelection", "DAIS_training")
-    logger = filemanagement.ExperimentLineManager(cfg=config, pth="results/extra.csv")
+    logger = filemanagement.ExperimentLineManager(cfg=config, pth=os.path.join("results", "extra.csv"))
     # This is just adding things to the log
     model.epoch_callbacks.append(lambda x: ([logger(a, b, can_overwrite=True) for a, b in x.items()]))
 

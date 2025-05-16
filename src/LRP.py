@@ -1,5 +1,5 @@
 # Basing this off of https://git.tu-berlin.de/gmontavon/lrp-tutorial and http://www.zhyyyj.com/attachment/2021-6-17/cc5m64oxc0n79lslq5.pdf
-
+import os
 if __name__ == "__main__":
     import pandas as pd
     import rdflib
@@ -19,7 +19,7 @@ datasets = None
 compiling_multiple = dict()
 
 
-def get_model_and_datasets(csv_row: str | int = "0", csv_file: str = "results/BigModel(toOntology).csv") -> tuple["src.modelstruct.BaseDetectionModel", "src.getdata.ModifiedDataloader", list["src.getdata.ModifiedDataloader"]]:
+def get_model_and_datasets(csv_row: str | int = "0", csv_file: str = os.path.join("results", "BigModel(toOntology).csv")) -> tuple["src.modelstruct.BaseDetectionModel", "src.getdata.ModifiedDataloader", list["src.getdata.ModifiedDataloader"]]:
     """
     Loads the model and the dataset from a specific csv file and row.
 
@@ -54,7 +54,7 @@ def get_model_and_datasets(csv_row: str | int = "0", csv_file: str = "results/Bi
     return model, dataset, datasets
 
 
-def build_base_facts(csv_row: str | int = "0", csv_file: str = "results/BigModel(toOntology).csv", random_=False) -> tuple[str, "rdflib.Graph"]:
+def build_base_facts(csv_row: str | int = "0", csv_file: str = os.path.join("results", "BigModel(toOntology).csv"), random_=False) -> tuple[str, "rdflib.Graph"]:
     # First set up the model
     model, dataset, datasets = get_model_and_datasets(csv_row, csv_file)
 

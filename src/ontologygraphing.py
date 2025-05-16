@@ -118,7 +118,7 @@ def graph_pt(pt: pd.DataFrame, file: None | os.PathLike = None):
 
     if file is not None:
         plot.update({"layout": {"title": {"xanchor": "right", "x": 0.9}}})
-        plot.write_image(f"results/images/{file}.png", width=1400, height=500, scale=2)
+        plot.write_image(os.path.join("results", "images", f"{file}.png"), width=1400, height=500, scale=2)
     else:
         plot.show()
 
@@ -170,7 +170,7 @@ def generate_table(dataframe: pd.DataFrame, file_name: str, col_name: str = "Num
     # print(pt)
     st = pt.style
     st.background_gradient(cmap="inferno", vmin=0, vmax=max(pt.max()))
-    st.to_latex(f"results/images/{file_name}.txt", convert_css=True, hrules=True)
+    st.to_latex(os.path.join("results", "images", f"{file_name}.txt"), convert_css=True, hrules=True)
 
 
 def check_statistical_for_top_down():
@@ -181,7 +181,7 @@ def check_statistical_for_top_down():
     cols = pt_sample.columns.union(range(1, 11), sort=True)
     pt_sample = pt_sample.reindex(cols, axis=1, fill_value=0)
 
-    distribution = format_df("500-Random/top_down_connections")
+    distribution = format_df(os.path.join("500-Random", "top_down_connections"))
     pt_dist = distribution.assign(vals=1).pivot_table(values="vals", columns="Number of connected", index=["Layer", "csv row"], aggfunc="count", fill_value=0)
     cols = pt_dist.columns.union(range(1, 11), sort=True)
     pt_dist = pt_dist.reindex(cols, axis=1, fill_value=0)
@@ -204,14 +204,14 @@ def check_statistical_for_top_down():
     st = pt_pvalue.style
     st.background_gradient(cmap="magma_r", vmin=0, vmax=1)
     st.format(precision=2)
-    st.to_latex("results/images/top_down_pvalues.txt", convert_css=True, hrules=True)
+    st.to_latex(os.path.join("results", "images", "top_down_pvalues.txt"), convert_css=True, hrules=True)
 
     generate_table(distribution, "top_down_table_rand_500", "Number of connected", "Random Ontology")
     # https://stackoverflow.com/a/50209193
     # print(stats.ks_2samp(pt_dist[1], pt_sample[1]))
 
 
-def check_all_statistical_for_top_down(distribution_file="500-Random/top_down_connections", sample_file="top_down_connections", filtering=lambda x: x["pruning type"] == "RandomConnections"):
+def check_all_statistical_for_top_down(distribution_file=os.path.join("500-Random", "top_down_connections"), sample_file="top_down_connections", filtering=lambda x: x["pruning type"] == "RandomConnections"):
     distribution = format_df(distribution_file)
     distribution: pd.DataFrame = distribution[filtering(distribution)]
     pt_dist = distribution.assign(vals=1).pivot_table(values="vals", columns="Number of connected", index=["Layer", "csv row"], aggfunc="count", fill_value=0)
@@ -266,7 +266,7 @@ def check_all_statistical_for_top_down(distribution_file="500-Random/top_down_co
 
 
 def format_df(file_name: str) -> pd.DataFrame:
-    df = pd.read_csv(f"results/{file_name}.csv", header=1, sep=",", engine='python')
+    df = pd.read_csv(os.path.join("results", f"{file_name}.csv"), header=1, sep=",", engine='python')
     df.loc[:, "pruning type"] = df["pruning type"].fillna("Normal_Run")
     df.loc[:, "csv row"] = df["csv row"].astype(str)
     df = df[df["csv row"].apply(str.isnumeric)]
@@ -310,7 +310,7 @@ if __name__ == "__main__":
         print("Running standard ontology graph generation")
 
         for file_ in titles.keys():
-            if not os.path.exists(f"results/{file_}.csv"):
+            if not os.path.exists(os.path.join("results", f"{file_}.csv")):
                 continue
 
             df = format_df(file_)
@@ -338,7 +338,7 @@ if __name__ == "__main__":
         check_all_statistical_for_top_down("top_down_connections", "top_down_connections", lambda x: x["pruning type"] == "Original Run")
     elif (len(sys.argv) == 2) and (sys.argv[1] == "waypointing"):
         print("Running more comparisons based on waypoints taken of the model during training.")
-        df = format_df("waypointing/top_down_connections")
+        df = format_df(os.path.join("waypointing", "top_down_connections"))
         pt = df.assign(vals=1).pivot_table(values="vals", columns=["Number of connected", "pruning type"], index=["Layer"], aggfunc="count", fill_value=0)
         # print(*[f"{x}\n" for x in zip_longest(pt.columns, product(range(1, 11), [f"Waypoint_{x}" for x in range(15)]))])
         # print([*zip(*pt.columns.values)])
@@ -353,15 +353,16 @@ if __name__ == "__main__":
         # https://stackoverflow.com/a/66054748
         plot = plotly.express.imshow(np_test, facet_col=0, facet_col_wrap=7)
         plot.for_each_annotation(lambda x: x.update(text=f"Epoch {4*int(x.text.split('facet_col=')[1])}"))
-        plot.write_image("results/images/top_down_connections_sqr.png", width=1000, height=800, scale=2)
+        plot.write_image(os.path.join("results", "images", "top_down_connections_sqr.png"), width=1000, height=800, scale=2)
         # plot.show()
 
-        check_all_statistical_for_top_down("waypointing/top_down_connections", "waypointing/top_down_connections", filtering=lambda x: x["pruning type"] == "Waypoint_0")
-        check_all_statistical_for_top_down("waypointing/top_down_connections", "waypointing/top_down_connections", filtering=lambda x: x["pruning type"] == "Waypoint_6")
-        check_all_statistical_for_top_down("waypointing/top_down_connections", "waypointing/top_down_connections", filtering=lambda x: x["pruning type"] == "Waypoint_12")
+        path_value = os.path.join("waypointing", "top_down_connections")
+        check_all_statistical_for_top_down(path_value, path_value, filtering=lambda x: x["pruning type"] == "Waypoint_0")
+        check_all_statistical_for_top_down(path_value, path_value, filtering=lambda x: x["pruning type"] == "Waypoint_6")
+        check_all_statistical_for_top_down(path_value, path_value, filtering=lambda x: x["pruning type"] == "Waypoint_12")
     elif "waypointing":
         folder = sys.argv[2]  # "thinet"  # "randStructured"
-        df = format_df(f"pruning/{folder}/top_down_connections")
+        df = format_df(os.path.join("pruning", folder, "top_down_connections"))
         pt = df.assign(vals=1).pivot_table(values="vals", columns=["Number of connected", "pruning type"], index=["Layer"], aggfunc="count", fill_value=0)
         # print(*[f"{x}\n" for x in zip_longest(pt.columns, product(range(1, 11), [f"Waypoint_{x}" for x in range(15)]))])
         # print([*zip(*pt.columns.values)])
@@ -380,4 +381,4 @@ if __name__ == "__main__":
         plot.for_each_annotation(lambda x: x.update(text=f"{percentage[int(x.text.split('facet_col=')[1])]}"))
         plot.show()
 
-        check_all_statistical_for_top_down("waypointing/top_down_connections", f"pruning/{folder}/top_down_connections", lambda x: x["pruning type"] == "Waypoint_12")
+        check_all_statistical_for_top_down(os.path.join("waypointing", "top_down_connections"), os.path.join("pruning", folder, "top_down_connections"), lambda x: x["pruning type"] == "Waypoint_12")

@@ -1,4 +1,5 @@
 import sys
+import os
 from typing import TYPE_CHECKING
 
 import torch
@@ -12,12 +13,13 @@ from .helperFunctions import (ConfigCompatibilityWrapper, forward_hook,
                               set_layer_by_state)
 
 try:
-    sys.path.append("src/Imported_Code/admm_joint_pruning/joint_pruning")
+    added_path = os.path.join("src", "Imported_Code", "admm_joint_pruning", "joint_pruning")
+    sys.path.append(added_path)
     from .admm_joint_pruning.joint_pruning.main import (apply_filter,
                                                         apply_l1_prune,
                                                         apply_prune,
                                                         prune_admm)
-    sys.path.remove("src/Imported_Code/admm_joint_pruning/joint_pruning")
+    sys.path.remove(added_path)
 
     from .ADMM_extra import add_admm_v_layers, remove_admm_v_layers
     ADMM_EXISTS = True

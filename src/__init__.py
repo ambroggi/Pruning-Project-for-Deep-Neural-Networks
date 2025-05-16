@@ -2,6 +2,7 @@
 import gc
 import time
 import sys
+import os
 
 import psutil
 import torch
@@ -216,7 +217,7 @@ def standardLoad(index: None | int = None, existing_config: cfg.ConfigObject | N
     config, index = filemanagement.load_cfg(**load_kwargs)
 
     if config("SaveLocation") is not None:  # prior row actually has a model to load.
-        modelStateDict = torch.load("savedModels/"+config("SaveLocation"), map_location=config("Device"))
+        modelStateDict = torch.load(os.path.join("savedModels", config("SaveLocation")), map_location=config("Device"))
         config("FromSaveLocation", config("SaveLocation"))
         config("SaveLocation", "None")
         return {"config": config, "modelStateDict": modelStateDict, "prior_logger_row": index}

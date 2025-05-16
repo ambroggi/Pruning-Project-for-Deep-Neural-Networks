@@ -98,7 +98,7 @@ def error_bar(x: list[float]) -> float:
     return 1.960*np.std(x)/(len(x)**0.5)
 
 
-def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.DataFrame, pd.DataFrame]:
+def read_results(path: str | os.PathLike = os.path.join("results", "record.csv")) -> tuple[pd.DataFrame, pd.DataFrame]:
     df = pd.read_csv(path, index_col=0)
 
     # Strip the true version number out of the version id
@@ -159,7 +159,7 @@ def read_results(path: str | os.PathLike = "results/record.csv") -> tuple[pd.Dat
 
     pt = df.pivot_table(values=pivot_table_rows, index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc=["mean", error_bar, "std"]).sort_index(level=0, sort_remaining=False, key=lambda x: x.map(original_run_top_sort_func))
     # print(df.head())
-    df.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune", "Memory", "CudaMemory", "GarbageCollectionSizeTotal", "TimeForPruneAndRetrain"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc="count").sort_index(level=0, sort_remaining=False, key=lambda x: x.map(original_run_top_sort_func)).to_csv(f"results/images/debug_{os.path.basename(path)}")
+    df.pivot_table(values=["val_f1_score_macro", "val_f1_score_weight", "parameters", "actual_parameters", "TimeForRun", "TimeForPrune", "Memory", "CudaMemory", "GarbageCollectionSizeTotal", "TimeForPruneAndRetrain"], index=["PruningSelection", "WeightPrunePercent"], columns=[], aggfunc="count").sort_index(level=0, sort_remaining=False, key=lambda x: x.map(original_run_top_sort_func)).to_csv(os.path.join("results", "images", f"debug_{os.path.basename(path)}"))
     return df, pt
 
 
@@ -236,12 +236,12 @@ def make_table(pt1, pt2):
     # https://stackoverflow.com/a/57152529
     # styler.background_gradient(cmap=matplotlib.colormaps['Greys'], axis=1)
 
-    styler.to_latex("results/images/table.txt", environment="longtable", clines="skip-last;data", hrules=True)  # , longtable=True
+    styler.to_latex(os.path.join("results", "images", "table.txt"), environment="longtable", clines="skip-last;data", hrules=True)  # , longtable=True
 
 
 if __name__ == "__main__":
-    default_path = "results/BigModel(v0.131).csv"
-    default_path2 = "results/SmallModel(v0.131).csv"
+    default_path = os.path.join("results", "BigModel(v0.131).csv")
+    default_path2 = os.path.join("results", "SmallModel(v0.131).csv")
     if len(sys.argv) > 1 and len(sys.argv[1]) > 0:
         default_path = sys.argv[1]
         default_path2 = None
@@ -256,11 +256,11 @@ if __name__ == "__main__":
 
     if not False:  # Just for fun, every time I disable this I am just going to add another "not" here (And then I never edited it again)
         for x in scatterpairs_scaled:
-            graph_pt(pt1, x, file=f"results/images/first-scaled-{x[0]}-{x[1]}.png")
+            graph_pt(pt1, x, file=os.path.join("results", "images", f"first-scaled-{x[0]}-{x[1]}.png"))
             if default_path2:
-                graph_pt(pt2, x, file=f"results/images/second-scaled-{x[0]}-{x[1]}.png")
+                graph_pt(pt2, x, file=os.path.join("results", "images", f"second-scaled-{x[0]}-{x[1]}.png"))
             # graph_pt(pt, x)
         for x in scatterpairs_true:
-            graph_pt(pt1, x, file=f"results/images/first-{x[0]}-{x[1]}.png")
+            graph_pt(pt1, x, file=os.path.join("results", "images", "first-{x[0]}-{x[1]}.png"))
             if default_path2:
-                graph_pt(pt2, x, file=f"results/images/second-{x[0]}-{x[1]}.png")
+                graph_pt(pt2, x, file=os.path.join("results", "images", "second-{x[0]}-{x[1]}.png"))
