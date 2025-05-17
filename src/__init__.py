@@ -23,12 +23,12 @@ except ImportError as e:
 # This may be useful: https://stackoverflow.com/a/53593326
 
 
-def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypoints: bool = False, data: getdata.torch.utils.data.DataLoader | None = None, model: modelstruct.BaseDetectionModel | None = None, PruningSelection: str | None = None, from_savepoint: None | int = None, **kwargs) -> dict[str, any]:
+def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypoints: bool = False, data: getdata.torch.utils.data.DataLoader | None = None, model: modelstruct.BaseDetectionModel | None = None, PruningSelection: str | None = None, from_savepoint: None | int = None, **kwargs) -> dict[str, object]:
     """This is the main running function that is used to both train the models and run different algorithms. It calls the specific algorithms using PruningSelection before training (or retraining if using an algorithm).
     It does assume that any model you set PruningSelection for is already trained.
 
     Args:
-        config (cfg.ConfigObject | bool | None, optional): The config object to attach to the model. Defaults to None.
+        config (cfg.ConfigObject | bool | None, optional): The config object to attach to the model, False means to generate a new config, True is equivalent to None. Defaults to None.
         save_epoch_waypoints (bool, optional): A boolean to check if you want to save the model at 5 intermediate points during training. Defaults to False.
         data (getdata.torch.utils.data.DataLoader | None, optional): This is a dataloader to use with the model, automatically splits it into train/test. (generates one from config if none is given) Defaults to None.
         model (modelstruct.BaseDetectionModel | None, optional): This is the model you want to use assuming you don't want to use a config default one. Defaults to None.
@@ -52,7 +52,7 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
     # Priority: 1) savepoint, 2) config being None (None meaning not set yet), 3) config being False (false being do not set config), 4) normal config
     if isinstance(from_savepoint, int):
         savepoint = standardLoad(from_savepoint)
-        config = savepoint.pop("config")
+        config: cfg.ConfigObject = savepoint.pop("config")
         kwargs = kwargs | savepoint
         # Make sure to use the new versions of args (by regenerating them from the new config)
         data = None
@@ -62,7 +62,7 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
     elif not config:
         config = cfg.ConfigObject()
     else:
-        config = config.clone()
+        config: cfg.ConfigObject = config.clone()
 
     if data is None:
         data = getdata.get_dataloader(config)
@@ -194,7 +194,7 @@ def standardLoad(index: None | int = None, existing_config: cfg.ConfigObject | N
     """
 
     # Set up the kwargs for the load_cfg function because passing None does not get the default value
-    load_kwargs = {"config": existing_config}
+    load_kwargs: dict[str, object] = {"config": existing_config}
     load_kwargs = load_kwargs | extra_loading_kwargs
     if index is not None:
         load_kwargs["row_number"] = index

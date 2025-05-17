@@ -418,6 +418,7 @@ def add_model_high_values(g: "rdflib.Graph", datasets: list["src.getdata.BaseDat
         remover = torch.nn.modules.module.register_module_forward_hook(avg_hook)
         # Get the average correct guesses
         s = 0
+        # print(len(dl))
         for batch in dl:
             model_out = model(batch[0])
             s += sum(torch.argmax(model_out, dim=1) == class_num).item()

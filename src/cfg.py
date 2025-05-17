@@ -1,7 +1,7 @@
 import argparse
 import os
 import sys
-from typing import Literal
+from typing import Literal, Any
 
 import git
 import numpy
@@ -34,7 +34,7 @@ def get_version() -> str:
 
         return f"v{best_tag[0]}.{commit_count-best_tag[1]} - {commit_count}"
     except git.InvalidGitRepositoryError:
-        "0.0 - 0"
+        return "0.0 - 0"
 
 
 class ConfigObject():
@@ -42,7 +42,7 @@ class ConfigObject():
     # The typeChart is supposed to define the possible values of a row
     # typeChart[""] is supposed to convert the type (3rd item in self.parameters) into an actual type.
     # The rest are supposed to list out the possible values of the associated parameter, and any translations from strings that are needed
-    _typeChart: dict[str, dict[str, object | str]] = {
+    _typeChart: dict[str, dict[str | torch.device, type | tuple[type, type | None] | str | torch.device]] = {
         "": {"str": str, "int": int, "float": float, "strl": (str, list), "strdevice": (str, torch.device), "strn": (str, None)},
         "Optimizer": {"Adam": torch.optim.Adam, "SGD": torch.optim.SGD, "RMS": torch.optim.RMSprop},
         "LossFunction": {"MSE": torch.nn.MSELoss, "CrossEntropy": torch.nn.CrossEntropyLoss},
@@ -51,7 +51,7 @@ class ConfigObject():
         "TheseusRequiredGrads": {"All": "All", "Nearby": "Nearby", "New": "New"},
         "Device": {"cpu": torch.device("cpu"), "cuda": torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"), torch.device("cpu"): torch.device("cpu"), torch.device("cuda"): torch.device("cuda")}
         }
-    _parameters: dict[str, list[any, str, str]] = {
+    _parameters: dict[str, list[Any | str | str]] = {
             "Version": [get_version(), "Version Number", "str"],
             "Notes": [0, "This is supposed to store a integer associated with specific notes for this config."
                       "\n0 is no Notes,"
@@ -69,10 +69,10 @@ class ConfigObject():
             "Dropout": [0.0002, "Dropout after each hidden layer", "float"],
             "HiddenDim": [27, "Number of hidden dimensions", "int"],
             "HiddenDimSize": [175, "Number of filters in hidden dimension", "int"],
-            "DatasetName": ["ACI", "What dataset to use", "str"],
+            "DatasetName": ["Tabular", "What dataset to use", "str"],
             "BatchSize": [100, "How many samples used per batch", "int"],
             "TrainTest": [0.2, "Fraction of data used in the validation set. Also used for splitting Test from validation.", "float"],
-            "MaxSamples": [0, "Maximum number of samples in the data, 0 is no limit. Note that the data is random split", "int"],
+            "MaxSamples": [100, "Maximum number of samples in the data, 0 is no limit. Note that the data is random split", "int"],
             "Dataparallel": [-2, "To use distributed data parallel and if it failed. 0 is off, 1 is active, -1 is failed, -2 is not implemented", "int"],
             "NumberOfWorkers": [0, "Number of worker processes or data-parallel processes if Data-parallel is 1", "int"],
             "Device": ["cuda", "Use CPU or CUDA", "strdevice"],
@@ -80,7 +80,7 @@ class ConfigObject():
             "RhoForADMM": [1.5e-3, "Rho value for ADMM model", "float"],
             "LayerPruneTargets": ["30, 30, *, 30", "Number of nodes per layer starting with the first layer. NOTE: Will cause an error with ADMM if it is a larger number than the number of filters in that layer", "strl"],
             "WeightPrunePercent": ["0.99, 0.9, *, 1", "Percent of weights to prune down to for each layer", "strl"],
-            "PruningSelection": ["", "What pruning was applied", "str"],
+            "PruningSelection": ["2", "What pruning was applied", "str"],
             "BERTTheseusStartingLearningRate": [0.5, "What Probability value the Bert Theseus method starts with", "float"],
             "BERTTheseusLearningRateModifier": [0.5, "What k value (equation 6) the Bert Theseus method modifies the probability by (divided by epoch count)", "float"],
             "AlphaForTOFD": [0.05, "Feature distance multiplier, this controls the importance of student-teacher feature similarity in the distillation", "float"],
@@ -95,7 +95,7 @@ class ConfigObject():
                                  "Or you can load a specific row by putting an input in the form of 'csv x' where x can be any row number. ex 'csv 5'", "strn"],
             "NumClasses": [-1, "How many classes the model is distinguishing between, -1 is to calculate default", "int"],
             "NumFeatures": [-1, "How many features the model is using, -1 is to calculate default", "int"],
-            "NumberWeightSplits": [8, "Purely meta config that determines how many tests to run", "int"],
+            "NumberWeightSplits": [2, "Purely meta config that determines how many tests to run", "int"],
             "ResultsPath": [None, "Path to put the results csv", "strn"]
         }
 
@@ -127,7 +127,7 @@ class ConfigObject():
         # Set the values that can only be written once (for reading from args)
         self.writeOnce = writeOnce
 
-    def __call__(self, paramName: str | CONFIG_OPTIONS, paramVal: str | float | int | None = None, getString: bool = False) -> str | float | int | object | None:
+    def __call__(self, paramName: str | CONFIG_OPTIONS, paramVal: str | float | int | list[str | float] | None = None, getString: bool = False) -> str | float | int | torch.device | list[str | float] | None:
         """
         Set or get a parameter from the config.
 
@@ -144,7 +144,7 @@ class ConfigObject():
         else:
             return self.set_param(paramName, paramVal)
 
-    def set_param(self, paramName: str | CONFIG_OPTIONS, paramVal: str | float | int) -> None:
+    def set_param(self, paramName: str | CONFIG_OPTIONS, paramVal: str | float | int | torch.device | list[str | float] | None) -> None:
         """
         Sets the given parameter, assuming it is not a readOnly parameter.
         Setting a value to None can be done by setting it to "None".
@@ -181,12 +181,16 @@ class ConfigObject():
                     raise ValueError(f"{paramName} does not have an option for '{paramVal}'")
 
             if paramName == "Device":  # Device is translated into a torch.device
-                paramVal = self._typeChart["Device"][paramVal]
+                assert isinstance(paramVal, (torch.device, str))
+                temp = self._typeChart["Device"][paramVal]
+                assert not isinstance(temp, (type, tuple))
+                paramVal = temp
 
             if self._parameters[paramName][2] == "strn" and (paramVal == "" or paramVal == "None"):
                 paramVal = None
 
             if paramName in ["LayerPruneTargets", "LayerIteration"]:  # This is a list, so we need to do  a little formatting (ints)
+                assert (isinstance(paramVal, (list, str)))
                 if isinstance(paramVal, str):
                     paramVal = paramVal.strip("[]")
                     paramVal = [int(x) if (x != "*") else x for x in paramVal.split(", ")]
@@ -194,6 +198,7 @@ class ConfigObject():
                     paramVal = [int(x) if (x != "*") else x for x in paramVal]
 
             if paramName in ["WeightPrunePercent"]:  # This is a list, so we need to do  a little formatting (floats)
+                assert (isinstance(paramVal, (list, str)))
                 if isinstance(paramVal, str):
                     paramVal = paramVal.strip("[]")
                     paramVal = [float(x) if (x != "*") else x for x in paramVal.split(", ")]
@@ -202,7 +207,10 @@ class ConfigObject():
 
             if paramName in ["PruningSelection"]:  # This is supposed to be a running tally, so we need to add it on.
                 if not self.get_param(paramName) == "" and not paramVal == "Reset":
-                    paramVal = self.get_param(paramName) + "|" + paramVal
+                    temp = self.get_param(paramName)
+                    assert isinstance(temp, str)
+                    assert isinstance(paramVal, str)
+                    paramVal = temp + "|" + paramVal
                 elif paramVal == "Reset":
                     paramVal = ""
 
@@ -221,7 +229,7 @@ class ConfigObject():
                 return self.set_param(paramName=paramName, paramVal=int(paramVal))
             raise TypeError(f"Attempted to set Config value ({paramName}) of inappropriate type, type={type(paramVal)}, while {paramName} has an expected type(s) of {self.get_param_type(paramName)}")
 
-    def get_param(self, paramName: str | CONFIG_OPTIONS, getString: bool = False) -> str | float | int | object:
+    def get_param(self, paramName: str | CONFIG_OPTIONS, getString: bool = False) -> str | float | int | list[str | float] | torch.device:
         """
         Retrieves a parameter from the config.
 
@@ -233,7 +241,8 @@ class ConfigObject():
             str | float | int | object: The value of the parameter
         """
         if (paramName in self._typeChart.keys()) and not getString:
-            return self._typeChart[paramName][self.parameters[paramName]]
+            temp = self.parameters[paramName]
+            return self._typeChart[paramName][temp]
 
         if paramName in ["LayerPruneTargets", "LayerIteration", "WeightPrunePercent"] and not getString:
             if "*" in self.parameters[paramName]:
@@ -254,7 +263,7 @@ class ConfigObject():
         """
         return self._parameters[paramName][1]
 
-    def get_param_type(self, paramName: str | CONFIG_OPTIONS) -> object:
+    def get_param_type(self, paramName: str | CONFIG_OPTIONS) -> type:
         """
         Gets the types accepted by a parameter when you want to set it.
 

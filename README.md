@@ -16,7 +16,7 @@ Folders:
 
 Files:
 - .git*: Files that identify specific git information.
-- *.sh: Files for running the main python files on the High Performance Computing cluster that was available to us.
+- run.sh: File for running the main pipeline.
 - `main.py`: This is the main file and will be what you need to run to launch our code and generate data from pruning. Use `python main.py -h` to learn specific command line options.
 - `buildontology.py` and `ontologygraphing.py`: These two files are how we analyzed the model with ontological methods.
 - README.md: This file. You are reading it already, thank you.
