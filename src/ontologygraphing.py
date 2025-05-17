@@ -135,9 +135,12 @@ def generate_table(dataframe: pd.DataFrame, file_name: str, col_name: str = "Num
     # https://stackoverflow.com/a/63896673
     exterior_column = repeat(pt.columns[0][0])
     interior_columns = range(1, 11)
+    row_exterior = repeat(rf"{pt.index[0][0]}")
     cols = pt.columns.union([*zip(exterior_column, interior_columns)], sort=True)
     print(cols)
     pt = pt.reindex(cols, axis=1, fill_value=0)
+    print(range(int(pt.index[0][1]), int(pt.index[-1][1]) + 1))
+    pt = pt.reindex([*zip(row_exterior, range(int(pt.index[0][1]), int(pt.index[-1][1]) + 1))], axis=0, fill_value=0)
 
     if "Horizontal" in reduce:
         grouping_size = 2
@@ -156,8 +159,7 @@ def generate_table(dataframe: pd.DataFrame, file_name: str, col_name: str = "Num
         print(pt)
     if "Vertical" in reduce:
         grouping_size = 3
-        row_names = [f"{x}-{min(x+grouping_size-1,len(pt)-1)}" for x in range(0, len(pt), grouping_size)]
-        row_exterior = repeat(pt.index[0][0])
+        row_names = [f"{x}-{min(x+grouping_size-1, len(pt)-1)}" for x in range(0, len(pt), grouping_size)]
         for y in row_names:
             y_start = int(y.split("-")[0])
             y_end = int(y.split("-")[1])+1

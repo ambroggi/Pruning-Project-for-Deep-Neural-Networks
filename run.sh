@@ -14,9 +14,9 @@ if [[ "$1" == "" ]]
 fi
 
 # Run the original tests
-python ./src/main.py --PruningSelection "0" --NumberOfWorkers 3 --NumberOfEpochs 1 --MaxSamples 0 ${runname[@]} &
-python ./src/main.py --PruningSelection "0" --NumberOfWorkers 3 --NumberOfEpochs 1 --MaxSamples 0 ${runname[@]} &
-python ./src/main.py --PruningSelection "0" --NumberOfWorkers 3 --NumberOfEpochs 1 --MaxSamples 0 ${runname[@]} &
+python ./src/main.py --PruningSelection "0" --NumberOfWorkers 3 --NumberOfEpochs 150 --MaxSamples 0 ${runname[@]} &
+python ./src/main.py --PruningSelection "0" --NumberOfWorkers 3 --NumberOfEpochs 150 --MaxSamples 0 ${runname[@]} &
+python ./src/main.py --PruningSelection "0" --NumberOfWorkers 3 --NumberOfEpochs 150 --MaxSamples 0 ${runname[@]} &
 
 # Waiting for the originals to finish
 wait
@@ -28,9 +28,9 @@ lastline=$(wc -l <$runnamepath)
 for pruningValue in "ADMM_Joint" "thinet" "iterative_full_theseus" "BERT_theseus" "DAIS" "TOFD" "RandomStructured" "Reduced_Normal_Run"
 do
     echo starting $pruningValue tests
-    python ./src/main.py --PruningSelection $pruningValue --NumberOfWorkers 3 --NumberOfEpochs 1 --FromSaveLocation "csv $(($lastline-4))" ${runname[@]} >>results/log_a_$pruningValue.txt &
-    python ./src/main.py --PruningSelection $pruningValue --NumberOfWorkers 3 --NumberOfEpochs 1 --FromSaveLocation "csv $(($lastline-3))" ${runname[@]} >>results/log_b_$pruningValue.txt &
-    python ./src/main.py --PruningSelection $pruningValue --NumberOfWorkers 3 --NumberOfEpochs 1 --FromSaveLocation "csv $(($lastline-2))" ${runname[@]} >>results/log_c_$pruningValue.txt &
+    python ./src/main.py --PruningSelection $pruningValue --NumberOfWorkers 3 --NumberOfEpochs 50 --FromSaveLocation "csv $(($lastline-4))" ${runname[@]} >>results/log_a_$pruningValue.txt &
+    python ./src/main.py --PruningSelection $pruningValue --NumberOfWorkers 3 --NumberOfEpochs 50 --FromSaveLocation "csv $(($lastline-3))" ${runname[@]} >>results/log_b_$pruningValue.txt &
+    python ./src/main.py --PruningSelection $pruningValue --NumberOfWorkers 3 --NumberOfEpochs 50 --FromSaveLocation "csv $(($lastline-2))" ${runname[@]} >>results/log_c_$pruningValue.txt &
     wait
 done
 

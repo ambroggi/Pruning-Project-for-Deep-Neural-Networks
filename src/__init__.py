@@ -57,7 +57,7 @@ def standard_run(config: cfg.ConfigObject | bool | None = None, save_epoch_waypo
         # Make sure to use the new versions of args (by regenerating them from the new config)
         data = None
         model = None
-    elif config is None:
+    elif config is None or config is True:
         config = cfg.ConfigObject.get_param_from_args()
     elif not config:
         config = cfg.ConfigObject()

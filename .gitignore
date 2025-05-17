@@ -214,3 +214,4 @@ data/
 *.out
 /datasets/Timesheets
 *cache.csv
+log_*.txt

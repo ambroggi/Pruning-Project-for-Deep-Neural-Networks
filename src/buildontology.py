@@ -170,7 +170,7 @@ datasets = None
 
 
 if TYPE_CHECKING:
-    NNC.filename = "test"
+    assert NNC.filename == "Hello"
 
 
 # @cache
