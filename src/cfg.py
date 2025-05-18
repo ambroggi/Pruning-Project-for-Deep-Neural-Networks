@@ -42,8 +42,8 @@ class ConfigObject():
     # The typeChart is supposed to define the possible values of a row
     # typeChart[""] is supposed to convert the type (3rd item in self.parameters) into an actual type.
     # The rest are supposed to list out the possible values of the associated parameter, and any translations from strings that are needed
-    _typeChart: dict[str, dict[str | torch.device, type | tuple[type, type | None] | str | torch.device]] = {
-        "": {"str": str, "int": int, "float": float, "strl": (str, list), "strdevice": (str, torch.device), "strn": (str, None)},
+    _typeChart: dict[str, dict[str | torch.device, type | tuple[type, ...] | str | torch.device]] = {
+        "": {"str": str, "int": int, "float": float, "strl": (str, list), "strdevice": (str, torch.device), "strn": (str, type(None))},
         "Optimizer": {"Adam": torch.optim.Adam, "SGD": torch.optim.SGD, "RMS": torch.optim.RMSprop},
         "LossFunction": {"MSE": torch.nn.MSELoss, "CrossEntropy": torch.nn.CrossEntropyLoss},
         "ModelStructure": {"BasicTest": "BasicTest", "SwappingTest": "SwappingTest", "SimpleCNN": "SimpleCNN", "MainLinear": "MainLinear"},
@@ -69,10 +69,10 @@ class ConfigObject():
             "Dropout": [0.0002, "Dropout after each hidden layer", "float"],
             "HiddenDim": [27, "Number of hidden dimensions", "int"],
             "HiddenDimSize": [175, "Number of filters in hidden dimension", "int"],
-            "DatasetName": ["Tabular", "What dataset to use", "str"],
+            "DatasetName": ["ACI", "What dataset to use", "str"],
             "BatchSize": [100, "How many samples used per batch", "int"],
             "TrainTest": [0.2, "Fraction of data used in the validation set. Also used for splitting Test from validation.", "float"],
-            "MaxSamples": [100, "Maximum number of samples in the data, 0 is no limit. Note that the data is random split", "int"],
+            "MaxSamples": [0, "Maximum number of samples in the data, 0 is no limit. Note that the data is random split", "int"],
             "Dataparallel": [-2, "To use distributed data parallel and if it failed. 0 is off, 1 is active, -1 is failed, -2 is not implemented", "int"],
             "NumberOfWorkers": [0, "Number of worker processes or data-parallel processes if Data-parallel is 1", "int"],
             "Device": ["cuda", "Use CPU or CUDA", "strdevice"],
@@ -80,7 +80,7 @@ class ConfigObject():
             "RhoForADMM": [1.5e-3, "Rho value for ADMM model", "float"],
             "LayerPruneTargets": ["30, 30, *, 30", "Number of nodes per layer starting with the first layer. NOTE: Will cause an error with ADMM if it is a larger number than the number of filters in that layer", "strl"],
             "WeightPrunePercent": ["0.99, 0.9, *, 1", "Percent of weights to prune down to for each layer", "strl"],
-            "PruningSelection": ["2", "What pruning was applied", "str"],
+            "PruningSelection": ["", "What pruning was applied", "str"],
             "BERTTheseusStartingLearningRate": [0.5, "What Probability value the Bert Theseus method starts with", "float"],
             "BERTTheseusLearningRateModifier": [0.5, "What k value (equation 6) the Bert Theseus method modifies the probability by (divided by epoch count)", "float"],
             "AlphaForTOFD": [0.05, "Feature distance multiplier, this controls the importance of student-teacher feature similarity in the distillation", "float"],
@@ -95,7 +95,7 @@ class ConfigObject():
                                  "Or you can load a specific row by putting an input in the form of 'csv x' where x can be any row number. ex 'csv 5'", "strn"],
             "NumClasses": [-1, "How many classes the model is distinguishing between, -1 is to calculate default", "int"],
             "NumFeatures": [-1, "How many features the model is using, -1 is to calculate default", "int"],
-            "NumberWeightSplits": [2, "Purely meta config that determines how many tests to run", "int"],
+            "NumberWeightSplits": [8, "Purely meta config that determines how many tests to run", "int"],
             "ResultsPath": [None, "Path to put the results csv", "strn"]
         }
 
@@ -127,20 +127,20 @@ class ConfigObject():
         # Set the values that can only be written once (for reading from args)
         self.writeOnce = writeOnce
 
-    def __call__(self, paramName: str | CONFIG_OPTIONS, paramVal: str | float | int | list[str | float] | None = None, getString: bool = False) -> str | float | int | torch.device | list[str | float] | None:
+    def __call__(self, paramName: str | CONFIG_OPTIONS, paramVal: str | float | int | list[str | float] | None = None, getBaseForm: bool = False) -> str | float | int | torch.device | list[str | float] | type | None:
         """
         Set or get a parameter from the config.
 
         Args:
             paramName (str | CONFIG_OPTIONS): The name of the parameter you want to access
             paramVal (str | float | int | None, optional): The value you want to write, leave None if you want to read. Not available on readOnly. Defaults to None.
-            getString (bool, optional): _description_. Defaults to False.
+            getBaseForm (bool, optional): _description_. Defaults to False.
 
         Returns:
             str | float | int | object | None: _description_
         """
         if paramVal is None:
-            return self.get_param(paramName, getString=getString)
+            return self.get_param(paramName, getBaseForm=getBaseForm)
         else:
             return self.set_param(paramName, paramVal)
 
@@ -170,27 +170,29 @@ class ConfigObject():
         # These arguments assume None is default
         if paramName in ["NumClasses", "NumFeatures"]:
             if paramVal is None:
-                paramVal = self.get_param(paramName)
+                temp = self.get_param(paramName)
+                assert isinstance(temp, int), "Should never happen, this is just for type verification"
+                paramVal = temp
 
         # Check if the type is valid by querying typeChart
-        if isinstance(paramVal, self.get_param_type(paramName)):
+        valid_types = self.get_param_type(paramName)
+        if isinstance(paramVal, valid_types):
             # Add extra conditionals here:
-
             if paramName in self._typeChart.keys():  # Check that the value is valid (if applicable)
                 if paramVal not in self._typeChart[paramName].keys():
                     raise ValueError(f"{paramName} does not have an option for '{paramVal}'")
 
             if paramName == "Device":  # Device is translated into a torch.device
-                assert isinstance(paramVal, (torch.device, str))
+                assert isinstance(paramVal, (torch.device, str)), "Should never happen, get_param_type should catch, this is just for type verification"
                 temp = self._typeChart["Device"][paramVal]
-                assert not isinstance(temp, (type, tuple))
+                assert not isinstance(temp, (type, tuple)), "Should never happen, get_param_type should catch, this is just for type verification"
                 paramVal = temp
 
             if self._parameters[paramName][2] == "strn" and (paramVal == "" or paramVal == "None"):
                 paramVal = None
 
             if paramName in ["LayerPruneTargets", "LayerIteration"]:  # This is a list, so we need to do  a little formatting (ints)
-                assert (isinstance(paramVal, (list, str)))
+                assert (isinstance(paramVal, (list, str))), "Should never happen, get_param_type should catch, this is just for type verification"
                 if isinstance(paramVal, str):
                     paramVal = paramVal.strip("[]")
                     paramVal = [int(x) if (x != "*") else x for x in paramVal.split(", ")]
@@ -198,7 +200,7 @@ class ConfigObject():
                     paramVal = [int(x) if (x != "*") else x for x in paramVal]
 
             if paramName in ["WeightPrunePercent"]:  # This is a list, so we need to do  a little formatting (floats)
-                assert (isinstance(paramVal, (list, str)))
+                assert (isinstance(paramVal, (list, str))), "Should never happen, get_param_type should catch, this is just for type verification"
                 if isinstance(paramVal, str):
                     paramVal = paramVal.strip("[]")
                     paramVal = [float(x) if (x != "*") else x for x in paramVal.split(", ")]
@@ -208,8 +210,8 @@ class ConfigObject():
             if paramName in ["PruningSelection"]:  # This is supposed to be a running tally, so we need to add it on.
                 if not self.get_param(paramName) == "" and not paramVal == "Reset":
                     temp = self.get_param(paramName)
-                    assert isinstance(temp, str)
-                    assert isinstance(paramVal, str)
+                    assert isinstance(temp, str), "Should never happen, get_param_type should catch, this is just for type verification"
+                    assert isinstance(paramVal, str), "Should never happen, get_param_type should catch, this is just for type verification"
                     paramVal = temp + "|" + paramVal
                 elif paramVal == "Reset":
                     paramVal = ""
@@ -229,25 +231,45 @@ class ConfigObject():
                 return self.set_param(paramName=paramName, paramVal=int(paramVal))
             raise TypeError(f"Attempted to set Config value ({paramName}) of inappropriate type, type={type(paramVal)}, while {paramName} has an expected type(s) of {self.get_param_type(paramName)}")
 
-    def get_param(self, paramName: str | CONFIG_OPTIONS, getString: bool = False) -> str | float | int | list[str | float] | torch.device:
+    def get_param(self, paramName: str | CONFIG_OPTIONS, getBaseForm: bool = False) -> str | float | int | list[str | float] | torch.device | type:
         """
         Retrieves a parameter from the config.
 
         Args:
             paramName (str | CONFIG_OPTIONS): Parameter name to retrieve
-            getString (bool, optional): Gets the parameter value as a string, some parameters are converted into objects, if True this skips that step and just returns the string. Defaults to False.
+            getBaseForm (bool, optional): Gets the parameter value as a string, some parameters are converted into objects, if True this skips that step and just returns the string. Defaults to False.
 
         Returns:
             str | float | int | object: The value of the parameter
         """
-        if (paramName in self._typeChart.keys()) and not getString:
-            temp = self.parameters[paramName]
-            return self._typeChart[paramName][temp]
+        if (paramName in self._typeChart.keys()) and not getBaseForm:
+            parameter = self.parameters[paramName]
+            assert isinstance(parameter, (str, torch.device)), "Should never happen, this is just for type verification"
+            conversion_dict = self._typeChart[paramName]
+            temp = conversion_dict[parameter]
+            assert not isinstance(temp, tuple), "This part of type chart should never output a tuple, only types and device objects"
+            return temp
 
-        if paramName in ["LayerPruneTargets", "LayerIteration", "WeightPrunePercent"] and not getString:
-            if "*" in self.parameters[paramName]:
-                i = self.parameters[paramName].index("*")
-                return self.parameters[paramName][:i] + [self.parameters[paramName][i-1] for _ in range(self("HiddenDim") - 1)] + self.parameters[paramName][i+1:]
+        if paramName in ["LayerPruneTargets", "LayerIteration", "WeightPrunePercent"] and not getBaseForm:
+            temp = self.parameters[paramName]
+            assert isinstance(temp, list)
+            if "*" in temp:
+                i = temp.index("*")
+                hidden_dim = self("HiddenDim")
+                assert isinstance(hidden_dim, int), "There are a lot of places like this that can't ever happen but I need them for strict typing"
+                expanded_layers = [temp[i-1] for _ in range(hidden_dim - 1)]
+                return temp[:i] + expanded_layers + temp[i+1:]
+        elif paramName in ["LayerPruneTargets", "LayerIteration", "WeightPrunePercent"] and getBaseForm:
+            temp = self.parameters[paramName]
+            assert isinstance(temp, list)
+            temp = str(temp).replace("'*'", "*")
+            return temp
+
+        # just catching conversion to torch device objects
+        if isinstance(self.parameters[paramName], torch.device) and getBaseForm:
+            for x, y in self._typeChart[paramName].items():
+                if y == self.parameters[paramName]:
+                    return x
 
         return self.parameters[paramName]
 
@@ -263,7 +285,7 @@ class ConfigObject():
         """
         return self._parameters[paramName][1]
 
-    def get_param_type(self, paramName: str | CONFIG_OPTIONS) -> type:
+    def get_param_type(self, paramName: str | CONFIG_OPTIONS) -> type | tuple[type, ...]:
         """
         Gets the types accepted by a parameter when you want to set it.
 
@@ -273,7 +295,12 @@ class ConfigObject():
         Returns:
             object: type object or tuple of types. (made for passing to isinstance())
         """
-        return self._typeChart[""][self._parameters[paramName][2]]
+        type_possibilities = self._typeChart[""]
+        defined_possible_types = self._parameters[paramName][2]
+        assert isinstance(defined_possible_types, str), "Somehow trying to de-string a non string? No clue what is going on here"
+        temp = type_possibilities[defined_possible_types]
+        assert isinstance(temp, (type, tuple)), "This should not trigger, it is just checking that the typechart[\"\"] is outputting a type tuple"
+        return temp
 
     @classmethod
     def get_param_from_args(cls) -> "ConfigObject":
@@ -285,6 +312,7 @@ class ConfigObject():
         Returns:
             ConfigObject: The ConfigObject generated by the command line arguments of this python program.
         """
+        args = None
         if not cls._command_line_args:
             if "pytest" in sys.modules:  # The argument parser appears to have issues with the pytest tests. I have no idea why.
                 print("Pytest has problems with ArgumentParser")
@@ -298,10 +326,12 @@ class ConfigObject():
                 if p in cls._typeChart.keys():
                     t = cls._typeChart[""][cls._parameters[p][2]]
                     t = t[0] if isinstance(t, (list, tuple)) else t
+                    assert isinstance(t, type), "It is assumed that this is always a type."
                     parser.add_argument(f"--{p}", choices=cls._typeChart[p].keys(), type=t, default=cls._parameters[p][0], help=cls._parameters[p][1], required=False)
                 else:
                     t = cls._typeChart[""][cls._parameters[p][2]]
                     t = t[0] if isinstance(t, (list, tuple)) else t
+                    assert isinstance(t, type), "It is assumed that this is always a type."
                     parser.add_argument(f"--{p}", type=t, default=cls._parameters[p][0], help=cls._parameters[p][1], required=False)
 
             # Parse the args
@@ -318,7 +348,7 @@ class ConfigObject():
 
         if args:
             for paramName, paramValue in args._get_kwargs():
-                assert str(self_(paramName, getString=True)) == str(paramValue) or paramName in ["Device", "LayerPruneTargets", "WeightPrunePercent", "LayerIteration"]
+                assert str(self_(paramName, getBaseForm=True)) == str(paramValue) or paramName in ["Device", "LayerPruneTargets", "WeightPrunePercent", "LayerIteration"]
 
         return self_
 
@@ -334,17 +364,26 @@ class ConfigObject():
             if x in ["PruningSelection"]:
                 new(x, "Reset")
             if x not in self.readOnly:
-                new(x, self(x, getString=True))
+                original_value = self(x, getBaseForm=True)
+                assert isinstance(original_value, (str, int, float, type(None))), "This should always be a string"
+                new(x, original_value)
         return new
 
-    def to_dict(self) -> dict[str, str]:
+    def to_dict(self) -> dict[str, str | float | int]:
         """
         Turns the config into a dictionary so that it can be serialized and passed to another process.
 
         Returns:
             dict[str, str]: Each parameter represented as a value in a dictionary so that it can be loaded with from_dict()
         """
-        return {x: self.get_param(x, getString=True) for x in self.parameters.keys()}
+        temp = {x: self.get_param(x, getBaseForm=True) for x in self.parameters.keys()}
+        dict_version = dict()  # This is really annoying but it looks like dictionary comprehension does not work well with strict types
+        for x, y in temp.items():
+            assert isinstance(y, (str, float, int, type(None))), "Somehow the string version of the config is returning a non-simple object"
+            dict_version[x] = y
+
+        # assert False not in [isinstance(y, str) for y in temp.items()]
+        return dict_version
 
     @classmethod
     def from_dict(cls, dictionary: dict[str, str]) -> "ConfigObject":

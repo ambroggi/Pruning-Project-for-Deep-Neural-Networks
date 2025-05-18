@@ -594,7 +594,7 @@ def get_dataset(config: ConfigObject) -> BaseDataset:
         BaseDataset: The dataset retrieved from the config.
     """
     datasets: dict[str, torch.utils.data.Dataset] = {"Vulnerability": VulnerabilityDataset, "RandomDummy": RandomDummyDataset, "ACI": ACIIOT2023, "ACI_grouped": partial(ACIIOT2023, grouped=True), "ACI_grouped_full_balance": partial(ACIIOT2023, grouped=True, difference_multiplier=1), "ACI_flows": ACIPayloadless, "Tabular": tabularBenchmark}
-    data: BaseDataset = datasets[config("DatasetName")](target_format=config("LossFunction", getString=True))
+    data: BaseDataset = datasets[config("DatasetName")](target_format=config("LossFunction", getBaseForm=True))
     config("NumClasses", data.number_of_classes)
     config("NumFeatures", data.number_of_features)
     if config("MaxSamples") > 0:
