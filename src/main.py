@@ -20,7 +20,7 @@ def loopAll(config: "src.cfg.ConfigObject"):
                       if x < 1 else 1,                              # Check that the weight should be reduced at all, or if pruning was disabled
                       ndigits=2)                                    # To avoid dealing with large floats, we just round to two decimal places
                 if isinstance(x, (float)) else x                    # Sometimes weights are stored as strings, which cannot be rounded
-                for x in kwargs["config"]("WeightPrunePercent", getBaseForm=True)
+                for x in kwargs["config"]("WeightPrunePercent")
                 ]
                for num_variation in weightsOrdering
                ]
@@ -67,7 +67,7 @@ def loopAlgSpecific(config: "src.cfg.ConfigObject", selected: str):
                           if x < 1 else 1,                              # Check that the weight should be reduced at all, or if pruning was disabled
                           ndigits=2)                                    # To avoid dealing with large floats, we just round to two decimal places
                     if isinstance(x, (float)) else x                    # Sometimes weights are stored as strings, which cannot be rounded
-                    for x in load["config"]("WeightPrunePercent", getBaseForm=True)
+                    for x in load["config"]("WeightPrunePercent")
                     ]
                    for num_variation in weightsOrdering
                    ]
