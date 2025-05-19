@@ -46,7 +46,7 @@ class ModifiedDataloader(torch.utils.data.DataLoader):
 class BaseDataset(torch.utils.data.Dataset):
     """This is the base abstract dataset type that is for all datasets for this code base.
     """
-    def __init__(self):
+    def __init__(self, target_format: str = "CrossEntropy"):
         self.base = self  # Find the original dataset even after splitting (this is to apply the scaler and find the original after splits)
         self.scaler = StandardScaler()
         self.number_of_classes = 100
@@ -562,7 +562,7 @@ def collate_fn_(items: tuple[InputFeatures | torch.Tensor, Targets | torch.Tenso
     return (torch.cat(features), torch.cat(tags))
 
 
-def get_dataloader(config: ConfigObject | None = None, dataset: None | BaseDataset = None) -> ModifiedDataloader:
+def get_dataloader(config: ConfigObject | None = None, dataset: None | BaseDataset = None, **kwargs) -> ModifiedDataloader:
     """
     Gets the dataloader specified by the config or wraps a dataset in a dataloader. If neither is given the default config from cfg.py is used.
 
@@ -573,12 +573,18 @@ def get_dataloader(config: ConfigObject | None = None, dataset: None | BaseDatas
     Returns:
         torch.utils.data.DataLoader: torch dataloader that can be iterated over.
     """
+    if config is None:
+        print("Config was not given for dataset, creating config")
+        config = ConfigObject()
     if dataset is None:
-        if config is None:
-            print("Config was not given for dataset, creating config")
-            config = ConfigObject()
         dataset = get_dataset(config)
-    dl: ModifiedDataloader = torch.utils.data.DataLoader(dataset, batch_size=config("BatchSize"), num_workers=config("NumberOfWorkers"), persistent_workers=True if config("NumberOfWorkers") > 1 else False, **dataset.base.load_kwargs)
+
+    batch_size = config("BatchSize") if "BatchSize" not in kwargs else kwargs.pop("BatchSize")
+    num_workers = config("NumberOfWorkers") if "NumberOfWorkers" not in kwargs else kwargs.pop("NumberOfWorkers")
+    additional_kwargs = dataset.base.load_kwargs | kwargs
+    assert isinstance(batch_size, int)
+    assert isinstance(num_workers, int)
+    dl: ModifiedDataloader = ModifiedDataloader(dataset, batch_size=batch_size, num_workers=num_workers, persistent_workers=True if num_workers > 1 else False, **additional_kwargs)
     dl.base = dataset.base
     return dl
 
@@ -593,18 +599,24 @@ def get_dataset(config: ConfigObject) -> BaseDataset:
     Returns:
         BaseDataset: The dataset retrieved from the config.
     """
-    datasets: dict[str, torch.utils.data.Dataset] = {"Vulnerability": VulnerabilityDataset, "RandomDummy": RandomDummyDataset, "ACI": ACIIOT2023, "ACI_grouped": partial(ACIIOT2023, grouped=True), "ACI_grouped_full_balance": partial(ACIIOT2023, grouped=True, difference_multiplier=1), "ACI_flows": ACIPayloadless, "Tabular": tabularBenchmark}
-    data: BaseDataset = datasets[config("DatasetName")](target_format=config("LossFunction", getBaseForm=True))
+    datasets: dict[str, type[BaseDataset] | partial] = {"Vulnerability": VulnerabilityDataset, "RandomDummy": RandomDummyDataset, "ACI": ACIIOT2023, "ACI_grouped": partial(ACIIOT2023, grouped=True), "ACI_grouped_full_balance": partial(ACIIOT2023, grouped=True, difference_multiplier=1), "ACI_flows": ACIPayloadless, "Tabular": tabularBenchmark}
+    dataset_name = config("DatasetName")
+    target_format = config("LossFunction", getBaseForm=True)
+    assert isinstance(dataset_name, str)
+    assert isinstance(target_format, str)
+    data: BaseDataset = datasets[dataset_name](target_format=target_format)
     config("NumClasses", data.number_of_classes)
     config("NumFeatures", data.number_of_features)
-    if config("MaxSamples") > 0:
-        data, _ = torch.utils.data.random_split(data, [config("MaxSamples"), len(data) - config("MaxSamples")], generator=torch.Generator().manual_seed(1))
+    max_samples = config("MaxSamples")
+    assert isinstance(max_samples, int)
+    if max_samples > 0:
+        data, _ = torch.utils.data.random_split(data, [max_samples, len(data) - max_samples], generator=torch.Generator().manual_seed(1))
         data.base = data.dataset.base
     assert data.base.load_kwargs["collate_fn"] is collate_fn_
     return data
 
 
-def get_train_test(config: ConfigObject | None = None, dataset: None | BaseDataset = None, dataloader: None | ModifiedDataloader = None) -> tuple[torch.utils.data.Dataset, torch.utils.data.Dataset] | tuple[ModifiedDataloader, ModifiedDataloader]:
+def get_train_test(config: ConfigObject | None = None, dataset: None | BaseDataset = None, dataloader: None | ModifiedDataloader = None) -> tuple[BaseDataset, BaseDataset] | tuple[ModifiedDataloader, ModifiedDataloader]:
     """
     Splits a dataset or the data in a dataloader into train and test datasets by the percentages given in config.
     The first such split generates a Scaler for the features from the training half and applies it to both the train and test.
@@ -624,9 +636,11 @@ def get_train_test(config: ConfigObject | None = None, dataset: None | BaseDatas
     if dataset is not None and dataloader is not None:
         print("Incorrect usage of get_train_test splitting, please only give a dataset OR a dataloader, not both.")
     elif dataset is not None:
-        train, test = torch.utils.data.random_split(dataset, [1 - config("TrainTest"), config("TrainTest")], generator=torch.Generator().manual_seed(1))
+        train_test_split = config("TrainTest")
+        assert isinstance(train_test_split, float)
+        train, test = torch.utils.data.random_split(dataset, [1 - train_test_split, train_test_split], generator=torch.Generator().manual_seed(1))
         if dataset.base.scaler_status != 1:
-            dataset.base.scale_indices(train.indices)
+            dataset.base.scale_indices(list(train.indices))
         train.base = dataset.base
         test.base = dataset.base
         return train, test
@@ -636,9 +650,12 @@ def get_train_test(config: ConfigObject | None = None, dataset: None | BaseDatas
     else:
         return get_train_test(config, get_dataset(config))
 
+    raise ValueError("Invalid combination of arguments for get_train_test")
+
 
 def split_by_class(dataloader: ModifiedDataloader, classes_to_use: list[int], config: ConfigObject, individual=False) -> ModifiedDataloader | list[ModifiedDataloader]:
-    data_lists = {x: list() for x in classes_to_use}
+    data_lists: dict[int, list[torch.Tensor]] = {x: list() for x in classes_to_use}
+    data_datasets: dict[int, BaseDataset] = dict()
     for (X, y) in dataloader:
         pairs = zip(X, y)
         sorted_pairs = sorted(pairs, key=lambda x: x[1])
@@ -649,15 +666,18 @@ def split_by_class(dataloader: ModifiedDataloader, classes_to_use: list[int], co
                 data_lists[g_name.item()].extend(grouped_X)
 
     for item in classes_to_use:
-        data_lists[item] = SingleClass(data_lists[item], item, dataloader.base)
+        if len(data_lists[item]) == 0:
+            del data_lists[item]
+            continue
+        data_datasets[item] = SingleClass(data_lists[item], item, dataloader.base)
         # print(f"{item}: {len(data_lists[item])}")
 
     if individual:
-        dls = [get_dataloader(config, data_lists[x]) for x in sorted(list(data_lists.keys()))]
+        dls = [get_dataloader(config, data_datasets[x]) for x in sorted(list(data_datasets.keys()))]
         for num, dl in enumerate(dls):
-            dl.base = data_lists[num].base
+            dl.base = data_datasets[num].base
         return dls
 
-    dl = get_dataloader(config, torch.utils.data.ConcatDataset(data_lists.values()))
-    dl.base = data_lists[list(data_lists.keys())[0]].base
+    dl = get_dataloader(config, torch.utils.data.ConcatDataset(data_datasets.values()))
+    dl.base = data_datasets[list(data_datasets.keys())[0]].base
     return dl

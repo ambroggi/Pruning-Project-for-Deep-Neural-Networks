@@ -1,4 +1,5 @@
-if __name__ == '__main__':
+from typing import TYPE_CHECKING
+if __name__ == '__main__' or TYPE_CHECKING:
     import __init__ as src
 
     # src.torch.autograd.set_detect_anomaly(True)
@@ -13,10 +14,12 @@ def loopAll(config: "src.cfg.ConfigObject"):
     """
     kwargs = src.standard_run(save_epoch_waypoints=True, config=config)
     kwargs["model"].save_model_state_dict(logger=kwargs["logger"])
+    num_weight_split = config("NumberWeightSplits")
+    assert isinstance(num_weight_split, int)
 
-    weightsOrdering = range(config("NumberWeightSplits")-1, -1, -1)
+    weightsOrdering = range(num_weight_split-1, -1, -1)
     weights = [[                                                    # This builds all of the possible weights percentages
-                round(x*((num_variation + 1)/config("NumberWeightSplits"))
+                round(x*((num_variation + 1)/num_weight_split)
                       if x < 1 else 1,                              # Check that the weight should be reduced at all, or if pruning was disabled
                       ndigits=2)                                    # To avoid dealing with large floats, we just round to two decimal places
                 if isinstance(x, (float)) else x                    # Sometimes weights are stored as strings, which cannot be rounded
@@ -52,6 +55,8 @@ def loopAlgSpecific(config: "src.cfg.ConfigObject", selected: str):
         selected (str): The algorithm name or index to run.
     """
     config("PruningSelection", "Reset")
+    num_weight_split = config("NumberWeightSplits")
+    assert isinstance(num_weight_split, int)
 
     if selected == "None" or selected == "0":
         print("Starting normal run")
@@ -61,9 +66,9 @@ def loopAlgSpecific(config: "src.cfg.ConfigObject", selected: str):
         print(f"Starting run of {src.types_of_tests[selected].__name__}")
         load = src.standardLoad(existing_config=config, index=0)
 
-        weightsOrdering = range(config("NumberWeightSplits")-1, -1, -1)
+        weightsOrdering = range(num_weight_split-1, -1, -1)
         weights = [[                                                    # This builds all of the possible weights percentages
-                    round(x*((num_variation + 1)/config("NumberWeightSplits"))
+                    round(x*((num_variation + 1)/num_weight_split)
                           if x < 1 else 1,                              # Check that the weight should be reduced at all, or if pruning was disabled
                           ndigits=2)                                    # To avoid dealing with large floats, we just round to two decimal places
                     if isinstance(x, (float)) else x                    # Sometimes weights are stored as strings, which cannot be rounded
@@ -83,10 +88,12 @@ def loopAlgSpecific(config: "src.cfg.ConfigObject", selected: str):
 
 def main():
     config = src.cfg.ConfigObject.get_param_from_args()
-    if config("PruningSelection") == "":
+    pruning_select = config("PruningSelection")
+    assert isinstance(pruning_select, str)
+    if pruning_select == "":
         loopAll(config)
     else:
-        loopAlgSpecific(config, config("PruningSelection"))
+        loopAlgSpecific(config, pruning_select)
 
 
 if __name__ == "__main__":
