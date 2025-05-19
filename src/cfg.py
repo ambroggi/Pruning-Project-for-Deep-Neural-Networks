@@ -229,6 +229,8 @@ class ConfigObject():
         else:
             if type(paramVal) is float and int(paramVal) == paramVal:
                 return self.set_param(paramName=paramName, paramVal=int(paramVal))
+            if type(paramVal) is int and float(paramVal) == paramVal:
+                return self.set_param(paramName=paramName, paramVal=float(paramVal))
             raise TypeError(f"Attempted to set Config value ({paramName}) of inappropriate type, type={type(paramVal)}, while {paramName} has an expected type(s) of {self.get_param_type(paramName)}")
 
     def get_param(self, paramName: str | CONFIG_OPTIONS, getBaseForm: bool = False) -> str | float | int | list[str | float] | torch.device | type:

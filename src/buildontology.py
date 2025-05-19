@@ -494,31 +494,26 @@ def build_base_facts(csv_row: str | int = "0", csv_file: str = os.path.join(RESU
     g.add((mod, RDF.type, NNC.model))
     g.add((mod, NNC.prune_type, rdflib.Literal(model.cfg("PruningSelection")) if not random_ else rdflib.Literal("RandomConnections")))
     g.add((mod, NNC.csv_row, rdflib.Literal(csv_row)))
-    print("Test1")
 
     count = 0
 
     # setup for the initial input values to relate the first layer to the input vector
     last_layer = setup_input_layer(g, dataset, mod)
 
-    print("Test2")
     for mod_name, module in model.named_modules():
         if "fc" in mod_name and not isinstance(module, extramodules.Nothing_Module):
             layer = add_layer(g, mod_name, count, number_of_nodes=len(module.weight), model=mod)
             add_model_layer(g, layer, module, last_layer, random_)
             last_layer = module.graph_nodes
             count += 1
-    print("Test3")
 
     for attack_type, associated_final_node in enumerate(last_layer):
         m = add_meaning(g, associated_final_node, dataset.classes[attack_type], "By Definition")
         g.add((m, RDF.type, NNC.class_node))
         datasets[attack_type].m = m
 
-    print("Test4")
     add_model_high_values(g=g, datasets=datasets, model=model, random_=random_)
 
-    print("Test5")
     if save:
         g.serialize(filename, encoding="UTF-8")
     print("Created graph")

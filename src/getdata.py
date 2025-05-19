@@ -650,6 +650,7 @@ def split_by_class(dataloader: ModifiedDataloader, classes_to_use: list[int], co
 
     for item in classes_to_use:
         data_lists[item] = SingleClass(data_lists[item], item, dataloader.base)
+        # print(f"{item}: {len(data_lists[item])}")
 
     if individual:
         dls = [get_dataloader(config, data_lists[x]) for x in sorted(list(data_lists.keys()))]
